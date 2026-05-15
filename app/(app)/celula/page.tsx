@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation'
+himport { redirect } from 'next/navigation'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent } from '@/components/ui/card'
