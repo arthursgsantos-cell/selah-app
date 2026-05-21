@@ -729,6 +729,7 @@ export default async function HomePage() {
           <h2 className="text-sm font-semibold text-foreground">Próximo encontro</h2>
         </div>
         {proximoEncontro ? (
+          <>
           <Link href={`/encontro/${proximoEncontro.id}`}>
             <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 to-accent/10 p-4 hover:shadow-md transition-all cursor-pointer group flex gap-3">
               {proximoEncontro.card_imagem_url ? (
@@ -774,6 +775,7 @@ export default async function HomePage() {
             dataHora={proximoEncontro.data_hora}
             local={proximoEncontro.local ?? null}
           />
+          </>
         ) : celulaId ? (
           <div className="rounded-2xl border border-dashed border-border p-8 text-center">
             <CalendarDays className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
