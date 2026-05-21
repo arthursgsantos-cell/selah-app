@@ -1,8 +1,7 @@
 'use client'
 
 import { useState, useTransition, useRef } from 'react'
-import { createEventoAction } from '@/app/actions/evento'
-import { createClient } from '@/lib/supabase/client'
+import { createEventoAction, uploadCapaEventoAction } from '@/app/actions/evento'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -35,17 +34,6 @@ const tipoOptions: { value: TipoEvento; label: string }[] = [
 const selectClass =
   'w-full h-8 rounded-lg border border-input bg-background px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50'
 
-async function uploadCapa(file: File): Promise<string> {
-  const supabase = createClient()
-  const ext = file.name.split('.').pop() ?? 'jpg'
-  const path = `${crypto.randomUUID()}.${ext}`
-  const { error } = await supabase.storage
-    .from('evento-capas')
-    .upload(path, file, { contentType: file.type })
-  if (error) throw new Error(error.message)
-  const { data } = supabase.storage.from('evento-capas').getPublicUrl(path)
-  return data.publicUrl
-}
 
 export function CriarEventoDialog({ tipoFixo, redeId, label = 'Criar evento' }: Props) {
   const [open, setOpen] = useState(false)
@@ -92,7 +80,11 @@ export function CriarEventoDialog({ tipoFixo, redeId, label = 'Criar evento' }: 
     startTransition(async () => {
       try {
         let imagem_url: string | null = null
-        if (imagemFile) imagem_url = await uploadCapa(imagemFile)
+        if (imagemFile) {
+          const fd = new FormData()
+          fd.append('file', imagemFile)
+          imagem_url = await uploadCapaEventoAction(fd)
+        }
 
         await createEventoAction({
           titulo: titulo.trim(),

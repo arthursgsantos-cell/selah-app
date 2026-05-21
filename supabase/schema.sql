@@ -38,15 +38,17 @@ create policy "igrejas_insert_service" on public.igrejas
 -- PROFILES
 -- ============================================================
 create table public.profiles (
-  id          uuid primary key references auth.users(id) on delete cascade,
-  igreja_id   uuid not null references public.igrejas(id),
-  nome        text not null,
-  email       text,
-  telefone    text,
-  avatar_url  text,
-  role        public.role_tipo not null default 'membro',
-  created_at  timestamptz not null default now(),
-  updated_at  timestamptz not null default now()
+  id              uuid primary key references auth.users(id) on delete cascade,
+  igreja_id       uuid not null references public.igrejas(id),
+  nome            text not null,
+  email           text,
+  telefone        text,
+  avatar_url      text,
+  role            public.role_tipo not null default 'membro',
+  data_nascimento date,
+  endereco        text,
+  created_at      timestamptz not null default now(),
+  updated_at      timestamptz not null default now()
 );
 
 alter table public.profiles enable row level security;
@@ -409,6 +411,25 @@ create policy "eventos_delete" on public.eventos
   for delete to authenticated using (igreja_id = public.user_igreja_id());
 
 -- ============================================================
+-- STORAGE – Avatares de perfil
+-- ============================================================
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('avatars', 'avatars', true, 5242880, array['image/jpeg','image/png','image/webp','image/heic'])
+on conflict (id) do update set public = true;
+
+create policy "avatars_select" on storage.objects
+  for select using (bucket_id = 'avatars');
+
+create policy "avatars_insert" on storage.objects
+  for insert to authenticated with check (bucket_id = 'avatars');
+
+create policy "avatars_update" on storage.objects
+  for update to authenticated using (bucket_id = 'avatars');
+
+create policy "avatars_delete" on storage.objects
+  for delete to authenticated using (bucket_id = 'avatars');
+
+-- ============================================================
 -- STORAGE – Capas de eventos
 -- ============================================================
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
@@ -435,3 +456,49 @@ create policy "evento_capas_delete" on storage.objects
 -- MIGRATION – adicionar role 'admin' ao enum (se já existir DB)
 -- ============================================================
 -- alter type public.role_tipo add value if not exists 'admin';
+
+-- ============================================================
+-- MIGRATION – adicionar data_nascimento aos profiles (se já existir DB)
+-- ============================================================
+-- alter table public.profiles add column if not exists data_nascimento date;
+
+-- ============================================================
+-- RESUMOS DO CULTO
+-- ============================================================
+create table public.resumos_culto (
+  id           uuid primary key default gen_random_uuid(),
+  igreja_id    uuid not null references public.igrejas(id),
+  titulo       text not null,
+  conteudo     text not null,
+  pdf_url      text,
+  data_culto   date not null,
+  validade_ate date not null,
+  created_by   uuid references public.profiles(id),
+  created_at   timestamptz not null default now()
+);
+
+alter table public.resumos_culto enable row level security;
+
+create policy "resumos_culto_select" on public.resumos_culto
+  for select to authenticated using (igreja_id = public.user_igreja_id());
+
+create policy "resumos_culto_insert" on public.resumos_culto
+  for insert to authenticated with check (igreja_id = public.user_igreja_id());
+
+create policy "resumos_culto_update" on public.resumos_culto
+  for update to authenticated using (igreja_id = public.user_igreja_id());
+
+-- ============================================================
+-- MIGRATION – criar tabela resumos_culto (se já existir DB)
+-- ============================================================
+-- create table if not exists public.resumos_culto (
+--   id           uuid primary key default gen_random_uuid(),
+--   igreja_id    uuid not null references public.igrejas(id),
+--   titulo       text not null,
+--   conteudo     text not null,
+--   data_culto   date not null,
+--   validade_ate date not null,
+--   created_by   uuid references public.profiles(id),
+--   created_at   timestamptz not null default now()
+-- );
+-- alter table public.resumos_culto enable row level security;

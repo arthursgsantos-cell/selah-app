@@ -5,8 +5,9 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' })
 
 export const metadata: Metadata = {
-  title: 'Selah',
-  description: 'Gestão de células da sua igreja',
+  title: 'IBZS · Gestão de Células',
+  description: 'Gerencie sua célula, encontros e eventos da sua igreja.',
+  icons: { icon: '/icon.png', apple: '/icon.png' },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

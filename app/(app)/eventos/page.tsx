@@ -1,11 +1,15 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent } from '@/components/ui/card'
-import { CalendarDays, MapPin } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import Link from 'next/link'
+import { ArrowLeft, CalendarDays, MapPin } from 'lucide-react'
 import { CriarEventoDialog } from '@/components/shared/criar-evento-dialog'
 import { EditarEventoDialog } from '@/components/shared/editar-evento-dialog'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { Suspense } from 'react'
+import { PageSearch } from '@/components/shared/page-search'
 
 const tipoConfig: Record<string, { label: string; className: string }> = {
   culto: { label: 'Culto', className: 'bg-purple-100 text-purple-700' },
@@ -15,7 +19,26 @@ const tipoConfig: Record<string, { label: string; className: string }> = {
   outro: { label: 'Outro', className: 'bg-gray-100 text-gray-600' },
 }
 
-export default async function EventosPage() {
+const TIPO_OPTS = [
+  { value: '',        label: 'Todos os tipos' },
+  { value: 'culto',   label: 'Culto'  },
+  { value: 'igreja',  label: 'Igreja' },
+  { value: 'rede',    label: 'Rede'   },
+  { value: 'celula',  label: 'Célula' },
+  { value: 'outro',   label: 'Outro'  },
+]
+
+const SORT_OPTS = [
+  { value: 'asc',  label: 'Mais próximos' },
+  { value: 'desc', label: 'Mais recentes' },
+  { value: 'az',   label: 'A → Z'         },
+]
+
+export default async function EventosPage({
+  searchParams,
+}: {
+  searchParams: { q?: string; sort?: string; tipo?: string }
+}) {
   const supabase = await createClient()
 
   const {
@@ -33,13 +56,28 @@ export default async function EventosPage() {
 
   const canCreate = profile.role === 'pastor' || profile.role === 'supervisor' || profile.role === 'admin'
 
-  const { data: proximos } = await supabase
+  const q = (searchParams.q ?? '').toLowerCase().trim()
+  const tipoFiltro = searchParams.tipo ?? ''
+  const sort = searchParams.sort ?? 'asc'
+
+  let proximosQuery = supabase
     .from('eventos')
     .select('id, titulo, descricao, data_hora, local, tipo, rede_id, imagem_url, recorrencia_id, recorrencia_tipo')
     .eq('igreja_id', profile.igreja_id)
     .gte('data_hora', new Date().toISOString())
-    .order('data_hora', { ascending: true })
-    .limit(20)
+    .limit(50)
+
+  if (tipoFiltro) proximosQuery = proximosQuery.eq('tipo', tipoFiltro)
+
+  const { data: proximosRaw } = await proximosQuery
+
+  let proximos = (proximosRaw ?? []).filter((e) =>
+    !q || e.titulo.toLowerCase().includes(q) || e.local?.toLowerCase().includes(q) || e.descricao?.toLowerCase().includes(q)
+  )
+
+  if (sort === 'az') proximos.sort((a, b) => a.titulo.localeCompare(b.titulo))
+  else if (sort === 'desc') proximos.sort((a, b) => new Date(b.data_hora).getTime() - new Date(a.data_hora).getTime())
+  else proximos.sort((a, b) => new Date(a.data_hora).getTime() - new Date(b.data_hora).getTime())
 
   const { data: passados } = await supabase
     .from('eventos')
@@ -49,11 +87,42 @@ export default async function EventosPage() {
     .order('data_hora', { ascending: false })
     .limit(10)
 
+  const passadosFiltrados = (passados ?? []).filter((e) =>
+    (!q || e.titulo.toLowerCase().includes(q) || e.local?.toLowerCase().includes(q)) &&
+    (!tipoFiltro || e.tipo === tipoFiltro)
+  )
+
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
-      <div className="flex items-center justify-between">
+      <Button variant="ghost" size="sm" render={<Link href="/home" />} className="-ml-1">
+        <ArrowLeft className="h-4 w-4" />
+        Voltar
+      </Button>
+      <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-bold">Eventos</h1>
-        {canCreate && <CriarEventoDialog label="Criar evento" />}
+        <div className="flex items-center gap-2 shrink-0">
+          <Suspense>
+            <PageSearch placeholder="Buscar evento..." sortOptions={SORT_OPTS} defaultSort="asc" />
+          </Suspense>
+          {canCreate && <CriarEventoDialog label="Criar evento" />}
+        </div>
+      </div>
+
+      {/* Filtro por tipo */}
+      <div className="flex gap-1.5 flex-wrap">
+        {TIPO_OPTS.map((opt) => (
+          <Link
+            key={opt.value}
+            href={`/eventos?${new URLSearchParams({ ...(searchParams.q ? { q: searchParams.q } : {}), ...(opt.value ? { tipo: opt.value } : {}), ...(searchParams.sort ? { sort: searchParams.sort } : {}) }).toString()}`}
+            className={`text-xs font-medium px-3 py-1 rounded-full border transition-colors ${
+              tipoFiltro === opt.value
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'border-border hover:bg-accent'
+            }`}
+          >
+            {opt.label}
+          </Link>
+        ))}
       </div>
 
       {/* Próximos eventos */}
@@ -69,21 +138,20 @@ export default async function EventosPage() {
               const data = new Date(evento.data_hora)
 
               return (
-                <Card key={evento.id} className="overflow-hidden">
-                  {evento.imagem_url && (
-                    <div className="h-32 w-full overflow-hidden">
-                      <img
-                        src={evento.imagem_url}
-                        alt={evento.titulo}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  )}
+                <Card key={evento.id}>
                   <CardContent className="pt-4 pb-4">
                     <div className="flex items-start gap-3">
-                      <div className="p-2.5 rounded-xl bg-primary/10 shrink-0 mt-0.5">
-                        <CalendarDays className="h-5 w-5 text-primary" />
-                      </div>
+                      {evento.imagem_url ? (
+                        <img
+                          src={evento.imagem_url}
+                          alt={evento.titulo}
+                          className="h-14 w-14 rounded-xl object-cover shrink-0"
+                        />
+                      ) : (
+                        <div className="p-2.5 rounded-xl bg-primary/10 shrink-0 mt-0.5">
+                          <CalendarDays className="h-5 w-5 text-primary" />
+                        </div>
+                      )}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
                           <p className="font-semibold text-sm leading-snug">{evento.titulo}</p>
@@ -135,9 +203,9 @@ export default async function EventosPage() {
               <CalendarDays className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
               <p className="text-sm text-muted-foreground">Nenhum evento próximo</p>
               {canCreate && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Clique em &quot;Criar evento&quot; para adicionar
-                </p>
+                <div className="mt-3">
+                  <CriarEventoDialog label="Criar evento" />
+                </div>
               )}
             </CardContent>
           </Card>
@@ -145,13 +213,13 @@ export default async function EventosPage() {
       </section>
 
       {/* Eventos passados */}
-      {passados && passados.length > 0 && (
+      {passadosFiltrados.length > 0 && (
         <section>
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
             Anteriores
           </p>
           <div className="space-y-2">
-            {passados.map((evento) => {
+            {passadosFiltrados.map((evento) => {
               const tipo = tipoConfig[evento.tipo] ?? tipoConfig.outro
               return (
                 <Card key={evento.id} className="opacity-60">

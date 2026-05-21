@@ -23,19 +23,15 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  const getUserWithTimeout = Promise.race([
-    supabase.auth.getUser(),
-    new Promise<{ data: { user: null } }>(resolve =>
-      setTimeout(() => resolve({ data: { user: null } }), 3000)
-    ),
-  ])
-  const { data: { user } } = await getUserWithTimeout
+  const { data: { user } } = await supabase.auth.getUser()
 
   const path = request.nextUrl.pathname
   const isAuthPage = path === '/login' || path === '/cadastro' || path === '/onboarding'
   const isCallback = path.startsWith('/auth/')
-  const isStatic = path.startsWith('/_next') || path === '/favicon.ico'
+  const isStatic = path.startsWith('/_next') || path === '/favicon.ico' || path.includes('.')
   const isLanding = path === '/'
+  // /home tem view de visitante — acessível sem login
+  const isPublicPage = path === '/home'
 
   if (isStatic || isCallback) return supabaseResponse
 
@@ -45,7 +41,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Não logado tentando acessar área protegida → login
-  if (!user && !isAuthPage && !isLanding) {
+  if (!user && !isAuthPage && !isLanding && !isPublicPage) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
@@ -53,5 +49,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\..*).*)'],
 }

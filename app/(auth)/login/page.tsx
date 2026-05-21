@@ -4,15 +4,12 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardFooter } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
 
 function GoogleIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden>
+    <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden>
       <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
       <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
       <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
@@ -33,9 +30,7 @@ export default function LoginPage() {
     setErro(null)
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
     })
     if (error) setErro('Não foi possível iniciar o login com Google.')
   }
@@ -44,88 +39,75 @@ export default function LoginPage() {
     e.preventDefault()
     setCarregando(true)
     setErro(null)
-
     const { error } = await supabase.auth.signInWithPassword({ email, password: senha })
-
     if (error) {
       setErro('Email ou senha incorretos.')
       setCarregando(false)
       return
     }
-
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('id', user.id)
-        .single()
+      const { data: profile } = await supabase.from('profiles').select('id').eq('id', user.id).single()
       router.push(profile ? '/home' : '/onboarding')
       router.refresh()
     }
   }
 
-  return (
-    <Card>
-      <CardContent className="pt-6 space-y-4">
-        <Button
-          type="button"
-          variant="outline"
-          className="w-full gap-2"
-          onClick={entrarComGoogle}
-        >
-          <GoogleIcon />
-          Entrar com Google
-        </Button>
+  function entrarComoConvidado() {
+    router.push('/home')
+  }
 
-        <div className="relative flex items-center">
-          <Separator className="flex-1" />
-          <span className="mx-3 text-xs text-muted-foreground">ou</span>
-          <Separator className="flex-1" />
+  return (
+    <div className="p-6 space-y-5">
+      <form onSubmit={entrarComEmail} className="space-y-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="email" className="text-gray-700">Email</Label>
+          <Input id="email" type="email" placeholder="seu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="senha" className="text-gray-700">Senha</Label>
+          <Input id="senha" type="password" placeholder="••••••••" value={senha} onChange={(e) => setSenha(e.target.value)} required />
+          <div className="flex justify-end">
+            <Link href="/esqueci-senha" className="text-xs text-primary hover:underline font-medium">
+              Esqueci minha senha
+            </Link>
+          </div>
         </div>
 
-        <form onSubmit={entrarComEmail} className="space-y-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="seu@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="senha">Senha</Label>
-            <Input
-              id="senha"
-              type="password"
-              placeholder="••••••••"
-              value={senha}
-              onChange={(e) => setSenha(e.target.value)}
-              required
-            />
-          </div>
+        {erro && <p className="text-sm text-red-500">{erro}</p>}
 
-          {erro && (
-            <p className="text-sm text-destructive">{erro}</p>
-          )}
+        <button
+          type="submit"
+          disabled={carregando}
+          className="w-full py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-[#0B2447] to-[#0F52BA] hover:opacity-90 transition-opacity disabled:opacity-60"
+        >
+          {carregando ? 'Entrando...' : 'Entrar'}
+        </button>
+      </form>
 
-          <Button type="submit" className="w-full" disabled={carregando}>
-            {carregando ? 'Entrando...' : 'Entrar'}
-          </Button>
-        </form>
-      </CardContent>
+      <button
+        type="button"
+        onClick={entrarComGoogle}
+        className="w-full flex items-center justify-center gap-3 border border-gray-200 rounded-xl py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+      >
+        <GoogleIcon />
+        Entrar com Google
+      </button>
 
-      <CardFooter className="flex-col gap-2 text-sm text-muted-foreground">
-        <p>
-          Não tem conta?{' '}
-          <Link href="/cadastro" className="text-primary hover:underline font-medium">
-            Criar conta
-          </Link>
-        </p>
-      </CardFooter>
-    </Card>
+      <button
+        type="button"
+        onClick={entrarComoConvidado}
+        className="w-full py-2.5 rounded-xl text-sm font-medium text-gray-500 border border-gray-200 hover:bg-gray-50 transition-colors"
+      >
+        Continuar como convidado
+      </button>
+
+      <p className="text-center text-sm text-gray-500">
+        Não tem conta?{' '}
+        <Link href="/cadastro" className="font-semibold text-primary hover:underline">
+          Criar conta
+        </Link>
+      </p>
+    </div>
   )
 }

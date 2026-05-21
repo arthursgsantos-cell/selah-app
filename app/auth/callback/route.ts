@@ -7,12 +7,18 @@ const ADMIN_EMAILS = ['arthursgsantos@gmail.com']
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
+  const next = searchParams.get('next') ?? '/home'
 
   if (code) {
     const supabase = await createClient()
     const { error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (!error) {
+      // Password reset flow — redirect to the requested page (e.g. /redefinir-senha)
+      if (next !== '/home') {
+        return NextResponse.redirect(new URL(next, origin))
+      }
+
       const { data: { user } } = await supabase.auth.getUser()
 
       if (user) {
@@ -39,7 +45,7 @@ export async function GET(request: Request) {
           if (!igreja) {
             const { data: novaIgreja } = await admin
               .from('igrejas')
-              .insert({ nome: 'Minha Igreja', slug: 'minha-igreja', codigo_convite: 'admin' })
+              .insert({ nome: 'Igreja Batista Zona Sul', slug: 'igreja-batista-zona-sul', horario_culto: 'Nove horas, 11 horas, 17 horas', codigo_convite: 'admin' })
               .select('id')
               .single()
             igreja = novaIgreja

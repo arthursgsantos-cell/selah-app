@@ -1,4 +1,7 @@
-export type Role = 'admin' | 'pastor' | 'supervisor' | 'lider' | 'membro'
+export type Role = 'admin' | 'pastor' | 'supervisor' | 'supervisor_treinamento' | 'lider' | 'lider_treinamento' | 'membro'
+export type StatusPreCadastro = 'pendente' | 'confirmado' | 'rejeitado'
+export type TipoNotificacao = 'novo_login' | 'match_sugerido' | 'match_confirmado'
+export type StatusPresenca = 'confirmado' | 'ausente' | 'pendente'
 export type Frequencia = 'semanal' | 'quinzenal'
 export type StatusEncontro = 'agendado' | 'realizado' | 'cancelado'
 export type FuncaoEscala = 'louvor' | 'quebra_gelo' | 'edificacao' | 'compartilhar'
@@ -45,6 +48,15 @@ export type Database = {
           telefone: string | null
           avatar_url: string | null
           role: Role
+          conjuge_id: string | null
+          data_nascimento_1: string | null
+          data_nascimento_2: string | null
+          data_casamento: string | null
+          endereco: string | null
+          endereco_maps: string | null
+          endereco_complemento: string | null
+          endereco_latitude: number | null
+          endereco_longitude: number | null
           created_at: string
           updated_at: string
         }
@@ -56,6 +68,15 @@ export type Database = {
           telefone?: string | null
           avatar_url?: string | null
           role?: Role
+          conjuge_id?: string | null
+          data_nascimento_1?: string | null
+          data_nascimento_2?: string | null
+          data_casamento?: string | null
+          endereco?: string | null
+          endereco_maps?: string | null
+          endereco_complemento?: string | null
+          endereco_latitude?: number | null
+          endereco_longitude?: number | null
           created_at?: string
           updated_at?: string
         }
@@ -67,6 +88,15 @@ export type Database = {
           telefone?: string | null
           avatar_url?: string | null
           role?: Role
+          conjuge_id?: string | null
+          data_nascimento_1?: string | null
+          data_nascimento_2?: string | null
+          data_casamento?: string | null
+          endereco?: string | null
+          endereco_maps?: string | null
+          endereco_complemento?: string | null
+          endereco_latitude?: number | null
+          endereco_longitude?: number | null
           created_at?: string
           updated_at?: string
         }
@@ -83,6 +113,44 @@ export type Database = {
             columns: ['igreja_id']
             isOneToOne: false
             referencedRelation: 'igrejas'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      dependentes: {
+        Row: {
+          id: number
+          profile_id: string
+          nome: string
+          data_nascimento: string | null
+          tipo: 'cônjuge' | 'filho'
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          profile_id: string
+          nome: string
+          data_nascimento?: string | null
+          tipo: 'cônjuge' | 'filho'
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          profile_id?: string
+          nome?: string
+          data_nascimento?: string | null
+          tipo?: 'cônjuge' | 'filho'
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'dependentes_profile_id_fkey'
+            columns: ['profile_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
             referencedColumns: ['id']
           }
         ]
@@ -137,10 +205,12 @@ export type Database = {
           descricao: string | null
           capa_url: string | null
           logo_url: string | null
+          cor: string | null
           frequencia: Frequencia
           dia_semana: number | null
           horario: string | null
           local_padrao: string | null
+          lider_nome: string | null
           ativa: boolean
           created_at: string
         }
@@ -151,10 +221,12 @@ export type Database = {
           descricao?: string | null
           capa_url?: string | null
           logo_url?: string | null
+          cor?: string | null
           frequencia?: Frequencia
           dia_semana?: number | null
           horario?: string | null
           local_padrao?: string | null
+          lider_nome?: string | null
           ativa?: boolean
           created_at?: string
         }
@@ -165,10 +237,12 @@ export type Database = {
           descricao?: string | null
           capa_url?: string | null
           logo_url?: string | null
+          cor?: string | null
           frequencia?: Frequencia
           dia_semana?: number | null
           horario?: string | null
           local_padrao?: string | null
+          lider_nome?: string | null
           ativa?: boolean
           created_at?: string
         }
@@ -201,6 +275,7 @@ export type Database = {
           celula_id: string
           data_hora: string
           local: string | null
+          local_maps_url: string | null
           avisos: string | null
           edificacao_resumo: string | null
           card_imagem_url: string | null
@@ -214,6 +289,7 @@ export type Database = {
           celula_id: string
           data_hora: string
           local?: string | null
+          local_maps_url?: string | null
           avisos?: string | null
           edificacao_resumo?: string | null
           card_imagem_url?: string | null
@@ -227,6 +303,7 @@ export type Database = {
           celula_id?: string
           data_hora?: string
           local?: string | null
+          local_maps_url?: string | null
           avisos?: string | null
           edificacao_resumo?: string | null
           card_imagem_url?: string | null
@@ -244,6 +321,7 @@ export type Database = {
           funcao: FuncaoEscala
           responsavel_id: string | null
           observacao: string | null
+          com_conjuge: boolean
         }
         Insert: {
           id?: string
@@ -251,6 +329,7 @@ export type Database = {
           funcao: FuncaoEscala
           responsavel_id?: string | null
           observacao?: string | null
+          com_conjuge?: boolean
         }
         Update: {
           id?: string
@@ -258,6 +337,7 @@ export type Database = {
           funcao?: FuncaoEscala
           responsavel_id?: string | null
           observacao?: string | null
+          com_conjuge?: boolean
         }
         Relationships: []
       }
@@ -269,6 +349,7 @@ export type Database = {
           item: string
           responsavel: string | null
           responsavel_id: string | null
+          com_conjuge: boolean
           ordem: number
           created_at: string
         }
@@ -279,6 +360,7 @@ export type Database = {
           item: string
           responsavel?: string | null
           responsavel_id?: string | null
+          com_conjuge?: boolean
           ordem?: number
           created_at?: string
         }
@@ -289,7 +371,80 @@ export type Database = {
           item?: string
           responsavel?: string | null
           responsavel_id?: string | null
+          com_conjuge?: boolean
           ordem?: number
+          created_at?: string
+        }
+        Relationships: []
+      }
+      presencas: {
+        Row: {
+          id: string
+          encontro_id: string
+          user_id: string
+          status: StatusPresenca
+          com_conjuge: boolean
+          com_filhos: boolean
+          num_visitantes: number
+          observacao: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          encontro_id: string
+          user_id: string
+          status?: StatusPresenca
+          com_conjuge?: boolean
+          com_filhos?: boolean
+          num_visitantes?: number
+          observacao?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          encontro_id?: string
+          user_id?: string
+          status?: StatusPresenca
+          com_conjuge?: boolean
+          com_filhos?: boolean
+          num_visitantes?: number
+          observacao?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      resumos_culto: {
+        Row: {
+          id: string
+          igreja_id: string
+          titulo: string
+          conteudo: string
+          pdf_url: string | null
+          data_culto: string
+          validade_ate: string
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          igreja_id: string
+          titulo: string
+          conteudo: string
+          pdf_url?: string | null
+          data_culto: string
+          validade_ate: string
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          igreja_id?: string
+          titulo?: string
+          conteudo?: string
+          pdf_url?: string | null
+          data_culto?: string
+          validade_ate?: string
+          created_by?: string | null
           created_at?: string
         }
         Relationships: []
@@ -341,6 +496,81 @@ export type Database = {
           recorrencia_id?: string | null
           recorrencia_tipo?: string | null
           created_by?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      membros_pre_cadastro: {
+        Row: {
+          id: string
+          igreja_id: string
+          nome: string
+          telefone: string | null
+          obs: string | null
+          profile_id: string | null
+          status: StatusPreCadastro
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          igreja_id: string
+          nome: string
+          telefone?: string | null
+          obs?: string | null
+          profile_id?: string | null
+          status?: StatusPreCadastro
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          igreja_id?: string
+          nome?: string
+          telefone?: string | null
+          obs?: string | null
+          profile_id?: string | null
+          status?: StatusPreCadastro
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      notificacoes: {
+        Row: {
+          id: string
+          igreja_id: string
+          destinatario_id: string
+          tipo: TipoNotificacao
+          titulo: string
+          mensagem: string
+          dados: Record<string, string> | null
+          lida: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          igreja_id: string
+          destinatario_id: string
+          tipo: TipoNotificacao
+          titulo: string
+          mensagem: string
+          dados?: Record<string, string> | null
+          lida?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          igreja_id?: string
+          destinatario_id?: string
+          tipo?: TipoNotificacao
+          titulo?: string
+          mensagem?: string
+          dados?: Record<string, string> | null
+          lida?: boolean
           created_at?: string
         }
         Relationships: []

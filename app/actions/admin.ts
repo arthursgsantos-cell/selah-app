@@ -34,7 +34,7 @@ export async function criarPerfilAdmin(): Promise<{ sucesso: boolean; erro?: str
   if (!igreja) {
     const { data: nova, error: erroIgreja } = await admin
       .from('igrejas')
-      .insert({ nome: 'Minha Igreja', slug: 'minha-igreja', codigo_convite: 'admin' })
+      .insert({ nome: 'Igreja Batista Zona Sul', slug: 'igreja-batista-zona-sul', horario_culto: 'Nove horas, 11 horas, 17 horas', codigo_convite: 'admin' })
       .select('id')
       .single()
 

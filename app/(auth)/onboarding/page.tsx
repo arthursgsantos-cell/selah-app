@@ -4,12 +4,40 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { criarPerfilAdmin } from '@/app/actions/admin'
+import { confirmarMatchPreCadastro, notificarNovoLogin } from '@/app/actions/pre-cadastro'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { UserCheck, UserX, Phone, StickyNote } from 'lucide-react'
 
 const ADMIN_EMAILS = ['arthursgsantos@gmail.com']
+
+const roleMap = {
+  admin: 'admin',
+  pastor: 'pastor',
+  supervisor: 'supervisor',
+  lider: 'lider',
+  membro: 'membro',
+} as const
+type InviteRole = keyof typeof roleMap
+
+function parseInviteCode(code: string): { role: InviteRole; churchCode: string } {
+  const normalized = code.trim().toLowerCase()
+  const parts = normalized.split('-')
+  if (parts.length > 1 && roleMap[parts[0] as InviteRole]) {
+    return { role: parts[0] as InviteRole, churchCode: parts.slice(1).join('-') }
+  }
+  return { role: 'membro', churchCode: normalized }
+}
+
+type MatchCandidate = {
+  id: string
+  nome: string
+  telefone: string | null
+  obs: string | null
+  similaridade: number
+}
 
 export default function OnboardingPage() {
   const [nome, setNome] = useState('')
@@ -17,6 +45,12 @@ export default function OnboardingPage() {
   const [carregando, setCarregando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
+
+  // Passo 2: correspondência
+  const [passo, setPasso] = useState<1 | 2>(1)
+  const [candidatos, setCandidatos] = useState<MatchCandidate[]>([])
+  const [confirmando, setConfirmando] = useState<string | null>(null)
+
   const router = useRouter()
   const supabase = createClient()
 
@@ -47,10 +81,12 @@ export default function OnboardingPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
 
+    const { role, churchCode } = parseInviteCode(codigo)
+
     const { data: igreja } = await supabase
       .from('igrejas')
       .select('id')
-      .eq('codigo_convite', codigo.trim().toLowerCase())
+      .eq('codigo_convite', churchCode)
       .single()
 
     if (!igreja) {
@@ -65,7 +101,7 @@ export default function OnboardingPage() {
       nome: nome.trim(),
       email: user.email,
       avatar_url: user.user_metadata?.avatar_url ?? null,
-      role: 'membro',
+      role,
     })
 
     if (error) {
@@ -74,14 +110,110 @@ export default function OnboardingPage() {
       return
     }
 
+    // Buscar pré-cadastros com nome semelhante
+    const { data: semelhantes } = await (supabase as any).rpc('buscar_pre_cadastro_semelhantes', {
+      p_nome: nome.trim(),
+    })
+
+    if (semelhantes && (semelhantes as MatchCandidate[]).length > 0) {
+      setCandidatos(semelhantes as MatchCandidate[])
+      setPasso(2)
+      setCarregando(false)
+      return
+    }
+
+    // Sem matches: notificar admin e ir para home
+    await notificarNovoLogin()
     router.push('/home')
     router.refresh()
+  }
+
+  async function confirmarMatch(candidatoId: string) {
+    setConfirmando(candidatoId)
+    await confirmarMatchPreCadastro(candidatoId)
+    router.push('/home')
+    router.refresh()
+  }
+
+  async function pularMatch() {
+    setConfirmando('skip')
+    await notificarNovoLogin()
+    router.push('/home')
+    router.refresh()
+  }
+
+  if (passo === 2) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Você já está na nossa lista?</CardTitle>
+          <CardDescription>
+            Encontramos pessoas com nomes parecidos. Você é alguma delas?
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {candidatos.map((c) => (
+            <div
+              key={c.id}
+              className="flex items-start justify-between gap-3 rounded-lg border p-3"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="font-medium text-sm">{c.nome}</p>
+                {c.telefone && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                    <Phone className="h-3 w-3" />
+                    {c.telefone}
+                  </p>
+                )}
+                {c.obs && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                    <StickyNote className="h-3 w-3" />
+                    {c.obs}
+                  </p>
+                )}
+              </div>
+              <Button
+                size="sm"
+                onClick={() => confirmarMatch(c.id)}
+                disabled={confirmando !== null}
+                className="shrink-0"
+              >
+                {confirmando === c.id ? (
+                  'Confirmando...'
+                ) : (
+                  <>
+                    <UserCheck className="h-3.5 w-3.5 mr-1" />
+                    Sou eu
+                  </>
+                )}
+              </Button>
+            </div>
+          ))}
+
+          <Button
+            variant="ghost"
+            className="w-full mt-2"
+            onClick={pularMatch}
+            disabled={confirmando !== null}
+          >
+            {confirmando === 'skip' ? (
+              'Aguarde...'
+            ) : (
+              <>
+                <UserX className="h-4 w-4 mr-2" />
+                Não sou nenhuma dessas pessoas
+              </>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
+    )
   }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Bem-vindo ao Selah!</CardTitle>
+        <CardTitle>Bem-vindo à IBZS!</CardTitle>
         <CardDescription>
           {isAdmin
             ? 'Acesso de administrador. Clique em continuar para entrar.'
@@ -108,7 +240,7 @@ export default function OnboardingPage() {
               <Label htmlFor="codigo">Código de convite</Label>
               <Input
                 id="codigo"
-                placeholder="Ex: selah2024"
+                placeholder="Ex: ibzs2024"
                 value={codigo}
                 onChange={(e) => setCodigo(e.target.value)}
                 required

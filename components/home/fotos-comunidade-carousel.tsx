@@ -1,0 +1,74 @@
+'use client'
+
+import { useRef, useEffect, useState } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { cn } from '@/lib/utils'
+
+interface Props {
+  srcs: string[]
+}
+
+export function FotosComunidadeCarousel({ srcs }: Props) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [canLeft, setCanLeft] = useState(false)
+  const [canRight, setCanRight] = useState(false)
+
+  function updateArrows() {
+    const el = scrollRef.current
+    if (!el) return
+    setCanLeft(el.scrollLeft > 4)
+    setCanRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4)
+  }
+
+  useEffect(() => {
+    updateArrows()
+    const el = scrollRef.current
+    el?.addEventListener('scroll', updateArrows, { passive: true })
+    return () => el?.removeEventListener('scroll', updateArrows)
+  }, [srcs])
+
+  function scroll(dir: 'left' | 'right') {
+    scrollRef.current?.scrollBy({ left: dir === 'left' ? -220 : 220, behavior: 'smooth' })
+  }
+
+  return (
+    <div className="relative -mx-4">
+      {/* left arrow */}
+      <button
+        type="button"
+        onClick={() => scroll('left')}
+        aria-label="Rolar para a esquerda"
+        className={cn(
+          'absolute left-0 top-1/2 -translate-y-1/2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white/70 shadow-sm backdrop-blur-sm transition-opacity',
+          canLeft ? 'opacity-70 hover:opacity-100' : 'pointer-events-none opacity-0'
+        )}
+      >
+        <ChevronLeft className="h-4 w-4 text-gray-600" />
+      </button>
+
+      {/* scroll container */}
+      <div
+        ref={scrollRef}
+        className="flex gap-2 overflow-x-auto no-scrollbar px-4 pb-1"
+      >
+        {srcs.map((src, i) => (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img key={i} src={src} alt="" aria-hidden className="h-28 w-28 rounded-2xl object-cover shrink-0" />
+        ))}
+      </div>
+
+      {/* right arrow */}
+      <button
+        type="button"
+        onClick={() => scroll('right')}
+        aria-label="Rolar para a direita"
+        className={cn(
+          'absolute right-0 top-1/2 -translate-y-1/2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white/70 shadow-sm backdrop-blur-sm transition-opacity',
+          canRight ? 'opacity-70 hover:opacity-100' : 'pointer-events-none opacity-0'
+        )}
+      >
+        <ChevronRight className="h-4 w-4 text-gray-600" />
+      </button>
+    </div>
+  )
+}

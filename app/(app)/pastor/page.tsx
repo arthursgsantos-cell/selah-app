@@ -1,10 +1,17 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import Link from 'next/link'
-import { ChevronRight, Church, Shield } from 'lucide-react'
+import { ArrowLeft, Church } from 'lucide-react'
 import { CriarRedeDialog } from '@/components/pastor/criar-rede-dialog'
 import { CriarEventoDialog } from '@/components/shared/criar-evento-dialog'
+import { ResumoCultoSection } from '@/components/pastor/resumo-culto-section'
+import { IgrejaLogoUpload } from '@/components/pastor/igreja-logo-upload'
+import { IgrejaInfoForm } from '@/components/pastor/igreja-info-form'
+import { SolicitacoesPanel } from '@/components/pastor/solicitacoes-panel'
+import { GaleriaComunidadeSection } from '@/components/pastor/galeria-comunidade-section'
 
 export default async function PastorPage() {
   const supabase = await createClient()
@@ -38,72 +45,82 @@ export default async function PastorPage() {
     )
   }
 
+  const admin = createAdminClient()
+
   const [
     { data: igreja },
     { data: redes },
     { count: totalMembros },
+    { data: resumosData },
+    { data: solicitacoesData },
+    { data: lideresData },
+    { data: fotosData },
   ] = await Promise.all([
-    supabase.from('igrejas').select('nome, logo_url').eq('id', profile.igreja_id).single(),
+    supabase.from('igrejas').select('nome, logo_url, descricao, horario_culto, endereco, fundada_em, instagram_url, facebook_url, youtube_url, pastor_nome, pastor_titulo').eq('id', profile.igreja_id).single(),
     supabase.from('redes').select('id, nome, descricao, cor').eq('igreja_id', profile.igreja_id).order('nome'),
     supabase
       .from('profiles')
       .select('*', { count: 'exact', head: true })
       .eq('igreja_id', profile.igreja_id),
+    admin
+      .from('resumos_culto')
+      .select('id, titulo, conteudo, pdf_url, data_culto, validade_ate')
+      .eq('igreja_id', profile.igreja_id)
+      .order('data_culto', { ascending: false })
+      .limit(5),
+    admin
+      .from('solicitacoes_celula')
+      .select('id, nome, telefone, email, idade, estado_civil, tem_filhos, filhos_detalhes, bairro, tipo_membro, melhor_dia, status, criado_em, lider_encaminhado_id')
+      .eq('igreja_id', profile.igreja_id)
+      .neq('status', 'atendido')
+      .order('criado_em', { ascending: false })
+      .limit(50),
+    supabase
+      .from('profiles')
+      .select('id, nome')
+      .eq('igreja_id', profile.igreja_id)
+      .in('role', ['lider', 'lider_treinamento'])
+      .order('nome'),
+    admin
+      .from('fotos_comunidade')
+      .select('id, url')
+      .eq('igreja_id', profile.igreja_id)
+      .order('criado_em', { ascending: false })
+      .limit(60),
   ])
 
-  type RedeRow = { id: string; nome: string; descricao: string | null; cor: string }
-  const redeIds = (redes ?? []).map((r) => (r as RedeRow).id)
+  const redeIds = (redes ?? []).map((r) => r.id)
 
-  // Fetch celulas and supervisors only if there are redes
-  const [celulasData, redeSupervisoresData] = await Promise.all([
-    redeIds.length > 0
-      ? supabase.from('celulas').select('id, rede_id, ativa').in('rede_id', redeIds)
-      : Promise.resolve({ data: [] }),
-    redeIds.length > 0
-      ? supabase
-          .from('rede_supervisores')
-          .select('rede_id, supervisor_id, profiles(nome)')
-          .in('rede_id', redeIds)
-      : Promise.resolve({ data: [] }),
-  ])
+  const { data: celulasData } = redeIds.length > 0
+    ? await supabase.from('celulas').select('id, rede_id, ativa').in('rede_id', redeIds)
+    : { data: [] }
 
   type CelulaBasic = { id: string; rede_id: string; ativa: boolean }
-  type RedeSupervisorRow = {
-    rede_id: string
-    supervisor_id: string
-    profiles: { nome: string } | null
-  }
 
-  const celulas = (celulasData.data ?? []) as CelulaBasic[]
-  const redeSupervisores = (redeSupervisoresData.data ?? []) as unknown as RedeSupervisorRow[]
-
-  // Count active celulas per rede
-  const celulasPorRede = new Map<string, number>()
-  celulas.forEach((c) => {
-    if (c.ativa) {
-      celulasPorRede.set(c.rede_id, (celulasPorRede.get(c.rede_id) ?? 0) + 1)
-    }
-  })
-
-  // Supervisors per rede
-  const supervisoresPorRede = new Map<string, string[]>()
-  redeSupervisores.forEach((rs) => {
-    const nome = rs.profiles?.nome ?? 'Supervisor'
-    supervisoresPorRede.set(rs.rede_id, [...(supervisoresPorRede.get(rs.rede_id) ?? []), nome])
-  })
-
+  const celulas = (celulasData ?? []) as CelulaBasic[]
   const totalRedes = (redes ?? []).length
   const totalCelulas = celulas.filter((c) => c.ativa).length
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
+      <Button variant="ghost" size="sm" render={<Link href="/home" />} className="-ml-1">
+        <ArrowLeft className="h-4 w-4" />
+        Voltar
+      </Button>
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold">{igreja?.nome ?? 'Painel da igreja'}</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">Visão geral</p>
+        <div className="flex items-center gap-3 min-w-0">
+          <IgrejaLogoUpload
+            igrejaId={profile.igreja_id}
+            logoUrl={igreja?.logo_url ?? null}
+            nomeIgreja={igreja?.nome ?? 'Igreja'}
+          />
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold truncate">{igreja?.nome ?? 'Painel da igreja'}</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">Visão geral</p>
+          </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 shrink-0">
           <CriarEventoDialog tipoFixo="culto" label="Criar evento" />
           <CriarRedeDialog />
         </div>
@@ -131,59 +148,60 @@ export default async function PastorPage() {
         </Card>
       </div>
 
-      {/* Lista de redes */}
+      {/* Informações da igreja */}
+      <IgrejaInfoForm
+        igrejaId={profile.igreja_id}
+        info={{
+          nome: igreja?.nome ?? '',
+          descricao: (igreja as any)?.descricao ?? null,
+          horario_culto: (igreja as any)?.horario_culto ?? null,
+          endereco: (igreja as any)?.endereco ?? null,
+          fundada_em: (igreja as any)?.fundada_em ?? null,
+          instagram_url: (igreja as any)?.instagram_url ?? null,
+          facebook_url: (igreja as any)?.facebook_url ?? null,
+          youtube_url: (igreja as any)?.youtube_url ?? null,
+          pastor_nome: (igreja as any)?.pastor_nome ?? null,
+          pastor_titulo: (igreja as any)?.pastor_titulo ?? null,
+        }}
+      />
+
+      {/* Resumo do culto */}
+      <ResumoCultoSection resumos={resumosData ?? []} />
+
+      {/* Solicitações de célula */}
       <section>
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
-          Redes
-        </p>
-
-        {totalRedes === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <Shield className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground">Nenhuma rede criada ainda</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Clique em &quot;Nova rede&quot; para começar
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-2">
-            {((redes ?? []) as RedeRow[]).map((rede) => {
-              const numCelulas = celulasPorRede.get(rede.id) ?? 0
-              const supervisores = supervisoresPorRede.get(rede.id) ?? []
-
-              return (
-                <Link key={rede.id} href="/supervisor">
-                  <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                    <CardContent className="py-3 px-4">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="h-10 w-10 rounded-xl shrink-0 flex items-center justify-center"
-                          style={{ backgroundColor: `${rede.cor}20` }}
-                        >
-                          <div
-                            className="h-4 w-4 rounded-full"
-                            style={{ backgroundColor: rede.cor }}
-                          />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold">{rede.nome}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {numCelulas} {numCelulas === 1 ? 'célula' : 'células'}
-                            {supervisores.length > 0 && ` · ${supervisores.join(', ')}`}
-                          </p>
-                        </div>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              )
-            })}
-          </div>
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+            Solicitações de célula
+            {(solicitacoesData ?? []).filter(s => s.status === 'pendente').length > 0 && (
+              <span className="ml-2 bg-yellow-100 text-yellow-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                {(solicitacoesData ?? []).filter(s => s.status === 'pendente').length} novas
+              </span>
+            )}
+          </p>
+          {(solicitacoesData ?? []).length > 0 && (
+            <Link href="/solicitacoes" className="text-xs text-primary hover:underline font-medium">
+              Ver todas ({(solicitacoesData ?? []).length})
+            </Link>
+          )}
+        </div>
+        <SolicitacoesPanel
+          solicitacoes={(solicitacoesData ?? []).slice(0, 3) as Parameters<typeof SolicitacoesPanel>[0]['solicitacoes']}
+          lideres={(lideresData ?? []) as { id: string; nome: string }[]}
+        />
+        {(solicitacoesData ?? []).length > 3 && (
+          <Link
+            href="/solicitacoes"
+            className="mt-2 flex w-full items-center justify-center py-2.5 rounded-xl border border-border text-xs font-medium text-muted-foreground hover:bg-muted transition-colors"
+          >
+            Ver mais {(solicitacoesData ?? []).length - 3} solicitações
+          </Link>
         )}
       </section>
+
+      {/* Galeria da comunidade */}
+      <GaleriaComunidadeSection fotosInit={(fotosData ?? []) as { id: string; url: string }[]} />
+
     </div>
   )
 }

@@ -1,8 +1,7 @@
 'use client'
 
 import { useState, useTransition, useRef } from 'react'
-import { updateEventoAction } from '@/app/actions/evento'
-import { createClient } from '@/lib/supabase/client'
+import { updateEventoAction, uploadCapaEventoAction } from '@/app/actions/evento'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -63,17 +62,6 @@ function toLocalDatetime(iso: string) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-async function uploadCapa(file: File): Promise<string> {
-  const supabase = createClient()
-  const ext = file.name.split('.').pop() ?? 'jpg'
-  const path = `${crypto.randomUUID()}.${ext}`
-  const { error } = await supabase.storage
-    .from('evento-capas')
-    .upload(path, file, { contentType: file.type })
-  if (error) throw new Error(error.message)
-  const { data } = supabase.storage.from('evento-capas').getPublicUrl(path)
-  return data.publicUrl
-}
 
 export function EditarEventoDialog({ evento }: Props) {
   const [open, setOpen] = useState(false)
@@ -125,7 +113,9 @@ export function EditarEventoDialog({ evento }: Props) {
       try {
         let imagem_url: string | null | undefined
         if (imagemFile) {
-          imagem_url = await uploadCapa(imagemFile)
+          const fd = new FormData()
+          fd.append('file', imagemFile)
+          imagem_url = await uploadCapaEventoAction(fd)
         } else if (imagemRemovida) {
           imagem_url = null
         } else {

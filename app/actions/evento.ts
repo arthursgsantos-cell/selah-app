@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import type { TipoEvento, RecorrenciaTipo } from '@/lib/supabase/types'
 
@@ -31,6 +32,28 @@ function revalidarPaths() {
   revalidatePath('/home')
   revalidatePath('/supervisor')
   revalidatePath('/pastor')
+}
+
+export async function uploadCapaEventoAction(formData: FormData): Promise<string> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Não autenticado')
+
+  const file = formData.get('file') as File
+  if (!file) throw new Error('Arquivo não encontrado')
+
+  const ext = file.name.split('.').pop() ?? 'jpg'
+  const path = `${crypto.randomUUID()}.${ext}`
+  const arrayBuffer = await file.arrayBuffer()
+
+  const admin = createAdminClient()
+  const { error } = await admin.storage
+    .from('evento-capas')
+    .upload(path, arrayBuffer, { contentType: file.type })
+  if (error) throw new Error(error.message)
+
+  const { data } = admin.storage.from('evento-capas').getPublicUrl(path)
+  return data.publicUrl
 }
 
 export async function createEventoAction(data: {
@@ -69,8 +92,10 @@ export async function createEventoAction(data: {
     imagem_url: data.imagem_url ?? null,
   }
 
+  const admin = createAdminClient()
+
   if (!data.recorrencia) {
-    const { error } = await supabase.from('eventos').insert({
+    const { error } = await admin.from('eventos').insert({
       ...base,
       data_hora: data.data_hora,
     })
@@ -87,11 +112,12 @@ export async function createEventoAction(data: {
       recorrencia_tipo: data.recorrencia,
     }))
 
-    const { error } = await supabase.from('eventos').insert(eventos)
+    const { error } = await admin.from('eventos').insert(eventos)
     if (error) throw new Error(error.message)
   }
 
   revalidarPaths()
+  if (data.rede_id) revalidatePath(`/rede/${data.rede_id}`)
 }
 
 export async function updateEventoAction(
@@ -122,21 +148,23 @@ export async function updateEventoAction(
     imagem_url: data.imagem_url ?? null,
   }
 
+  const admin = createAdminClient()
+
   if (escopo === 'este' || !recorrenciaId) {
-    const { error } = await supabase
+    const { error } = await admin
       .from('eventos')
       .update({ ...camposComuns, data_hora: data.data_hora })
       .eq('id', id)
     if (error) throw new Error(error.message)
   } else if (escopo === 'este_e_seguintes') {
-    const { error } = await supabase
+    const { error } = await admin
       .from('eventos')
       .update(camposComuns)
       .eq('recorrencia_id', recorrenciaId)
       .gte('data_hora', dataHoraAtual)
     if (error) throw new Error(error.message)
   } else {
-    const { error } = await supabase
+    const { error } = await admin
       .from('eventos')
       .update(camposComuns)
       .eq('recorrencia_id', recorrenciaId)

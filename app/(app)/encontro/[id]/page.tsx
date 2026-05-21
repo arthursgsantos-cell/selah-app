@@ -1,13 +1,21 @@
 import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import Link from 'next/link'
+import { ArrowLeft } from 'lucide-react'
 import { InfoSection } from '@/components/encontro/info-section'
+import { EncontroCapaUpload } from '@/components/encontro/encontro-capa-upload'
 import { EscalaSection } from '@/components/encontro/escala-section'
 import { LancheSection } from '@/components/encontro/lanche-section'
 import { WhatsAppSection } from '@/components/encontro/whatsapp-section'
+import { ResumoCultoCard } from '@/components/encontro/resumo-culto-card'
+import { PresencaSection } from '@/components/encontro/presenca-section'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import type { FuncaoEscala } from '@/lib/supabase/types'
+import { buscarPresencasEncontroAction, buscarMinhaPresencaAction } from '@/app/actions/presenca'
 
 const funcoes: FuncaoEscala[] = ['louvor', 'quebra_gelo', 'edificacao', 'compartilhar']
 
@@ -27,11 +35,14 @@ export default async function EncontroPage({ params }: { params: { id: string } 
 
   const { data: encontro } = await supabase
     .from('encontros')
-    .select('id, celula_id, data_hora, local, avisos, edificacao_resumo, status, card_imagem_url')
+    .select('id, celula_id, data_hora, local, local_maps_url, avisos, edificacao_resumo, resumo_culto_id, status, card_imagem_url')
     .eq('id', params.id)
     .single()
 
   if (!encontro) notFound()
+
+  const admin = createAdminClient()
+  const encontroDate = encontro.data_hora.split('T')[0]
 
   // Fetch in parallel: celula, membership, profile, escalas, lanches, membros da celula
   const [
@@ -49,10 +60,10 @@ export default async function EncontroPage({ params }: { params: { id: string } 
       .eq('celula_id', encontro.celula_id)
       .eq('user_id', user.id)
       .maybeSingle(),
-    supabase.from('profiles').select('role').eq('id', user.id).single(),
+    supabase.from('profiles').select('role, igreja_id').eq('id', user.id).single(),
     supabase
       .from('escalas')
-      .select('funcao, responsavel_id, observacao')
+      .select('funcao, responsavel_id, observacao, com_conjuge')
       .eq('encontro_id', params.id),
     supabase
       .from('lanches')
@@ -61,25 +72,84 @@ export default async function EncontroPage({ params }: { params: { id: string } 
       .order('ordem', { ascending: true }),
     supabase
       .from('celula_membros')
-      .select('user_id, profiles(nome)')
+      .select('user_id, profiles(nome, endereco, endereco_maps)')
       .eq('celula_id', encontro.celula_id),
   ])
+
+  // Sugestões de lanches usados em encontros anteriores desta célula
+  const { data: lanchesSugestoes } = await admin
+    .from('lanches')
+    .select('emoji, item')
+    .in('encontro_id',
+      (await admin
+        .from('encontros')
+        .select('id')
+        .eq('celula_id', encontro.celula_id)
+        .neq('id', params.id)
+        .order('data_hora', { ascending: false })
+        .limit(10)
+      ).data?.map((e) => e.id) ?? []
+    )
+    .order('item')
+
+  const sugestoesDedupadas = Array.from(
+    new Map((lanchesSugestoes ?? []).map((l) => [l.item.toLowerCase(), { emoji: l.emoji ?? '', item: l.item }])).values()
+  ).slice(0, 20)
+
+  // Fetch conjuge info for current user
+  const { data: myProfileFull } = await admin
+    .from('profiles').select('conjuge_id').eq('id', user.id).single()
+
+  let conjugeNome: string | null = null
+  if (myProfileFull?.conjuge_id) {
+    const { data: conjugeProfile } = await admin
+      .from('profiles').select('nome').eq('id', myProfileFull.conjuge_id).single()
+    conjugeNome = conjugeProfile?.nome?.split(' ')[0] ?? null
+  } else {
+    const { data: dep } = await admin
+      .from('dependentes').select('nome').eq('profile_id', user.id).eq('tipo', 'cônjuge').maybeSingle()
+    conjugeNome = dep?.nome?.split(' ')[0] ?? null
+  }
+
+  // Fetch tem filhos
+  const { data: filhosDep } = await admin
+    .from('dependentes').select('id').eq('profile_id', user.id).eq('tipo', 'filho').limit(1)
+  const temFilhos = (filhosDep?.length ?? 0) > 0
+
+  // Fetch presença
+  const [minhaPresenca, presencas] = await Promise.all([
+    buscarMinhaPresencaAction(params.id),
+    buscarPresencasEncontroAction(params.id),
+  ])
+
+  // Fetch available resumos for this church (recent ones)
+  const { data: resumosDisponiveis } = profile?.igreja_id
+    ? await admin
+        .from('resumos_culto')
+        .select('id, titulo, conteudo, pdf_url, data_culto, validade_ate')
+        .eq('igreja_id', profile.igreja_id)
+        .order('data_culto', { ascending: false })
+        .limit(8)
+    : { data: [] }
 
   const isMember = !!membroCelula
   const isLider = membroCelula?.papel === 'lider'
   const isAdminRole = profile?.role === 'supervisor' || profile?.role === 'pastor' || profile?.role === 'admin'
   const canEdit = isMember || isAdminRole
 
-  type MembroBasic = { user_id: string; profiles: { nome: string } | null }
+  type MembroBasic = { user_id: string; profiles: { nome: string; endereco: string | null; endereco_maps: string | null } | null }
   type EscalaBasic = {
     funcao: FuncaoEscala
     responsavel_id: string | null
     observacao: string | null
+    com_conjuge: boolean
   }
 
   const membros = ((membrosData ?? []) as unknown as MembroBasic[]).map((m) => ({
     user_id: m.user_id,
     nome: m.profiles?.nome ?? 'Membro',
+    endereco: m.profiles?.endereco ?? null,
+    endereco_maps: m.profiles?.endereco_maps ?? null,
   }))
 
   const escalasMap = new Map(
@@ -96,6 +166,7 @@ export default async function EncontroPage({ params }: { params: { id: string } 
       responsavel_id: e?.responsavel_id ?? null,
       responsavel_nome: responsavelNome,
       observacao: e?.observacao ?? null,
+      com_conjuge: e?.com_conjuge ?? false,
     }
   })
 
@@ -113,6 +184,16 @@ export default async function EncontroPage({ params }: { params: { id: string } 
 
   return (
     <div className="space-y-5 max-w-2xl mx-auto">
+      <Button variant="ghost" size="sm" render={<Link href="/celula" />} className="-ml-1">
+        <ArrowLeft className="h-4 w-4" />
+        Voltar para a célula
+      </Button>
+
+      {/* Capa */}
+      {(encontro.card_imagem_url || canEdit) && (
+        <EncontroCapaUpload encontroId={params.id} capaUrl={encontro.card_imagem_url ?? null} />
+      )}
+
       {/* Header */}
       <div>
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-1">
@@ -138,11 +219,33 @@ export default async function EncontroPage({ params }: { params: { id: string } 
             encontroId={params.id}
             dataHora={encontro.data_hora}
             local={encontro.local}
+            localMapsUrl={encontro.local_maps_url ?? null}
             avisos={encontro.avisos}
             canEdit={canEdit}
+            membrosAnfitriao={membros.filter((m) => m.endereco)}
           />
         </CardContent>
       </Card>
+
+
+      {/* Presença */}
+      {isMember && (
+        <Card>
+          <CardHeader className="border-b pb-3">
+            <CardTitle>Presença</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-4">
+            <PresencaSection
+              encontroId={params.id}
+              minhaPresenca={minhaPresenca}
+              conjuge={conjugeNome ? { id: myProfileFull?.conjuge_id ?? null, nome: conjugeNome } : null}
+              temFilhos={temFilhos}
+              presencas={presencas}
+              canSeeAll={isLider || isAdminRole}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Escala */}
       <Card>
@@ -157,6 +260,10 @@ export default async function EncontroPage({ params }: { params: { id: string } 
             canEdit={canEdit}
             canSeeEdificacaoResumo={canSeeEdificacaoResumo}
             edificacaoResumo={encontro.edificacao_resumo}
+            resumosDisponiveis={resumosDisponiveis ?? []}
+            resumoCultoId={encontro.resumo_culto_id ?? null}
+            currentUserId={user.id}
+            conjugeNome={conjugeNome}
           />
         </CardContent>
       </Card>
@@ -172,6 +279,8 @@ export default async function EncontroPage({ params }: { params: { id: string } 
             lanches={lancheData ?? []}
             currentUserId={user.id}
             canEdit={canEdit}
+            conjugeNome={conjugeNome}
+            sugestoes={sugestoesDedupadas}
           />
         </CardContent>
       </Card>
@@ -191,6 +300,7 @@ export default async function EncontroPage({ params }: { params: { id: string } 
                 item: l.item,
                 responsavel: l.responsavel,
               }))}
+              cardImagemUrl={encontro.card_imagem_url ?? null}
             />
           </CardContent>
         </Card>
