@@ -49,7 +49,7 @@ export function EditarPerfilForm({
   const [titulo, setTitulo] = useState(tituloInit ?? '')
   const [telefone, setTelefone] = useState(telefoneInit ?? '')
   const [dataNascimento1, setDataNascimento1] = useState(nasc1Init ?? '')
-  const [dataNascimento2, setDataNascimento2] = useState(nasc2Init ?? '')
+  const [dataNascimento2, _setDataNascimento2] = useState(nasc2Init ?? '')
   const [dataCasamento, setDataCasamento] = useState(casInit ?? '')
   const [endereco, setEndereco] = useState(endInit ?? '')
   const [enderecoMaps, setEnderecoMaps] = useState(endMapsInit ?? '')

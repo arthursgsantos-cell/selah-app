@@ -182,6 +182,7 @@ export default async function CelulaDetalhesPage({ params }: { params: { id: str
         encontros={encontros}
         membros={membros}
         celulaId={params.id}
+        celulaNome={celula.nome}
         localPadrao={celula.local_padrao}
         dependentes={dependentesData ?? []}
         celulaColor={null}

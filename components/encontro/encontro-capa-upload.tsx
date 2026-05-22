@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState, useTransition } from 'react'
-import { Camera, ImagePlus, X, Pencil } from 'lucide-react'
+import { Camera, ImagePlus, X } from 'lucide-react'
 import { uploadCapaEncontroAction } from '@/app/actions/encontro'
 import { Button } from '@/components/ui/button'
 

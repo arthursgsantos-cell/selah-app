@@ -34,7 +34,7 @@ const funcaoLabel: Record<FuncaoEscala, string> = {
   compartilhar: 'Compartilhar',
 }
 
-export function WhatsAppSection({ celulaNome, dataHora, local, avisos, escalas, lanches, cardImagemUrl }: Props) {
+export function WhatsAppSection({ celulaNome, dataHora, local, avisos, escalas, lanches }: Props) {
   function generateText() {
     const data = format(new Date(dataHora), "EEEE, d/MM 'às' HH'h'mm", { locale: ptBR })
     const dataCapitalized = data.charAt(0).toUpperCase() + data.slice(1)

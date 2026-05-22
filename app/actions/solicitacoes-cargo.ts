@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 
 export async function solicitarCargoAction(
-  cargoSolicitado: string,
+  cargoSolicitado: 'lider_treinamento' | 'lider' | 'supervisor_treinamento' | 'supervisor',
   mensagem?: string
 ): Promise<{ ok: boolean; erro?: string }> {
   const supabase = await createClient()

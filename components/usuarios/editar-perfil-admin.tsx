@@ -17,7 +17,7 @@ import { Label } from '@/components/ui/label'
 import { DataInput } from '@/components/ui/data-input'
 import { DependentesForm } from '@/components/perfil/dependentes-form'
 import {
-  Check, X, Pencil, ChevronDown, Heart, HeartOff, Camera, Users,
+  Check, Pencil, ChevronDown, Heart, HeartOff, Camera, Users,
 } from 'lucide-react'
 import type { Role } from '@/lib/supabase/types'
 

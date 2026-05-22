@@ -16,7 +16,7 @@ interface Props {
 }
 
 setOptions({
-  apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? '',
+  key: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? '',
   language: 'pt-BR',
   region: 'BR',
 })

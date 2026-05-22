@@ -37,8 +37,6 @@ export function PageSearch({ placeholder = 'Buscar...', sortOptions, defaultSort
     })
   }
 
-  const mostrarBarra = !!(q) || true // sempre visível — ícone compacto quando vazio
-
   return (
     <div className="flex items-center gap-2 shrink-0">
       <div className="relative flex items-center">

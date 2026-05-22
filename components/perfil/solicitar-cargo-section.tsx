@@ -38,7 +38,7 @@ export function SolicitarCargoSection({
     if (!cargo) return
     setLoading(true)
     setErro(null)
-    const result = await solicitarCargoAction(cargo, mensagem)
+    const result = await solicitarCargoAction(cargo as 'lider_treinamento' | 'lider' | 'supervisor_treinamento' | 'supervisor', mensagem)
     setLoading(false)
     if (result.ok) {
       setEnviado(true)

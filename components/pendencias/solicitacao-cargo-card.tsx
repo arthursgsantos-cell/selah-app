@@ -49,7 +49,7 @@ export function SolicitacaoCargoCard({ sol }: Props) {
           Solicitou: <span className="font-medium text-foreground">{cargoLabels[sol.cargo_solicitado] ?? sol.cargo_solicitado}</span>
         </p>
         {sol.mensagem && (
-          <p className="text-xs text-muted-foreground mt-1 italic">"{sol.mensagem}"</p>
+          <p className="text-xs text-muted-foreground mt-1 italic">&ldquo;{sol.mensagem}&rdquo;</p>
         )}
       </div>
       <div className="flex gap-1.5 shrink-0">

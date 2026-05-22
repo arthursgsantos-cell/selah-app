@@ -19,6 +19,15 @@ export type Database = {
           slug: string
           logo_url: string | null
           codigo_convite: string
+          descricao: string | null
+          horario_culto: string | null
+          endereco: string | null
+          fundada_em: string | null
+          instagram_url: string | null
+          facebook_url: string | null
+          youtube_url: string | null
+          pastor_nome: string | null
+          pastor_titulo: string | null
           created_at: string
         }
         Insert: {
@@ -27,6 +36,15 @@ export type Database = {
           slug: string
           logo_url?: string | null
           codigo_convite: string
+          descricao?: string | null
+          horario_culto?: string | null
+          endereco?: string | null
+          fundada_em?: string | null
+          instagram_url?: string | null
+          facebook_url?: string | null
+          youtube_url?: string | null
+          pastor_nome?: string | null
+          pastor_titulo?: string | null
           created_at?: string
         }
         Update: {
@@ -35,6 +53,15 @@ export type Database = {
           slug?: string
           logo_url?: string | null
           codigo_convite?: string
+          descricao?: string | null
+          horario_culto?: string | null
+          endereco?: string | null
+          fundada_em?: string | null
+          instagram_url?: string | null
+          facebook_url?: string | null
+          youtube_url?: string | null
+          pastor_nome?: string | null
+          pastor_titulo?: string | null
           created_at?: string
         }
         Relationships: []
@@ -46,6 +73,7 @@ export type Database = {
           nome: string
           email: string | null
           telefone: string | null
+          titulo: string | null
           avatar_url: string | null
           role: Role
           conjuge_id: string | null
@@ -66,6 +94,7 @@ export type Database = {
           nome: string
           email?: string | null
           telefone?: string | null
+          titulo?: string | null
           avatar_url?: string | null
           role?: Role
           conjuge_id?: string | null
@@ -86,6 +115,7 @@ export type Database = {
           nome?: string
           email?: string | null
           telefone?: string | null
+          titulo?: string | null
           avatar_url?: string | null
           role?: Role
           conjuge_id?: string | null
@@ -162,6 +192,8 @@ export type Database = {
           nome: string
           descricao: string | null
           cor: string
+          logo_url: string | null
+          supervisor_nome: string | null
           created_at: string
         }
         Insert: {
@@ -170,6 +202,8 @@ export type Database = {
           nome: string
           descricao?: string | null
           cor?: string
+          logo_url?: string | null
+          supervisor_nome?: string | null
           created_at?: string
         }
         Update: {
@@ -178,6 +212,8 @@ export type Database = {
           nome?: string
           descricao?: string | null
           cor?: string
+          logo_url?: string | null
+          supervisor_nome?: string | null
           created_at?: string
         }
         Relationships: []
@@ -246,7 +282,15 @@ export type Database = {
           ativa?: boolean
           created_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "celulas_rede_id_fkey"
+            columns: ["rede_id"]
+            isOneToOne: false
+            referencedRelation: "redes"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       celula_membros: {
         Row: {
@@ -279,6 +323,8 @@ export type Database = {
           avisos: string | null
           edificacao_resumo: string | null
           card_imagem_url: string | null
+          resumo_culto_id: string | null
+          igreja_id: string | null
           status: StatusEncontro
           created_by: string | null
           created_at: string
@@ -293,6 +339,8 @@ export type Database = {
           avisos?: string | null
           edificacao_resumo?: string | null
           card_imagem_url?: string | null
+          resumo_culto_id?: string | null
+          igreja_id?: string | null
           status?: StatusEncontro
           created_by?: string | null
           created_at?: string
@@ -307,6 +355,8 @@ export type Database = {
           avisos?: string | null
           edificacao_resumo?: string | null
           card_imagem_url?: string | null
+          resumo_culto_id?: string | null
+          igreja_id?: string | null
           status?: StatusEncontro
           created_by?: string | null
           created_at?: string
@@ -536,6 +586,144 @@ export type Database = {
           created_by?: string | null
           created_at?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      evento_presencas: {
+        Row: {
+          evento_id: string
+          user_id: string
+          resposta: 'vou' | 'nao_vou'
+        }
+        Insert: {
+          evento_id: string
+          user_id: string
+          resposta: 'vou' | 'nao_vou'
+        }
+        Update: {
+          evento_id?: string
+          user_id?: string
+          resposta?: 'vou' | 'nao_vou'
+        }
+        Relationships: []
+      }
+      solicitacoes_cargo: {
+        Row: {
+          id: string
+          igreja_id: string
+          user_id: string
+          cargo_solicitado: 'lider_treinamento' | 'lider' | 'supervisor_treinamento' | 'supervisor'
+          mensagem: string | null
+          status: 'pendente' | 'aprovado' | 'rejeitado'
+          resolvido_por: string | null
+          resolvido_em: string | null
+          criado_em: string
+        }
+        Insert: {
+          id?: string
+          igreja_id: string
+          user_id: string
+          cargo_solicitado: 'lider_treinamento' | 'lider' | 'supervisor_treinamento' | 'supervisor'
+          mensagem?: string | null
+          status?: 'pendente' | 'aprovado' | 'rejeitado'
+          resolvido_por?: string | null
+          resolvido_em?: string | null
+          criado_em?: string
+        }
+        Update: {
+          id?: string
+          igreja_id?: string
+          user_id?: string
+          cargo_solicitado?: 'lider_treinamento' | 'lider' | 'supervisor_treinamento' | 'supervisor'
+          mensagem?: string | null
+          status?: 'pendente' | 'aprovado' | 'rejeitado'
+          resolvido_por?: string | null
+          resolvido_em?: string | null
+          criado_em?: string
+        }
+        Relationships: []
+      }
+      solicitacoes_celula: {
+        Row: {
+          id: string
+          igreja_id: string
+          user_id: string | null
+          nome: string
+          telefone: string
+          email: string
+          idade: number | null
+          estado_civil: string | null
+          tem_filhos: boolean | null
+          filhos_detalhes: string | null
+          bairro: string | null
+          tipo_membro: string | null
+          melhor_dia: string | null
+          status: string
+          lider_encaminhado_id: string | null
+          criado_em: string
+        }
+        Insert: {
+          id?: string
+          igreja_id: string
+          user_id?: string | null
+          nome: string
+          telefone: string
+          email: string
+          idade?: number | null
+          estado_civil?: string | null
+          tem_filhos?: boolean | null
+          filhos_detalhes?: string | null
+          bairro?: string | null
+          tipo_membro?: string | null
+          melhor_dia?: string | null
+          status?: string
+          lider_encaminhado_id?: string | null
+          criado_em?: string
+        }
+        Update: {
+          id?: string
+          igreja_id?: string
+          user_id?: string | null
+          nome?: string
+          telefone?: string
+          email?: string
+          idade?: number | null
+          estado_civil?: string | null
+          tem_filhos?: boolean | null
+          filhos_detalhes?: string | null
+          bairro?: string | null
+          tipo_membro?: string | null
+          melhor_dia?: string | null
+          status?: string
+          lider_encaminhado_id?: string | null
+          criado_em?: string
+        }
+        Relationships: []
+      }
+      fotos_comunidade: {
+        Row: {
+          id: string
+          igreja_id: string
+          celula_id: string | null
+          url: string
+          criado_em: string
+          criado_por: string | null
+        }
+        Insert: {
+          id?: string
+          igreja_id: string
+          celula_id?: string | null
+          url: string
+          criado_em?: string
+          criado_por?: string | null
+        }
+        Update: {
+          id?: string
+          igreja_id?: string
+          celula_id?: string | null
+          url?: string
+          criado_em?: string
+          criado_por?: string | null
         }
         Relationships: []
       }

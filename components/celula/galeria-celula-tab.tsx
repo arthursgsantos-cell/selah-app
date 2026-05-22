@@ -124,7 +124,7 @@ export function GaleriaCelulaTab({ celulaId, fotosInit, encontroFotos, canUpload
     if (!current) return
     setLiked((prev) => {
       const next = new Set(prev)
-      next.has(current.url) ? next.delete(current.url) : next.add(current.url)
+      if (next.has(current.url)) { next.delete(current.url) } else { next.add(current.url) }
       return next
     })
   }

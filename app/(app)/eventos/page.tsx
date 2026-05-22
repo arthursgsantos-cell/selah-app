@@ -67,7 +67,7 @@ export default async function EventosPage({
     .gte('data_hora', new Date().toISOString())
     .limit(50)
 
-  if (tipoFiltro) proximosQuery = proximosQuery.eq('tipo', tipoFiltro)
+  if (tipoFiltro) proximosQuery = proximosQuery.eq('tipo', tipoFiltro as import('@/lib/supabase/types').TipoEvento)
 
   const { data: proximosRaw } = await proximosQuery
 
