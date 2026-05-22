@@ -1,9 +1,11 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { Bell, CheckCheck, Inbox } from 'lucide-react'
+import { Bell, CheckCheck, Inbox, ArrowLeft } from 'lucide-react'
 import { SolicitacaoNotificacaoCard } from '@/components/home/solicitacao-notificacao-card'
 import { SolicitacoesPanel } from '@/components/pastor/solicitacoes-panel'
+import { Button } from '@/components/ui/button'
+import Link from 'next/link'
 
 export default async function SolicitacoesPage() {
   const supabase = await createClient()
@@ -49,6 +51,10 @@ export default async function SolicitacoesPage() {
 
     return (
       <div className="space-y-6 max-w-2xl mx-auto pb-8">
+        <Button variant="ghost" size="sm" render={<Link href="/pastor" />} className="-ml-1">
+          <ArrowLeft className="h-4 w-4" />
+          Voltar
+        </Button>
         <div className="flex items-center gap-3">
           <div className="relative">
             <Bell className="h-5 w-5 text-primary" />
@@ -87,6 +93,10 @@ export default async function SolicitacoesPage() {
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto pb-8">
+      <Button variant="ghost" size="sm" render={<Link href="/home" />} className="-ml-1">
+        <ArrowLeft className="h-4 w-4" />
+        Voltar
+      </Button>
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="relative">

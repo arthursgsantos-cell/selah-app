@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import {
   addLancheAction,
   deleteLancheAction,
@@ -48,17 +49,6 @@ export function LancheSection({ encontroId, lanches, currentUserId, canEdit, con
   const [pickingId, setPickingId] = useState<string | null>(null)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const pickerRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!showEmojiPicker) return
-    function onClick(e: MouseEvent) {
-      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
-        setShowEmojiPicker(false)
-      }
-    }
-    document.addEventListener('mousedown', onClick)
-    return () => document.removeEventListener('mousedown', onClick)
-  }, [showEmojiPicker])
 
   function addItem() {
     if (!item.trim()) return
@@ -186,8 +176,8 @@ export function LancheSection({ encontroId, lanches, currentUserId, canEdit, con
 
               {/* Input row */}
               <div className="flex gap-2 items-center">
-                {/* Emoji button + picker */}
-                <div className="relative" ref={pickerRef}>
+                {/* Emoji button + picker (portal) */}
+                <div>
                   <button
                     type="button"
                     onClick={() => setShowEmojiPicker((v) => !v)}
@@ -196,21 +186,44 @@ export function LancheSection({ encontroId, lanches, currentUserId, canEdit, con
                   >
                     {emoji || '＋'}
                   </button>
-                  {showEmojiPicker && (
-                    <div className="absolute left-0 top-full mt-1 z-50 bg-background border border-border rounded-xl shadow-lg p-2 w-64">
-                      <div className="grid grid-cols-8 gap-0.5 max-h-48 overflow-y-auto">
-                        {FOOD_EMOJIS.map((e) => (
+                  {showEmojiPicker && typeof window !== 'undefined' && createPortal(
+                    <>
+                      {/* Backdrop */}
+                      <div
+                        style={{ position: 'fixed', inset: 0, zIndex: 9998, background: 'rgba(0,0,0,0.4)' }}
+                        onClick={() => setShowEmojiPicker(false)}
+                      />
+                      {/* Picker panel */}
+                      <div
+                        ref={pickerRef}
+                        style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 9999 }}
+                        className="bg-background rounded-t-2xl shadow-2xl p-4 pb-8"
+                      >
+                        <div className="flex items-center justify-between mb-4">
+                          <span className="text-sm font-semibold text-foreground">Escolher emoji</span>
                           <button
-                            key={e}
                             type="button"
-                            onClick={() => { setEmoji(e); setShowEmojiPicker(false) }}
-                            className="text-lg p-1 rounded hover:bg-muted transition-colors"
+                            onClick={() => setShowEmojiPicker(false)}
+                            className="p-1 rounded-full hover:bg-muted text-muted-foreground"
                           >
-                            {e}
+                            <X className="h-4 w-4" />
                           </button>
-                        ))}
+                        </div>
+                        <div className="grid grid-cols-8 gap-1">
+                          {FOOD_EMOJIS.map((e) => (
+                            <button
+                              key={e}
+                              type="button"
+                              onClick={() => { setEmoji(e); setShowEmojiPicker(false) }}
+                              className="text-2xl p-2 rounded-xl hover:bg-muted active:scale-90 transition-all flex items-center justify-center"
+                            >
+                              {e}
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                    </>,
+                    document.body
                   )}
                 </div>
 

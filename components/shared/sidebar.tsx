@@ -105,13 +105,12 @@ export function Sidebar({ role = 'membro', onNavigate, churchLogoUrl, churchName
               alt="Logo da Igreja"
               className={cn('object-contain', collapsed ? 'h-8 w-8' : 'h-10 max-w-[160px]')}
             />
+          ) : collapsed ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src="/logo-icon.png" alt="Selah" className="h-8 w-8 object-contain" />
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src="/logo-texto.png"
-              alt="Igreja Batista Zona Sul"
-              className={cn('object-contain', collapsed ? 'h-8 w-8' : 'h-10 max-w-[180px]')}
-            />
+            <img src="/logo-horizontal.png" alt="Selah" className="h-9 max-w-[160px] object-contain" />
           )}
         </Link>
         <button

@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { WhatsAppIcon } from '@/components/ui/whatsapp-icon'
 import { format } from 'date-fns'
@@ -21,6 +22,7 @@ interface Props {
   celulaNome: string
   dataHora: string
   local: string | null
+  localMapsUrl: string | null
   avisos: string | null
   escalas: EscalaItem[]
   lanches: LancheItem[]
@@ -34,14 +36,17 @@ const funcaoLabel: Record<FuncaoEscala, string> = {
   compartilhar: 'Compartilhar',
 }
 
-export function WhatsAppSection({ celulaNome, dataHora, local, avisos, escalas, lanches }: Props) {
-  function generateText() {
+export function WhatsAppSection({ celulaNome, dataHora, local, localMapsUrl, avisos, escalas, lanches, cardImagemUrl }: Props) {
+  const [sharingImg, setSharingImg] = useState(false)
+
+  function generateText(mapsLink?: string) {
     const data = format(new Date(dataHora), "EEEE, d/MM 'às' HH'h'mm", { locale: ptBR })
     const dataCapitalized = data.charAt(0).toUpperCase() + data.slice(1)
 
     let text = `IBZS | ${celulaNome}\n\n`
     text += `*${dataCapitalized}*\n`
     if (local) text += `${local}\n`
+    if (mapsLink) text += `📍 ${mapsLink}\n`
     text += '\n'
 
     const escalasFilled = escalas.filter((e) => e.responsavel_nome)
@@ -69,9 +74,43 @@ export function WhatsAppSection({ celulaNome, dataHora, local, avisos, escalas, 
     return text
   }
 
-  function compartilhar() {
-    const text = encodeURIComponent(generateText())
-    window.open(`https://wa.me/?text=${text}`, '_blank')
+  async function compartilharTexto() {
+    let mapsLink: string | undefined
+    if (localMapsUrl) {
+      try {
+        const res = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(localMapsUrl)}`)
+        if (res.ok) mapsLink = await res.text()
+      } catch {
+        mapsLink = localMapsUrl
+      }
+    }
+    window.open(`https://wa.me/?text=${encodeURIComponent(generateText(mapsLink))}`, '_blank')
+  }
+
+  async function compartilharImagem() {
+    if (!cardImagemUrl) return
+    setSharingImg(true)
+    try {
+      const response = await fetch(cardImagemUrl)
+      const blob = await response.blob()
+      const ext = blob.type.includes('png') ? 'png' : 'jpg'
+      const file = new File([blob], `encontro-${celulaNome}.${ext}`, { type: blob.type })
+
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file] })
+      } else {
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = file.name
+        a.click()
+        URL.revokeObjectURL(url)
+      }
+    } catch (err) {
+      if ((err as Error).name !== 'AbortError') console.error(err)
+    } finally {
+      setSharingImg(false)
+    }
   }
 
   return (
@@ -83,13 +122,27 @@ export function WhatsAppSection({ celulaNome, dataHora, local, avisos, escalas, 
         </p>
       </div>
 
-      <Button
-        onClick={compartilhar}
-        className="gap-2 bg-[#25D366] hover:bg-[#20bb5a] text-white border-transparent"
-      >
-        <WhatsAppIcon className="h-4 w-4" />
-        Enviar texto
-      </Button>
+      <div className="flex gap-2 flex-wrap">
+        <Button
+          onClick={compartilharTexto}
+          className="gap-2 bg-[#25D366] hover:bg-[#20bb5a] text-white border-transparent"
+        >
+          <WhatsAppIcon className="h-4 w-4" />
+          Enviar texto
+        </Button>
+
+        {cardImagemUrl && (
+          <Button
+            onClick={compartilharImagem}
+            disabled={sharingImg}
+            variant="outline"
+            className="gap-2 border-[#25D366] text-[#25D366] hover:bg-[#25D366]/10"
+          >
+            <WhatsAppIcon className="h-4 w-4" />
+            {sharingImg ? 'Carregando...' : 'Compartilhar imagem'}
+          </Button>
+        )}
+      </div>
     </div>
   )
 }

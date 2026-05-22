@@ -293,6 +293,7 @@ export default async function EncontroPage({ params }: { params: { id: string } 
               celulaNome={celula?.nome ?? ''}
               dataHora={encontro.data_hora}
               local={encontro.local}
+              localMapsUrl={encontro.local_maps_url ?? null}
               avisos={encontro.avisos}
               escalas={escalas}
               lanches={(lancheData ?? []).map((l) => ({

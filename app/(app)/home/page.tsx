@@ -85,7 +85,7 @@ export default async function HomePage() {
   const [{ data: eventos }, { data: profilesIgreja }, { data: ultimosEncontrosCelula }, { data: ultimosEventosPast }, { data: pastorProfiles }, { data: fotosComunidade }, { data: encontroFotos }] = await Promise.all([
     supabase
       .from('eventos')
-      .select('id, titulo, descricao, data_hora, local, tipo, imagem_url')
+      .select('id, titulo, descricao, data_hora, local, tipo, imagem_url, rede_id')
       .eq('igreja_id', igrejaId ?? '')
       .gte('data_hora', new Date().toISOString())
       .order('data_hora', { ascending: true })
@@ -163,19 +163,32 @@ export default async function HomePage() {
     .slice(0, 3)
 
   const eventIds = (eventos ?? []).map((e) => e.id)
-  const { data: presencas } = eventIds.length
-    ? await supabase
-        .from('evento_presencas')
-        .select('evento_id, user_id, resposta')
-        .in('evento_id', eventIds)
+
+  // Nomes das redes para os eventos de tipo 'rede'
+  const redeIds = [...new Set((eventos ?? []).filter((e) => e.rede_id).map((e) => e.rede_id as string))]
+  const { data: redesData } = redeIds.length > 0
+    ? await supabase.from('redes').select('id, nome').in('id', redeIds)
     : { data: [] }
+  const redeNomeMap = new Map(((redesData ?? []) as { id: string; nome: string }[]).map((r) => [r.id, r.nome]))
+
+  const [{ data: presencas }, { data: likesData }] = await Promise.all([
+    eventIds.length
+      ? supabase.from('evento_presencas').select('evento_id, user_id, resposta').in('evento_id', eventIds)
+      : Promise.resolve({ data: [] }),
+    eventIds.length
+      ? supabase.from('evento_likes').select('evento_id, user_id').in('evento_id', eventIds)
+      : Promise.resolve({ data: [] }),
+  ])
 
   const presencasMap = new Map(
     eventIds.map((eid) => {
       const eps = (presencas ?? []).filter((p) => p.evento_id === eid)
+      const lks = (likesData ?? []).filter((l) => l.evento_id === eid)
       return [eid, {
         minhaResposta: (eps.find((p) => p.user_id === user?.id)?.resposta ?? null) as 'vou' | 'nao_vou' | null,
         totalVou: eps.filter((p) => p.resposta === 'vou').length,
+        totalLikes: lks.length,
+        euCurtei: lks.some((l) => l.user_id === user?.id),
       }]
     })
   )
@@ -411,7 +424,7 @@ export default async function HomePage() {
             <div className="space-y-2">
               {eventos.map((evento) => {
                 const p = presencasMap.get(evento.id) ?? { minhaResposta: null, totalVou: 0 }
-                return <EventoCard key={evento.id} evento={evento} minhaResposta={p.minhaResposta} totalVou={p.totalVou} />
+                return <EventoCard key={evento.id} evento={evento} minhaResposta={p.minhaResposta} totalVou={p.totalVou} redeNome={(evento as { rede_id?: string | null }).rede_id ? redeNomeMap.get((evento as { rede_id: string }).rede_id) ?? null : null} totalLikes={p.totalLikes} euCurtei={p.euCurtei} />
               })}
             </div>
           </section>
@@ -729,53 +742,54 @@ export default async function HomePage() {
           <h2 className="text-sm font-semibold text-foreground">Próximo encontro</h2>
         </div>
         {proximoEncontro ? (
-          <>
           <Link href={`/encontro/${proximoEncontro.id}`}>
-            <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 to-accent/10 p-4 hover:shadow-md transition-all cursor-pointer group flex gap-3">
-              {proximoEncontro.card_imagem_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={proximoEncontro.card_imagem_url} alt="Capa do encontro" className="h-14 w-14 rounded-xl object-cover shrink-0" />
-              ) : (
-                <div className="p-2.5 rounded-xl bg-primary/10 shrink-0 self-start">
-                  <CalendarDays className="h-5 w-5 text-primary" />
-                </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="font-semibold capitalize text-sm">
-                    {format(new Date(proximoEncontro.data_hora), "EEEE, d 'de' MMMM", { locale: ptBR })}
-                  </p>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 group-hover:translate-x-0.5 transition-transform" />
-                </div>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {format(new Date(proximoEncontro.data_hora), "HH'h'mm", { locale: ptBR })}
-                  {' · '}
-                  {formatDistanceToNow(new Date(proximoEncontro.data_hora), { locale: ptBR, addSuffix: true })}
-                </p>
-                {proximoEncontro.local && (
-                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                    <MapPin className="h-3 w-3 shrink-0" />
-                    {proximoEncontro.local}
-                  </p>
-                )}
-                {minhasEscalas && minhasEscalas.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {minhasEscalas.map((e) => (
-                      <Badge key={e.funcao} variant="secondary" className="text-xs">
-                        {funcaoLabels[e.funcao] ?? e.funcao}
-                      </Badge>
-                    ))}
+            <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 to-accent/10 p-4 hover:shadow-md transition-all cursor-pointer group">
+              <div className="flex gap-3">
+                {proximoEncontro.card_imagem_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={proximoEncontro.card_imagem_url} alt="Capa do encontro" className="h-14 w-14 rounded-xl object-cover shrink-0" />
+                ) : (
+                  <div className="p-2.5 rounded-xl bg-primary/10 shrink-0 self-start">
+                    <CalendarDays className="h-5 w-5 text-primary" />
                   </div>
                 )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="font-semibold capitalize text-sm">
+                      {format(new Date(proximoEncontro.data_hora), "EEEE, d 'de' MMMM", { locale: ptBR })}
+                    </p>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {format(new Date(proximoEncontro.data_hora), "HH'h'mm", { locale: ptBR })}
+                    {' · '}
+                    {formatDistanceToNow(new Date(proximoEncontro.data_hora), { locale: ptBR, addSuffix: true })}
+                  </p>
+                  {proximoEncontro.local && (
+                    <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                      <MapPin className="h-3 w-3 shrink-0" />
+                      {proximoEncontro.local}
+                    </p>
+                  )}
+                  {minhasEscalas && minhasEscalas.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {minhasEscalas.map((e) => (
+                        <Badge key={e.funcao} variant="secondary" className="text-xs">
+                          {funcaoLabels[e.funcao] ?? e.funcao}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
+              <EncontroShareBtn
+                celulaNome={(membroCelula as { celulas?: { nome?: string } | null } | null)?.celulas?.nome ?? 'Célula'}
+                dataHora={proximoEncontro.data_hora}
+                local={proximoEncontro.local ?? null}
+                cardImagemUrl={proximoEncontro.card_imagem_url ?? null}
+              />
             </div>
           </Link>
-          <EncontroShareBtn
-            celulaNome={(membroCelula as { celulas?: { nome?: string } | null } | null)?.celulas?.nome ?? 'Célula'}
-            dataHora={proximoEncontro.data_hora}
-            local={proximoEncontro.local ?? null}
-          />
-          </>
         ) : celulaId ? (
           <div className="rounded-2xl border border-dashed border-border p-8 text-center">
             <CalendarDays className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
@@ -888,7 +902,7 @@ export default async function HomePage() {
           <div className="space-y-2">
             {eventos.map((evento) => {
               const p = presencasMap.get(evento.id) ?? { minhaResposta: null, totalVou: 0 }
-              return <EventoCard key={evento.id} evento={evento} minhaResposta={p.minhaResposta} totalVou={p.totalVou} />
+              return <EventoCard key={evento.id} evento={evento} minhaResposta={p.minhaResposta} totalVou={p.totalVou} redeNome={(evento as { rede_id?: string | null }).rede_id ? redeNomeMap.get((evento as { rede_id: string }).rede_id) ?? null : null} totalLikes={p.totalLikes} euCurtei={p.euCurtei} />
             })}
           </div>
         </section>

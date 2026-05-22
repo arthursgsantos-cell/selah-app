@@ -3,9 +3,11 @@
 import { useState, useTransition } from 'react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { CalendarDays, MapPin, X, Check, Users } from 'lucide-react'
+import { CalendarDays, MapPin, X, Check, Users, Heart } from 'lucide-react'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { responderPresencaEventoAction } from '@/app/actions/evento-presencas'
+import { toggleLikeEventoAction } from '@/app/actions/evento-likes'
+import { WhatsAppIcon } from '@/components/ui/whatsapp-icon'
 
 const tipoConfig: Record<string, { label: string; className: string }> = {
   culto:  { label: 'Culto',   className: 'bg-purple-100 text-purple-700' },
@@ -29,16 +31,71 @@ interface Props {
   evento: Evento
   minhaResposta: 'vou' | 'nao_vou' | null
   totalVou: number
+  redeNome?: string | null
+  totalLikes?: number
+  euCurtei?: boolean
 }
 
-export function EventoCard({ evento, minhaResposta: minhaRespostaInit, totalVou: totalVouInit }: Props) {
+export function EventoCard({ evento, minhaResposta: minhaRespostaInit, totalVou: totalVouInit, redeNome, totalLikes: totalLikesInit = 0, euCurtei: euCurteiInit = false }: Props) {
   const [aberto, setAberto] = useState(false)
   const [minhaResposta, setMinhaResposta] = useState(minhaRespostaInit)
   const [totalVou, setTotalVou] = useState(totalVouInit)
   const [isPending, startTransition] = useTransition()
+  const [sharingImg, setSharingImg] = useState(false)
+  const [euCurtei, setEuCurtei] = useState(euCurteiInit)
+  const [totalLikes, setTotalLikes] = useState(totalLikesInit)
+  const [likePending, setLikePending] = useState(false)
 
   const tipo = tipoConfig[evento.tipo] ?? tipoConfig.outro
   const data = new Date(evento.data_hora)
+  const badgeLabel = evento.tipo === 'rede' && redeNome ? redeNome : tipo.label
+
+  async function toggleLike() {
+    if (likePending) return
+    setLikePending(true)
+    setEuCurtei((v) => !v)
+    setTotalLikes((n) => euCurtei ? Math.max(0, n - 1) : n + 1)
+    try {
+      await toggleLikeEventoAction(evento.id, window.location.pathname)
+    } catch {
+      setEuCurtei((v) => !v)
+      setTotalLikes((n) => euCurtei ? n + 1 : Math.max(0, n - 1))
+    } finally {
+      setLikePending(false)
+    }
+  }
+
+  async function compartilharTexto() {
+    const dataStr = format(data, "EEEE, d/MM 'às' HH'h'mm", { locale: ptBR })
+    const dataCapitalized = dataStr.charAt(0).toUpperCase() + dataStr.slice(1)
+    let text = `*${evento.titulo}*\n${dataCapitalized}\n`
+    if (evento.local) text += `📍 ${evento.local}\n`
+    if (evento.descricao) text += `\n${evento.descricao}\n`
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank')
+  }
+
+  async function compartilharImagem() {
+    if (!evento.imagem_url) return
+    setSharingImg(true)
+    try {
+      const response = await fetch(evento.imagem_url)
+      const blob = await response.blob()
+      const ext = blob.type.includes('png') ? 'png' : 'jpg'
+      const file = new File([blob], `${evento.titulo}.${ext}`, { type: blob.type })
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file] })
+      } else {
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url; a.download = file.name; a.click()
+        URL.revokeObjectURL(url)
+      }
+    } catch (err) {
+      if ((err as Error).name !== 'AbortError') console.error(err)
+    } finally {
+      setSharingImg(false)
+    }
+  }
 
   function responder(novaResposta: 'vou' | 'nao_vou') {
     const toggle = minhaResposta === novaResposta ? null : novaResposta
@@ -79,7 +136,7 @@ export function EventoCard({ evento, minhaResposta: minhaRespostaInit, totalVou:
           <div className="flex items-start justify-between gap-2">
             <p className="font-semibold text-sm leading-snug">{evento.titulo}</p>
             <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${tipo.className}`}>
-              {tipo.label}
+              {badgeLabel}
             </span>
           </div>
           <p className="text-xs text-muted-foreground mt-1 capitalize">
@@ -92,14 +149,24 @@ export function EventoCard({ evento, minhaResposta: minhaRespostaInit, totalVou:
             </p>
           )}
           {/* Indicador de resposta no card */}
-          {minhaResposta && (
-            <span className={`inline-flex items-center gap-1 text-[11px] font-semibold mt-1.5 ${
-              minhaResposta === 'vou' ? 'text-green-600' : 'text-muted-foreground'
-            }`}>
-              {minhaResposta === 'vou' ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
-              {minhaResposta === 'vou' ? 'Confirmado' : 'Não vou'}
-            </span>
-          )}
+          <div className="flex items-center justify-between mt-1.5">
+            {minhaResposta ? (
+              <span className={`inline-flex items-center gap-1 text-[11px] font-semibold ${
+                minhaResposta === 'vou' ? 'text-green-600' : 'text-muted-foreground'
+              }`}>
+                {minhaResposta === 'vou' ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                {minhaResposta === 'vou' ? 'Confirmado' : 'Não vou'}
+              </span>
+            ) : <span />}
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); toggleLike() }}
+              className="flex items-center gap-1 text-[11px] font-medium"
+            >
+              <Heart className={`h-3.5 w-3.5 transition-colors ${euCurtei ? 'fill-rose-500 text-rose-500' : 'text-muted-foreground'}`} />
+              {totalLikes > 0 && <span className={euCurtei ? 'text-rose-500' : 'text-muted-foreground'}>{totalLikes}</span>}
+            </button>
+          </div>
         </div>
       </button>
 
@@ -132,7 +199,7 @@ export function EventoCard({ evento, minhaResposta: minhaRespostaInit, totalVou:
                 {evento.titulo}
               </DialogTitle>
               <span className={`text-xs font-medium px-2.5 py-1 rounded-full shrink-0 mt-0.5 ${tipo.className}`}>
-                {tipo.label}
+                {badgeLabel}
               </span>
             </div>
 
@@ -152,10 +219,41 @@ export function EventoCard({ evento, minhaResposta: minhaRespostaInit, totalVou:
             </div>
 
             {evento.descricao && (
-              <p className="text-sm text-foreground/80 leading-relaxed border-t border-border/60 pt-3">
+              <p className="text-sm text-foreground/80 leading-relaxed border-t border-border/60 pt-3 whitespace-pre-wrap">
                 {evento.descricao}
               </p>
             )}
+
+            {/* Compartilhar + Like */}
+            <div className="border-t border-border/60 pt-3 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={compartilharTexto}
+                className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-[#25D366] text-white hover:bg-[#20bb5a] transition-colors"
+              >
+                <WhatsAppIcon className="h-3.5 w-3.5" />
+                Texto
+              </button>
+              {evento.imagem_url && (
+                <button
+                  type="button"
+                  onClick={compartilharImagem}
+                  disabled={sharingImg}
+                  className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-[#25D366] text-[#25D366] hover:bg-[#25D366]/10 transition-colors disabled:opacity-50"
+                >
+                  <WhatsAppIcon className="h-3.5 w-3.5" />
+                  {sharingImg ? '...' : 'Imagem'}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={toggleLike}
+                className="ml-auto flex items-center gap-1.5 text-sm font-medium"
+              >
+                <Heart className={`h-5 w-5 transition-all ${euCurtei ? 'fill-rose-500 text-rose-500 scale-110' : 'text-muted-foreground hover:text-rose-400'}`} />
+                {totalLikes > 0 && <span className={`text-sm ${euCurtei ? 'text-rose-500' : 'text-muted-foreground'}`}>{totalLikes}</span>}
+              </button>
+            </div>
 
             {/* RSVP */}
             <div className="border-t border-border/60 pt-3 space-y-2">

@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from 'react'
 import { Camera, ImagePlus, X } from 'lucide-react'
 import { uploadCapaEncontroAction } from '@/app/actions/encontro'
 import { Button } from '@/components/ui/button'
+import { WhatsAppIcon } from '@/components/ui/whatsapp-icon'
 
 interface Props {
   encontroId: string
@@ -14,7 +15,31 @@ export function EncontroCapaUpload({ encontroId, capaUrl }: Props) {
   const [preview, setPreview] = useState<string | null>(capaUrl)
   const [isPending, startTransition] = useTransition()
   const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [sharingImg, setSharingImg] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  async function compartilharImagem() {
+    if (!preview) return
+    setSharingImg(true)
+    try {
+      const response = await fetch(preview)
+      const blob = await response.blob()
+      const ext = blob.type.includes('png') ? 'png' : 'jpg'
+      const file = new File([blob], `encontro.${ext}`, { type: blob.type })
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file] })
+      } else {
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url; a.download = file.name; a.click()
+        URL.revokeObjectURL(url)
+      }
+    } catch (err) {
+      if ((err as Error).name !== 'AbortError') console.error(err)
+    } finally {
+      setSharingImg(false)
+    }
+  }
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -68,16 +93,26 @@ export function EncontroCapaUpload({ encontroId, capaUrl }: Props) {
               {/* Imagem completa */}
               <img src={preview} alt="Capa do encontro" className="w-full h-auto rounded-xl block" />
 
-              {/* Ação */}
-              <Button
-                className="w-full"
-                variant="secondary"
-                onClick={() => fileRef.current?.click()}
-                disabled={isPending}
-              >
-                <Camera className="h-4 w-4 mr-2" />
-                {isPending ? 'Enviando...' : 'Trocar imagem'}
-              </Button>
+              {/* Ações */}
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="secondary"
+                  onClick={() => fileRef.current?.click()}
+                  disabled={isPending}
+                >
+                  <Camera className="h-4 w-4" />
+                  {isPending ? 'Enviando...' : 'Trocar imagem'}
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={compartilharImagem}
+                  disabled={sharingImg}
+                  className="bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366]/20 border-[#25D366]/20"
+                >
+                  <WhatsAppIcon className="h-4 w-4" />
+                  {sharingImg ? '...' : 'Compartilhar'}
+                </Button>
+              </div>
             </div>
           </div>
         )}

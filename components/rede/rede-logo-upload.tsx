@@ -35,8 +35,8 @@ export function RedeLogoUpload({ redeId, logoUrl, cor, iniciais }: Props) {
 
   return (
     <div
-      className="h-10 w-10 rounded-xl shrink-0 flex items-center justify-center overflow-hidden relative cursor-pointer group"
-      style={preview ? undefined : { backgroundColor: `${cor}20` }}
+      className="h-16 w-16 rounded-2xl shrink-0 flex items-center justify-center overflow-hidden relative cursor-pointer group"
+      style={preview ? undefined : { backgroundColor: `${cor}30` }}
       onClick={() => fileRef.current?.click()}
       title="Trocar foto da rede"
     >
@@ -44,7 +44,7 @@ export function RedeLogoUpload({ redeId, logoUrl, cor, iniciais }: Props) {
         // eslint-disable-next-line @next/next/no-img-element
         <img src={preview} alt={iniciais} className="absolute inset-0 h-full w-full object-cover" />
       ) : (
-        <div className="h-4 w-4 rounded-full" style={{ backgroundColor: cor }} />
+        <span className="text-lg font-bold" style={{ color: cor }}>{iniciais}</span>
       )}
 
       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-10">

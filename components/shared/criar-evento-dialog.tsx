@@ -38,7 +38,9 @@ const selectClass =
 export function CriarEventoDialog({ tipoFixo, redeId, label = 'Criar evento' }: Props) {
   const [open, setOpen] = useState(false)
   const [titulo, setTitulo] = useState('')
-  const [dataHora, setDataHora] = useState('')
+  const [datePart, setDatePart] = useState('')
+  const [horaPart, setHoraPart] = useState('09')
+  const [minutoPart, setMinutoPart] = useState('00')
   const [local, setLocal] = useState('')
   const [descricao, setDescricao] = useState('')
   const [tipo, setTipo] = useState<TipoEvento>(tipoFixo ?? 'culto')
@@ -62,9 +64,13 @@ export function CriarEventoDialog({ tipoFixo, redeId, label = 'Criar evento' }: 
     if (fileRef.current) fileRef.current.value = ''
   }
 
+  const dataHora = datePart ? `${datePart}T${horaPart}:${minutoPart}` : ''
+
   function resetForm() {
     setTitulo('')
-    setDataHora('')
+    setDatePart('')
+    setHoraPart('09')
+    setMinutoPart('00')
     setLocal('')
     setDescricao('')
     setTipo(tipoFixo ?? 'culto')
@@ -127,15 +133,34 @@ export function CriarEventoDialog({ tipoFixo, redeId, label = 'Criar evento' }: 
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="data">Data e horário</Label>
-            <input
-              id="data"
-              type="datetime-local"
-              value={dataHora}
-              onChange={(e) => setDataHora(e.target.value)}
-              required
-              className={selectClass}
-            />
+            <Label>Data e horário</Label>
+            <div className="flex gap-2">
+              <input
+                type="date"
+                value={datePart}
+                onChange={(e) => setDatePart(e.target.value)}
+                required
+                className={selectClass + ' flex-1'}
+              />
+              <select
+                value={horaPart}
+                onChange={(e) => setHoraPart(e.target.value)}
+                className={selectClass + ' w-20'}
+              >
+                {Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')).map((h) => (
+                  <option key={h} value={h}>{h}h</option>
+                ))}
+              </select>
+              <select
+                value={minutoPart}
+                onChange={(e) => setMinutoPart(e.target.value)}
+                className={selectClass + ' w-20'}
+              >
+                {['00','05','10','15','20','25','30','35','40','45','50','55'].map((m) => (
+                  <option key={m} value={m}>{m}min</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="space-y-1.5">
