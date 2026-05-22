@@ -37,6 +37,8 @@ export default function LoginPage() {
 
   async function entrarComEmail(e: React.FormEvent) {
     e.preventDefault()
+    if (!email) { setErro('Preencha o email.'); return }
+    if (!senha) { setErro('Preencha a senha.'); return }
     setCarregando(true)
     setErro(null)
     const { error } = await supabase.auth.signInWithPassword({ email, password: senha })
@@ -62,11 +64,11 @@ export default function LoginPage() {
       <form onSubmit={entrarComEmail} className="space-y-4">
         <div className="space-y-1.5">
           <Label htmlFor="email" className="text-gray-700">Email</Label>
-          <Input id="email" type="email" placeholder="seu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <Input id="email" type="email" placeholder="seu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="senha" className="text-gray-700">Senha</Label>
-          <Input id="senha" type="password" placeholder="••••••••" value={senha} onChange={(e) => setSenha(e.target.value)} required />
+          <Input id="senha" type="password" placeholder="••••••••" value={senha} onChange={(e) => setSenha(e.target.value)} />
           <div className="flex justify-end">
             <Link href="/esqueci-senha" className="text-xs text-primary hover:underline font-medium">
               Esqueci minha senha
