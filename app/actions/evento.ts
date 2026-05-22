@@ -66,6 +66,13 @@ export async function createEventoAction(data: {
   celula_id?: string | null
   imagem_url?: string | null
   recorrencia?: RecorrenciaTipo
+  tipo_inscricao?: import('@/lib/supabase/types').TipoInscricao
+  whatsapp_inscricao?: string | null
+  pix_chave?: string | null
+  pix_tipo?: import('@/lib/supabase/types').TipoChavePix | null
+  pix_nome?: string | null
+  pix_valor?: number | null
+  formulario_id?: string | null
 }) {
   const supabase = await createClient()
   const {
@@ -90,6 +97,13 @@ export async function createEventoAction(data: {
     igreja_id: profile.igreja_id,
     created_by: user.id,
     imagem_url: data.imagem_url ?? null,
+    tipo_inscricao: data.tipo_inscricao ?? 'aberto',
+    whatsapp_inscricao: data.whatsapp_inscricao ?? null,
+    pix_chave: data.pix_chave ?? null,
+    pix_tipo: data.pix_tipo ?? null,
+    pix_nome: data.pix_nome ?? null,
+    pix_valor: data.pix_valor ?? null,
+    formulario_id: data.formulario_id ?? null,
   }
 
   const admin = createAdminClient()

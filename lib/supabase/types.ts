@@ -8,6 +8,15 @@ export type FuncaoEscala = 'louvor' | 'quebra_gelo' | 'edificacao' | 'compartilh
 export type PapelCelula = 'lider' | 'membro'
 export type TipoEvento = 'culto' | 'igreja' | 'rede' | 'celula' | 'outro'
 export type RecorrenciaTipo = 'semanal' | 'quinzenal' | 'mensal'
+export type TipoInscricao = 'aberto' | 'whatsapp' | 'formulario' | 'pix'
+export type TipoChavePix = 'cpf' | 'cnpj' | 'email' | 'telefone' | 'aleatoria'
+export type CampoFormulario = {
+  id: string
+  tipo: 'texto' | 'email' | 'telefone' | 'numero' | 'opcoes' | 'checkbox' | 'textarea'
+  label: string
+  obrigatorio: boolean
+  opcoes?: string[]
+}
 
 export type Database = {
   public: {
@@ -193,6 +202,7 @@ export type Database = {
           descricao: string | null
           cor: string
           logo_url: string | null
+          capa_url: string | null
           supervisor_nome: string | null
           created_at: string
         }
@@ -203,6 +213,7 @@ export type Database = {
           descricao?: string | null
           cor?: string
           logo_url?: string | null
+          capa_url?: string | null
           supervisor_nome?: string | null
           created_at?: string
         }
@@ -213,6 +224,7 @@ export type Database = {
           descricao?: string | null
           cor?: string
           logo_url?: string | null
+          capa_url?: string | null
           supervisor_nome?: string | null
           created_at?: string
         }
@@ -499,6 +511,75 @@ export type Database = {
         }
         Relationships: []
       }
+      formularios: {
+        Row: {
+          id: string
+          igreja_id: string
+          nome: string
+          descricao: string | null
+          campos: CampoFormulario[]
+          template: boolean
+          criado_por: string | null
+          criado_em: string
+        }
+        Insert: {
+          id?: string
+          igreja_id: string
+          nome: string
+          descricao?: string | null
+          campos?: CampoFormulario[]
+          template?: boolean
+          criado_por?: string | null
+          criado_em?: string
+        }
+        Update: {
+          id?: string
+          igreja_id?: string
+          nome?: string
+          descricao?: string | null
+          campos?: CampoFormulario[]
+          template?: boolean
+          criado_por?: string | null
+          criado_em?: string
+        }
+        Relationships: []
+      }
+      inscricoes_evento: {
+        Row: {
+          id: string
+          evento_id: string
+          formulario_id: string | null
+          user_id: string | null
+          nome: string
+          telefone: string | null
+          dados: Record<string, string>
+          status: 'pendente' | 'confirmado' | 'cancelado'
+          criado_em: string
+        }
+        Insert: {
+          id?: string
+          evento_id: string
+          formulario_id?: string | null
+          user_id?: string | null
+          nome: string
+          telefone?: string | null
+          dados?: Record<string, string>
+          status?: 'pendente' | 'confirmado' | 'cancelado'
+          criado_em?: string
+        }
+        Update: {
+          id?: string
+          evento_id?: string
+          formulario_id?: string | null
+          user_id?: string | null
+          nome?: string
+          telefone?: string | null
+          dados?: Record<string, string>
+          status?: 'pendente' | 'confirmado' | 'cancelado'
+          criado_em?: string
+        }
+        Relationships: []
+      }
       eventos: {
         Row: {
           id: string
@@ -513,6 +594,13 @@ export type Database = {
           tipo: TipoEvento
           recorrencia_id: string | null
           recorrencia_tipo: string | null
+          tipo_inscricao: TipoInscricao
+          whatsapp_inscricao: string | null
+          pix_chave: string | null
+          pix_tipo: TipoChavePix | null
+          pix_nome: string | null
+          pix_valor: number | null
+          formulario_id: string | null
           created_by: string | null
           created_at: string
         }
@@ -529,6 +617,13 @@ export type Database = {
           tipo?: TipoEvento
           recorrencia_id?: string | null
           recorrencia_tipo?: string | null
+          tipo_inscricao?: TipoInscricao
+          whatsapp_inscricao?: string | null
+          pix_chave?: string | null
+          pix_tipo?: TipoChavePix | null
+          pix_nome?: string | null
+          pix_valor?: number | null
+          formulario_id?: string | null
           created_by?: string | null
           created_at?: string
         }
@@ -545,6 +640,13 @@ export type Database = {
           tipo?: TipoEvento
           recorrencia_id?: string | null
           recorrencia_tipo?: string | null
+          tipo_inscricao?: TipoInscricao
+          whatsapp_inscricao?: string | null
+          pix_chave?: string | null
+          pix_tipo?: TipoChavePix | null
+          pix_nome?: string | null
+          pix_valor?: number | null
+          formulario_id?: string | null
           created_by?: string | null
           created_at?: string
         }
@@ -724,6 +826,27 @@ export type Database = {
           url?: string
           criado_em?: string
           criado_por?: string | null
+        }
+        Relationships: []
+      }
+      evento_likes: {
+        Row: {
+          id: string
+          evento_id: string
+          user_id: string
+          criado_em: string
+        }
+        Insert: {
+          id?: string
+          evento_id: string
+          user_id: string
+          criado_em?: string
+        }
+        Update: {
+          id?: string
+          evento_id?: string
+          user_id?: string
+          criado_em?: string
         }
         Relationships: []
       }

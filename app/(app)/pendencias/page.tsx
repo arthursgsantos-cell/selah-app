@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { ClipboardList, Users, UserCheck, ArrowRight, CheckCheck } from 'lucide-react'
+import { ClipboardList, Users, UserCheck, ArrowRight, CheckCheck, ChevronLeft } from 'lucide-react'
 import { SolicitacaoCargoCard } from '@/components/pendencias/solicitacao-cargo-card'
 import { PreCadastroCard } from '@/components/pendencias/pre-cadastro-card'
 
@@ -72,6 +72,9 @@ export default async function PendenciasPage() {
     <div className="space-y-6 max-w-2xl mx-auto pb-8">
       {/* Header */}
       <div className="flex items-center gap-3">
+        <Link href="/home" className="p-1.5 -ml-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground">
+          <ChevronLeft className="h-5 w-5" />
+        </Link>
         <div className="relative">
           <ClipboardList className="h-5 w-5 text-primary" />
           {total > 0 && (

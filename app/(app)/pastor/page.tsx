@@ -55,6 +55,7 @@ export default async function PastorPage() {
     { data: solicitacoesData },
     { data: lideresData },
     { data: fotosData },
+    { data: encontroFotosData },
   ] = await Promise.all([
     supabase.from('igrejas').select('nome, logo_url, descricao, horario_culto, endereco, fundada_em, instagram_url, facebook_url, youtube_url, pastor_nome, pastor_titulo').eq('id', profile.igreja_id).single(),
     supabase.from('redes').select('id, nome, descricao, cor').eq('igreja_id', profile.igreja_id).order('nome'),
@@ -83,10 +84,17 @@ export default async function PastorPage() {
       .order('nome'),
     admin
       .from('fotos_comunidade')
-      .select('id, url')
+      .select('id, url, criado_em')
       .eq('igreja_id', profile.igreja_id)
       .order('criado_em', { ascending: false })
       .limit(60),
+    admin
+      .from('encontros')
+      .select('card_imagem_url, data_hora')
+      .eq('igreja_id', profile.igreja_id)
+      .not('card_imagem_url', 'is', null)
+      .order('data_hora', { ascending: false })
+      .limit(40),
   ])
 
   const redeIds = (redes ?? []).map((r) => r.id)
@@ -200,7 +208,10 @@ export default async function PastorPage() {
       </section>
 
       {/* Galeria da comunidade */}
-      <GaleriaComunidadeSection fotosInit={(fotosData ?? []) as { id: string; url: string }[]} />
+      <GaleriaComunidadeSection
+        fotosInit={(fotosData ?? []) as { id: string; url: string; criado_em: string }[]}
+        fotosEncontro={(encontroFotosData ?? []).filter((e) => e.card_imagem_url).map((e) => ({ url: e.card_imagem_url!, criado_em: e.data_hora }))}
+      />
 
     </div>
   )

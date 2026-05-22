@@ -1,13 +1,15 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, type ReactNode } from 'react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { CalendarDays, MapPin, X, Check, Users, Heart } from 'lucide-react'
+import { CalendarDays, MapPin, X, Check, Users, Heart, ClipboardList } from 'lucide-react'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { responderPresencaEventoAction } from '@/app/actions/evento-presencas'
 import { toggleLikeEventoAction } from '@/app/actions/evento-likes'
 import { WhatsAppIcon } from '@/components/ui/whatsapp-icon'
+import Link from 'next/link'
+import type { TipoInscricao, TipoChavePix } from '@/lib/supabase/types'
 
 const tipoConfig: Record<string, { label: string; className: string }> = {
   culto:  { label: 'Culto',   className: 'bg-purple-100 text-purple-700' },
@@ -25,6 +27,13 @@ interface Evento {
   local: string | null
   tipo: string
   imagem_url: string | null
+  tipo_inscricao?: TipoInscricao | null
+  whatsapp_inscricao?: string | null
+  pix_chave?: string | null
+  pix_tipo?: TipoChavePix | null
+  pix_nome?: string | null
+  pix_valor?: number | null
+  formulario_id?: string | null
 }
 
 interface Props {
@@ -34,9 +43,11 @@ interface Props {
   redeNome?: string | null
   totalLikes?: number
   euCurtei?: boolean
+  minhaInscricao?: { id: string; status: string } | null
+  editButton?: ReactNode
 }
 
-export function EventoCard({ evento, minhaResposta: minhaRespostaInit, totalVou: totalVouInit, redeNome, totalLikes: totalLikesInit = 0, euCurtei: euCurteiInit = false }: Props) {
+export function EventoCard({ evento, minhaResposta: minhaRespostaInit, totalVou: totalVouInit, redeNome, totalLikes: totalLikesInit = 0, euCurtei: euCurteiInit = false, minhaInscricao, editButton }: Props) {
   const [aberto, setAberto] = useState(false)
   const [minhaResposta, setMinhaResposta] = useState(minhaRespostaInit)
   const [totalVou, setTotalVou] = useState(totalVouInit)
@@ -135,9 +146,16 @@ export function EventoCard({ evento, minhaResposta: minhaRespostaInit, totalVou:
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <p className="font-semibold text-sm leading-snug">{evento.titulo}</p>
-            <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${tipo.className}`}>
-              {badgeLabel}
-            </span>
+            <div className="flex items-center gap-1 shrink-0">
+              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${tipo.className}`}>
+                {badgeLabel}
+              </span>
+              {editButton && (
+                <span onClick={(e) => e.stopPropagation()} className="contents">
+                  {editButton}
+                </span>
+              )}
+            </div>
           </div>
           <p className="text-xs text-muted-foreground mt-1 capitalize">
             {format(data, "EEE, d 'de' MMM 'às' HH'h'mm", { locale: ptBR })}
@@ -255,42 +273,68 @@ export function EventoCard({ evento, minhaResposta: minhaRespostaInit, totalVou:
               </button>
             </div>
 
-            {/* RSVP */}
+            {/* RSVP ou Inscrição */}
             <div className="border-t border-border/60 pt-3 space-y-2">
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  disabled={isPending}
-                  onClick={() => responder('vou')}
-                  className={`flex items-center justify-center gap-1.5 h-10 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 ${
-                    minhaResposta === 'vou'
+              {(!evento.tipo_inscricao || evento.tipo_inscricao === 'aberto') ? (
+                <>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      disabled={isPending}
+                      onClick={() => responder('vou')}
+                      className={`flex items-center justify-center gap-1.5 h-10 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 ${
+                        minhaResposta === 'vou'
+                          ? 'bg-green-500 text-white'
+                          : 'border-2 border-green-300 text-green-700 hover:bg-green-50'
+                      }`}
+                    >
+                      <Check className="h-4 w-4" />
+                      Eu vou
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isPending}
+                      onClick={() => responder('nao_vou')}
+                      className={`flex items-center justify-center gap-1.5 h-10 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 ${
+                        minhaResposta === 'nao_vou'
+                          ? 'bg-gray-400 text-white'
+                          : 'border-2 border-gray-200 text-muted-foreground hover:bg-gray-50'
+                      }`}
+                    >
+                      <X className="h-4 w-4" />
+                      Não vou
+                    </button>
+                  </div>
+                  {totalVou > 0 && (
+                    <p className="text-xs text-muted-foreground text-center flex items-center justify-center gap-1">
+                      <Users className="h-3 w-3" />
+                      {totalVou} {totalVou === 1 ? 'pessoa confirmada' : 'pessoas confirmadas'}
+                    </p>
+                  )}
+                </>
+              ) : evento.tipo_inscricao === 'whatsapp' && evento.whatsapp_inscricao ? (
+                <a
+                  href={`https://wa.me/${evento.whatsapp_inscricao}?text=${encodeURIComponent('Olá! Gostaria de me inscrever no evento.')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 h-10 rounded-xl bg-[#25D366] text-white text-sm font-semibold hover:bg-[#20bb5a] transition-colors w-full"
+                >
+                  <WhatsAppIcon className="h-4 w-4" />
+                  {minhaInscricao ? 'Inscrito via WhatsApp ✓' : 'Fazer inscrição via WhatsApp'}
+                </a>
+              ) : (
+                <Link
+                  href={`/inscricao/${evento.id}`}
+                  onClick={() => setAberto(false)}
+                  className={`flex items-center justify-center gap-2 h-10 rounded-xl text-sm font-semibold transition-colors w-full ${
+                    minhaInscricao
                       ? 'bg-green-500 text-white'
-                      : 'border-2 border-green-300 text-green-700 hover:bg-green-50'
+                      : 'bg-primary text-primary-foreground hover:bg-primary/90'
                   }`}
                 >
-                  <Check className="h-4 w-4" />
-                  Eu vou
-                </button>
-                <button
-                  type="button"
-                  disabled={isPending}
-                  onClick={() => responder('nao_vou')}
-                  className={`flex items-center justify-center gap-1.5 h-10 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 ${
-                    minhaResposta === 'nao_vou'
-                      ? 'bg-gray-400 text-white'
-                      : 'border-2 border-gray-200 text-muted-foreground hover:bg-gray-50'
-                  }`}
-                >
-                  <X className="h-4 w-4" />
-                  Não vou
-                </button>
-              </div>
-
-              {totalVou > 0 && (
-                <p className="text-xs text-muted-foreground text-center flex items-center justify-center gap-1">
-                  <Users className="h-3 w-3" />
-                  {totalVou} {totalVou === 1 ? 'pessoa confirmada' : 'pessoas confirmadas'}
-                </p>
+                  <ClipboardList className="h-4 w-4" />
+                  {minhaInscricao ? 'Inscrito ✓ — Ver detalhes' : evento.tipo_inscricao === 'pix' ? 'Inscrever e pagar' : 'Fazer inscrição'}
+                </Link>
               )}
             </div>
           </div>

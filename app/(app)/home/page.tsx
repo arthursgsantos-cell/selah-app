@@ -423,7 +423,7 @@ export default async function HomePage() {
             </div>
             <div className="space-y-2">
               {eventos.map((evento) => {
-                const p = presencasMap.get(evento.id) ?? { minhaResposta: null, totalVou: 0 }
+                const p = presencasMap.get(evento.id) ?? { minhaResposta: null, totalVou: 0, totalLikes: 0, euCurtei: false }
                 return <EventoCard key={evento.id} evento={evento} minhaResposta={p.minhaResposta} totalVou={p.totalVou} redeNome={(evento as { rede_id?: string | null }).rede_id ? redeNomeMap.get((evento as { rede_id: string }).rede_id) ?? null : null} totalLikes={p.totalLikes} euCurtei={p.euCurtei} />
               })}
             </div>
@@ -901,7 +901,7 @@ export default async function HomePage() {
           </div>
           <div className="space-y-2">
             {eventos.map((evento) => {
-              const p = presencasMap.get(evento.id) ?? { minhaResposta: null, totalVou: 0 }
+              const p = presencasMap.get(evento.id) ?? { minhaResposta: null, totalVou: 0, totalLikes: 0, euCurtei: false }
               return <EventoCard key={evento.id} evento={evento} minhaResposta={p.minhaResposta} totalVou={p.totalVou} redeNome={(evento as { rede_id?: string | null }).rede_id ? redeNomeMap.get((evento as { rede_id: string }).rede_id) ?? null : null} totalLikes={p.totalLikes} euCurtei={p.euCurtei} />
             })}
           </div>

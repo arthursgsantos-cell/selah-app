@@ -5,11 +5,17 @@ import { uploadFotoComunidadeAction, deleteFotoComunidadeAction } from '@/app/ac
 import { Button } from '@/components/ui/button'
 import { ImagePlus, X, Loader2 } from 'lucide-react'
 
-type Foto = { id: string; url: string }
+type FotoGaleria = { id: string; url: string; criado_em: string }
+type FotoEncontro = { url: string; criado_em: string }
 
 interface Props {
-  fotosInit: Foto[]
+  fotosInit: FotoGaleria[]
+  fotosEncontro?: FotoEncontro[]
 }
+
+type ItemGrid =
+  | { tipo: 'galeria'; id: string; url: string; criado_em: string }
+  | { tipo: 'encontro'; url: string; criado_em: string }
 
 async function comprimirImagem(file: File, maxPx = 1200, quality = 0.82): Promise<File> {
   return new Promise((resolve, reject) => {
@@ -34,8 +40,8 @@ async function comprimirImagem(file: File, maxPx = 1200, quality = 0.82): Promis
   })
 }
 
-export function GaleriaComunidadeSection({ fotosInit }: Props) {
-  const [fotos, setFotos] = useState<Foto[]>(fotosInit)
+export function GaleriaComunidadeSection({ fotosInit, fotosEncontro = [] }: Props) {
+  const [fotos, setFotos] = useState<FotoGaleria[]>(fotosInit)
   const [uploading, setUploading] = useState(false)
   const [progresso, setProgresso] = useState<{ preview: string; done: boolean }[]>([])
   const fileRef = useRef<HTMLInputElement>(null)
@@ -55,7 +61,8 @@ export function GaleriaComunidadeSection({ fotosInit }: Props) {
         const fd = new FormData()
         fd.append('file', compressed)
         const { id, url } = await uploadFotoComunidadeAction(fd)
-        setFotos((prev) => [{ id, url }, ...prev])
+        const criado_em = new Date().toISOString()
+        setFotos((prev) => [{ id, url, criado_em }, ...prev])
       } catch (err) {
         console.error('Erro ao enviar foto:', err)
       } finally {
@@ -65,22 +72,27 @@ export function GaleriaComunidadeSection({ fotosInit }: Props) {
       }
     }
 
-    // Clean up previews
     previews.forEach((p) => URL.revokeObjectURL(p.preview))
     setProgresso([])
     setUploading(false)
   }
 
-  async function handleDelete(foto: Foto) {
+  async function handleDelete(foto: FotoGaleria) {
     setFotos((prev) => prev.filter((f) => f.id !== foto.id))
     try {
       await deleteFotoComunidadeAction(foto.id, foto.url)
     } catch {
-      setFotos((prev) => [foto, ...prev])
+      setFotos((prev) => [...prev, foto].sort((a, b) => new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime()))
     }
   }
 
-  const semFotos = fotos.length === 0 && progresso.length === 0
+  // Mescla fotos da galeria + fotos de encontros, ordena pela mais recente
+  const grid: ItemGrid[] = [
+    ...fotos.map((f): ItemGrid => ({ tipo: 'galeria', ...f })),
+    ...fotosEncontro.map((f): ItemGrid => ({ tipo: 'encontro', ...f })),
+  ].sort((a, b) => new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime())
+
+  const semFotos = grid.length === 0 && progresso.length === 0
 
   return (
     <section>
@@ -132,17 +144,19 @@ export function GaleriaComunidadeSection({ fotosInit }: Props) {
               )}
             </div>
           ))}
-          {fotos.map((foto) => (
-            <div key={foto.id} className="relative aspect-square rounded-xl overflow-hidden group">
+          {grid.map((item, i) => (
+            <div key={item.tipo === 'galeria' ? item.id : `enc-${i}`} className="relative aspect-square rounded-xl overflow-hidden group">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={foto.url} alt="" className="h-full w-full object-cover" />
-              <button
-                type="button"
-                onClick={() => handleDelete(foto)}
-                className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
+              <img src={item.url} alt="" className="h-full w-full object-cover" />
+              {item.tipo === 'galeria' && (
+                <button
+                  type="button"
+                  onClick={() => handleDelete(item)}
+                  className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
           ))}
         </div>

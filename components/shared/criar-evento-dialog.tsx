@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog'
 import { CalendarPlus, ImagePlus, X } from 'lucide-react'
 import type { TipoEvento, RecorrenciaTipo } from '@/lib/supabase/types'
+import { InscricaoFields, type InscricaoValue } from '@/components/eventos/inscricao-fields'
 
 interface Props {
   tipoFixo?: TipoEvento
@@ -47,6 +48,7 @@ export function CriarEventoDialog({ tipoFixo, redeId, label = 'Criar evento' }: 
   const [recorrencia, setRecorrencia] = useState<'nao' | RecorrenciaTipo>('nao')
   const [imagemFile, setImagemFile] = useState<File | null>(null)
   const [imagemPreview, setImagemPreview] = useState<string | null>(null)
+  const [inscricao, setInscricao] = useState<InscricaoValue>({ tipo: 'aberto' })
   const [isPending, startTransition] = useTransition()
   const [erro, setErro] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -75,6 +77,7 @@ export function CriarEventoDialog({ tipoFixo, redeId, label = 'Criar evento' }: 
     setDescricao('')
     setTipo(tipoFixo ?? 'culto')
     setRecorrencia('nao')
+    setInscricao({ tipo: 'aberto' })
     removerImagem()
     setErro(null)
   }
@@ -101,6 +104,13 @@ export function CriarEventoDialog({ tipoFixo, redeId, label = 'Criar evento' }: 
           rede_id: redeId ?? null,
           imagem_url,
           recorrencia: recorrencia === 'nao' ? undefined : recorrencia,
+          tipo_inscricao: inscricao.tipo,
+          whatsapp_inscricao: inscricao.whatsapp ?? null,
+          pix_chave: inscricao.pixChave ?? null,
+          pix_tipo: inscricao.pixTipo ?? null,
+          pix_nome: inscricao.pixNome ?? null,
+          pix_valor: inscricao.pixValor ? parseFloat(inscricao.pixValor) : null,
+          formulario_id: inscricao.formularioId ?? null,
         })
         setOpen(false)
         resetForm()
@@ -255,6 +265,8 @@ export function CriarEventoDialog({ tipoFixo, redeId, label = 'Criar evento' }: 
               rows={2}
             />
           </div>
+
+          <InscricaoFields value={inscricao} onChange={setInscricao} />
 
           {erro && <p className="text-sm text-destructive">{erro}</p>}
 
