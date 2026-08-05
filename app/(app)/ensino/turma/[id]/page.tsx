@@ -3,8 +3,9 @@ import { notFound, redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import {
   ArrowLeft, CalendarDays, MapPin, Users, GraduationCap, ClipboardList,
-  BookOpen, FolderOpen, MessageCircle, ChevronRight,
+  BookOpen, FolderOpen, MessageCircle, ChevronRight, Pencil,
 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { loginCom } from '@/lib/destino-login'
@@ -16,9 +17,14 @@ import {
 } from '@/lib/ensino/turma'
 import { PAINEL } from '@/lib/estilos'
 import { InscricaoTurma } from '@/components/ensino/inscricao-turma'
-import { CriarTurmaDialog } from '@/components/ensino/criar-turma-dialog'
+import { DestaqueTurmaBtn } from '@/components/ensino/destaque-turma-btn'
+import { TurmaFundo } from '@/components/ensino/turma-fundo'
+import { TurmaCapa } from '@/components/ensino/turma-capa'
+import { FundoGaleria } from '@/components/shared/fundo-galeria'
 import { MateriaisLista, type MaterialItem } from '@/components/ensino/materiais-lista'
-import type { StatusAula, StatusInscricaoEnsino, StatusTurma } from '@/lib/supabase/types'
+import type {
+  StatusAula, StatusInscricaoEnsino, StatusTurma, TipoInscricaoTurma,
+} from '@/lib/supabase/types'
 
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
   const { data } = await createAdminClient()
@@ -50,7 +56,7 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
   const { data: turmaRaw } = await supabase
     .from('ensino_turmas')
     .select(
-      'id, curso_id, nome, descricao, capa_url, local, data_inicio, data_fim, dias_semana, horario_inicio, horario_fim, total_aulas, vagas, inscricoes_abertas, aprovacao_automatica, status, whatsapp_url, ensino_cursos(nome, descricao)'
+      'id, curso_id, nome, descricao, capa_url, local, data_inicio, data_fim, dias_semana, horario_inicio, horario_fim, total_aulas, vagas, inscricoes_abertas, aprovacao_automatica, status, destaque, whatsapp_url, tipo_inscricao, link_inscricao_url, whatsapp_inscricao, cor, cor_secundaria, fundo_tipo, fundo_imagem_url, fundo_opacidade, fundo_galeria, fundo_galeria_opacidade, fundo_auto_cor, fundo_auto_cor_origem, ensino_cursos(nome, descricao)'
     )
     .eq('id', params.id)
     .maybeSingle()
@@ -64,7 +70,13 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
     dias_semana: number[]; horario_inicio: string | null; horario_fim: string | null
     total_aulas: number | null; vagas: number | null
     inscricoes_abertas: boolean; aprovacao_automatica: boolean
-    status: StatusTurma; whatsapp_url: string | null
+    status: StatusTurma; destaque: boolean; whatsapp_url: string | null
+    tipo_inscricao: TipoInscricaoTurma
+    link_inscricao_url: string | null; whatsapp_inscricao: string | null
+    cor: string | null; cor_secundaria: string | null
+    fundo_tipo: string | null; fundo_imagem_url: string | null; fundo_opacidade: number
+    fundo_galeria: boolean; fundo_galeria_opacidade: number
+    fundo_auto_cor: boolean; fundo_auto_cor_origem: string | null
     ensino_cursos: { nome: string; descricao: string | null } | null
   }
 
@@ -72,7 +84,7 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
   const admin = createAdminClient()
 
   const [
-    aprovadosMapa, pendentesMapa, professoresRes, minhaInscricaoRes, cursosRes,
+    aprovadosMapa, pendentesMapa, professoresRes, minhaInscricaoRes, fotosRes,
   ] = await Promise.all([
     contarAprovados([turma.id]),
     leciona ? contarPendentes([turma.id]) : Promise.resolve({} as Record<string, number>),
@@ -87,16 +99,17 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
       .eq('turma_id', turma.id)
       .eq('user_id', acesso.userId)
       .maybeSingle(),
-    leciona
-      ? supabase
-          .from('ensino_cursos')
-          .select('id, nome')
-          .eq('igreja_id', acesso.igrejaId)
-          .eq('ativo', true)
-          .order('nome')
-      : Promise.resolve({ data: [] }),
+    // A turma não tem galeria própria, então a cascata usa as fotos da
+    // comunidade — as mesmas que célula e rede exibem.
+    admin
+      .from('fotos_comunidade')
+      .select('url')
+      .eq('igreja_id', acesso.igrejaId)
+      .order('criado_em', { ascending: false })
+      .limit(24),
   ])
 
+  const fotosDoFundo = ((fotosRes.data ?? []) as { url: string }[]).map((f) => f.url)
   const aprovados = aprovadosMapa[turma.id] ?? 0
   const pendentes = pendentesMapa[turma.id] ?? 0
   const minhaInscricao = minhaInscricaoRes.data as
@@ -179,38 +192,38 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
         Ensino
       </Link>
 
+      {/* Fundo personalizado — mesma mecânica da página de evento */}
+      <FundoGaleria
+        fotos={fotosDoFundo}
+        opacidade={turma.fundo_galeria_opacidade ?? 35}
+        ativo={turma.fundo_galeria ?? false}
+      />
+      <div className="flex justify-end">
+        <TurmaFundo
+          turmaId={turma.id}
+          cor={turma.cor}
+          corSecundaria={turma.cor_secundaria}
+          fundoTipo={turma.fundo_tipo}
+          fundoImagemUrl={turma.fundo_imagem_url}
+          fundoOpacidade={turma.fundo_opacidade}
+          galeriaAtiva={turma.fundo_galeria ?? false}
+          galeriaOpacidade={turma.fundo_galeria_opacidade ?? 35}
+          totalFotos={fotosDoFundo.length}
+          capaUrl={turma.capa_url}
+          autoCorAtivo={turma.fundo_auto_cor ?? false}
+          autoCorOrigem={turma.fundo_auto_cor_origem}
+          canEdit={leciona}
+        />
+      </div>
+
       {/* Capa */}
-      {turma.capa_url ? (
-        <div className="relative rounded-2xl overflow-hidden shadow-lg">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={turma.capa_url} alt={turma.nome} className="w-full aspect-[16/9] object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-          <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-white/80">
-              {turma.ensino_cursos?.nome}
-            </p>
-            <h1 className="text-xl font-bold leading-tight mt-0.5">{turma.nome}</h1>
-          </div>
-        </div>
-      ) : (
-        <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-[#0B2447] via-[#19376D] to-[#0F52BA] p-6 text-white shadow-lg">
-          <div
-            className="absolute inset-0 opacity-10"
-            style={{ backgroundImage: 'radial-gradient(circle at 80% 20%, white 0%, transparent 60%)' }}
-          />
-          <div className="relative flex items-center gap-4">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/20">
-              <GraduationCap className="h-7 w-7" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-white/70">
-                {turma.ensino_cursos?.nome}
-              </p>
-              <h1 className="text-xl font-bold leading-tight mt-0.5">{turma.nome}</h1>
-            </div>
-          </div>
-        </div>
-      )}
+      <TurmaCapa
+        turmaId={turma.id}
+        nome={turma.nome}
+        cursoNome={turma.ensino_cursos?.nome ?? 'Curso'}
+        capaUrl={turma.capa_url}
+        canEdit={leciona}
+      />
 
       {/* Ficha da turma */}
       <div className={`${PAINEL} space-y-3`}>
@@ -219,28 +232,17 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
             {status.label}
           </span>
           {leciona && (
-            <CriarTurmaDialog
-              cursos={(cursosRes.data ?? []) as { id: string; nome: string }[]}
-              turma={{
-                id: turma.id,
-                cursoId: turma.curso_id,
-                nome: turma.nome,
-                descricao: turma.descricao,
-                capaUrl: turma.capa_url,
-                local: turma.local,
-                dataInicio: turma.data_inicio,
-                dataFim: turma.data_fim,
-                diasSemana: turma.dias_semana ?? [],
-                horarioInicio: turma.horario_inicio,
-                horarioFim: turma.horario_fim,
-                totalAulas: turma.total_aulas,
-                vagas: turma.vagas,
-                inscricoesAbertas: turma.inscricoes_abertas,
-                aprovacaoAutomatica: turma.aprovacao_automatica,
-                status: turma.status,
-                whatsappUrl: turma.whatsapp_url,
-              }}
-            />
+            <div className="flex items-center gap-1.5">
+              <DestaqueTurmaBtn turmaId={turma.id} destaque={turma.destaque} />
+              <Button
+                size="sm"
+                variant="ghost"
+                render={<Link href={`/ensino/turma/${turma.id}/editar`} />}
+              >
+                <Pencil className="h-4 w-4" />
+                Editar
+              </Button>
+            </div>
           )}
         </div>
 
@@ -338,6 +340,9 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
         inscricao={minhaInscricao}
         disponivel={disponivel}
         motivoIndisponivel={motivoIndisponivel}
+        tipo={turma.tipo_inscricao ?? 'app'}
+        linkUrl={turma.link_inscricao_url}
+        whatsapp={turma.whatsapp_inscricao}
       />
 
       {/* Atalhos de quem administra a turma */}

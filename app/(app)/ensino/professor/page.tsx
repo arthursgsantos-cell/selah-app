@@ -1,16 +1,15 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import {
-  ArrowLeft, UserCog, ClipboardList, Users, ChevronRight, AlertCircle, GraduationCap,
+  ArrowLeft, UserCog, ClipboardList, Users, ChevronRight, AlertCircle, GraduationCap, Plus,
 } from 'lucide-react'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { createClient } from '@/lib/supabase/server'
+import { Button } from '@/components/ui/button'
 import { loginCom } from '@/lib/destino-login'
 import { acessoEnsino, turmasQueLeciono } from '@/lib/ensino/permissoes'
 import { contarAprovados, contarPendentes } from '@/app/actions/ensino/turmas'
 import { PAINEL } from '@/lib/estilos'
 import { dataBr, encontrosTexto, STATUS_TURMA, corFrequencia } from '@/lib/ensino/turma'
-import { CriarTurmaDialog } from '@/components/ensino/criar-turma-dialog'
 import { nomeDoDia } from '@/lib/dia-semana'
 import type { StatusAula, StatusTurma } from '@/lib/supabase/types'
 
@@ -28,7 +27,6 @@ export default async function PainelProfessorPage() {
   if (!acesso.professor) redirect('/ensino')
 
   const admin = createAdminClient()
-  const supabase = await createClient()
 
   const meusIds = await turmasQueLeciono(acesso)
 
@@ -55,7 +53,7 @@ export default async function PainelProfessorPage() {
 
   const ids = turmas.map((t) => t.id)
 
-  const [aprovados, pendentes, aulasRes, cursosRes] = await Promise.all([
+  const [aprovados, pendentes, aulasRes] = await Promise.all([
     contarAprovados(ids),
     contarPendentes(ids),
     ids.length > 0
@@ -65,12 +63,6 @@ export default async function PainelProfessorPage() {
           .in('turma_id', ids)
           .order('data')
       : Promise.resolve({ data: [] }),
-    supabase
-      .from('ensino_cursos')
-      .select('id, nome')
-      .eq('igreja_id', acesso.igrejaId)
-      .eq('ativo', true)
-      .order('nome'),
   ])
 
   const aulas = (aulasRes.data ?? []) as {
@@ -130,7 +122,10 @@ export default async function PainelProfessorPage() {
             </p>
           </div>
         </div>
-        <CriarTurmaDialog cursos={(cursosRes.data ?? []) as { id: string; nome: string }[]} />
+        <Button size="sm" variant="outline" render={<Link href="/ensino/turma/nova" />}>
+          <Plus className="h-4 w-4" />
+          Nova turma
+        </Button>
       </div>
 
       {/* Chamada de hoje */}

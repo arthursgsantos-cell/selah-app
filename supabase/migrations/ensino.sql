@@ -68,7 +68,16 @@ create table if not exists public.ensino_turmas (
   aprovacao_automatica boolean not null default true,
   status               text not null default 'aberta'
     check (status in ('aberta', 'em_andamento', 'concluida', 'cancelada')),
+  -- Entra no carrossel de destaques da home, junto com os eventos destacados.
+  destaque             boolean not null default false,
   whatsapp_url         text,
+  -- Como a pessoa se inscreve. `app` usa só os dados do perfil; `formulario`
+  -- acrescenta os campos de `formulario_id`; `link` e `whatsapp` mandam a
+  -- pessoa para fora, e nesses dois o app não acompanha quem se inscreveu.
+  tipo_inscricao       text not null default 'app'
+    check (tipo_inscricao in ('app', 'formulario', 'link', 'whatsapp')),
+  link_inscricao_url   text,
+  whatsapp_inscricao   text,
   -- Campos extras da inscrição, reaproveitando o construtor de formulários
   -- que os eventos já usam. Null = só os dados do perfil.
   formulario_id        uuid references public.formularios(id) on delete set null,

@@ -1,13 +1,12 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { GraduationCap, ArrowLeft, ChevronRight, UserCog, BookOpen, Settings } from 'lucide-react'
+import { GraduationCap, ArrowLeft, ChevronRight, UserCog, BookOpen, Settings, Plus } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { loginCom } from '@/lib/destino-login'
 import { acessoEnsino } from '@/lib/ensino/permissoes'
 import { listarTurmas, minhasInscricoesPorTurma } from '@/lib/ensino/consultas'
 import { TurmaCard } from '@/components/ensino/turma-card'
-import { CriarTurmaDialog } from '@/components/ensino/criar-turma-dialog'
-import { createClient } from '@/lib/supabase/server'
 
 export const metadata = {
   title: 'Ensino · Igreja Batista Zona Sul',
@@ -18,21 +17,10 @@ export default async function EnsinoPage() {
   const acesso = await acessoEnsino()
   if (!acesso) redirect(loginCom('/ensino'))
 
-  const supabase = await createClient()
-
-  const [turmas, minhas, cursosRes] = await Promise.all([
+  const [turmas, minhas] = await Promise.all([
     listarTurmas({ igrejaId: acesso.igrejaId }),
     minhasInscricoesPorTurma(acesso.userId),
-    supabase
-      .from('ensino_cursos')
-      .select('id, nome')
-      .eq('igreja_id', acesso.igrejaId)
-      .eq('ativo', true)
-      .order('ordem')
-      .order('nome'),
   ])
-
-  const cursos = cursosRes.data ?? []
 
   // Concluídas e canceladas descem para o fim: a vitrine é de quem ainda pode
   // receber aluno.
@@ -106,7 +94,12 @@ export default async function EnsinoPage() {
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
             Turmas
           </p>
-          {acesso.professor && <CriarTurmaDialog cursos={cursos} />}
+          {acesso.professor && (
+            <Button size="sm" variant="outline" render={<Link href="/ensino/turma/nova" />}>
+              <Plus className="h-4 w-4" />
+              Nova turma
+            </Button>
+          )}
         </div>
 
         {abertas.length > 0 ? (
@@ -127,7 +120,10 @@ export default async function EnsinoPage() {
               </p>
               {acesso.professor && (
                 <div className="mt-4 flex justify-center">
-                  <CriarTurmaDialog cursos={cursos} />
+                  <Button size="sm" render={<Link href="/ensino/turma/nova" />}>
+                    <Plus className="h-4 w-4" />
+                    Criar a primeira turma
+                  </Button>
                 </div>
               )}
             </CardContent>

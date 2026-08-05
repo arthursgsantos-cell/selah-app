@@ -6,17 +6,35 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import Link from 'next/link'
-import { ArrowLeft, Users, Phone, User } from 'lucide-react'
+import { ArrowLeft, Users, Phone, User, Wallet, ExternalLink } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import type { CampoFormulario } from '@/lib/supabase/types'
 import { PagamentosInscrito } from '@/components/eventos/pagamentos-inscrito'
-import type { ParcelaEvento, PagamentoInscricao } from '@/lib/evento-cobranca'
+import { formatarBRL, type ParcelaEvento, type PagamentoInscricao } from '@/lib/evento-cobranca'
+import { resumoDoEvento } from '@/lib/eventos-resumo'
 
 const statusConfig = {
   pendente:   { label: 'Pendente',   className: 'bg-yellow-100 text-yellow-700' },
   confirmado: { label: 'Confirmado', className: 'bg-green-100 text-green-700'  },
   cancelado:  { label: 'Cancelado',  className: 'bg-red-100 text-red-700'      },
+}
+
+function Indicador({
+  rotulo, valor, icone, classe,
+}: {
+  rotulo: string
+  valor: number
+  icone?: React.ReactNode
+  classe?: string
+}) {
+  return (
+    <div className="rounded-2xl border border-border bg-card p-3">
+      <div className="text-muted-foreground h-4">{icone}</div>
+      <p className={`text-xl font-bold leading-none mt-1.5 ${classe ?? ''}`}>{valor}</p>
+      <p className="text-[11px] text-muted-foreground mt-0.5">{rotulo}</p>
+    </div>
+  )
 }
 
 export default async function InscritosList({ params }: { params: { eventoId: string } }) {
@@ -35,8 +53,8 @@ export default async function InscritosList({ params }: { params: { eventoId: st
 
   const admin = createAdminClient()
 
-  const [{ data: evento }, { data: inscritosRaw }, { data: parcelasData }] = await Promise.all([
-    admin.from('eventos').select('titulo, data_hora, formulario_id').eq('id', params.eventoId).single(),
+  const [{ data: evento }, { data: inscritosRaw }, { data: parcelasData }, resumo] = await Promise.all([
+    admin.from('eventos').select('titulo, slug, data_hora, formulario_id, local').eq('id', params.eventoId).single(),
     admin.from('inscricoes_evento')
       .select('id, nome, telefone, dados, status, criado_em, valor_total')
       .eq('evento_id', params.eventoId)
@@ -45,6 +63,7 @@ export default async function InscritosList({ params }: { params: { eventoId: st
       .select('id, numero, vencimento, percentual')
       .eq('evento_id', params.eventoId)
       .order('numero'),
+    resumoDoEvento(params.eventoId),
   ])
 
   if (!evento) notFound()
@@ -84,18 +103,83 @@ export default async function InscritosList({ params }: { params: { eventoId: st
         Voltar
       </Button>
 
-      <div>
-        <h1 className="text-xl font-bold">Inscritos</h1>
-        <p className="text-sm text-muted-foreground">{evento.titulo}</p>
-        <p className="text-xs text-muted-foreground capitalize">
-          {format(new Date(evento.data_hora), "EEE, d 'de' MMM 'às' HH'h'mm", { locale: ptBR })}
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold">Acompanhamento</h1>
+          <p className="text-sm text-muted-foreground">{evento.titulo}</p>
+          <p className="text-xs text-muted-foreground capitalize">
+            {format(new Date(evento.data_hora), "EEE, d 'de' MMM 'às' HH'h'mm", { locale: ptBR })}
+            {evento.local && ` · ${evento.local}`}
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="shrink-0"
+          render={<Link href={`/evento/${(evento as { slug: string | null }).slug ?? params.eventoId}`} />}
+        >
+          <ExternalLink className="h-4 w-4" />
+          Página do evento
+        </Button>
       </div>
 
-      <div className="flex items-center gap-2">
-        <Users className="h-4 w-4 text-muted-foreground" />
-        <span className="text-sm font-medium">{ativos.length} {ativos.length === 1 ? 'inscrito' : 'inscritos'}</span>
+      {/* Consolidado — o que o tesoureiro e a liderança querem de relance */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <Indicador rotulo="inscritos" valor={resumo.total - resumo.cancelados} icone={<Users className="h-4 w-4" />} />
+        <Indicador
+          rotulo="confirmados"
+          valor={resumo.confirmados}
+          classe={resumo.confirmados > 0 ? 'text-green-600' : undefined}
+        />
+        <Indicador
+          rotulo="pendentes"
+          valor={resumo.pendentes}
+          classe={resumo.pendentes > 0 ? 'text-amber-600' : undefined}
+        />
+        <Indicador rotulo="cancelados" valor={resumo.cancelados} />
       </div>
+
+      {resumo.valorPrevisto > 0 && (
+        <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Wallet className="h-4 w-4 text-muted-foreground" />
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+              Pagamentos
+            </p>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3 text-sm">
+            <div>
+              <p className="text-xs text-muted-foreground">Previsto</p>
+              <p className="font-semibold">{formatarBRL(resumo.valorPrevisto)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Recebido</p>
+              <p className="font-semibold text-green-600">{formatarBRL(resumo.valorPago)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">A receber</p>
+              <p className={`font-semibold ${resumo.saldo > 0 ? 'text-amber-600' : 'text-muted-foreground'}`}>
+                {formatarBRL(resumo.saldo)}
+              </p>
+            </div>
+          </div>
+
+          {resumo.percentualPago !== null && (
+            <div className="space-y-1">
+              <div className="h-2 rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-green-500 transition-all"
+                  style={{ width: `${Math.min(100, resumo.percentualPago)}%` }}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground text-right tabular-nums">
+                {resumo.percentualPago}% recebido
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       {inscritos.length === 0 ? (
         <Card>

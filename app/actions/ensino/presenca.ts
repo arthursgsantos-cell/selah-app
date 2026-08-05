@@ -163,7 +163,9 @@ export async function listaDaChamada(aulaId: string): Promise<LinhaChamada[]> {
   const [inscricoesRes, presencasRes] = await Promise.all([
     admin
       .from('ensino_inscricoes')
-      .select('id, user_id, nome, profiles(avatar_url)')
+      // FK nomeada: `user_id` e `decidido_por` apontam para `profiles`, e sem
+      // desambiguar o PostgREST recusa a consulta e a chamada vem vazia.
+      .select('id, user_id, nome, profiles!ensino_inscricoes_user_id_fkey(avatar_url)')
       .eq('turma_id', aula.turma_id)
       .in('status', ['aprovada', 'concluida'])
       .order('nome'),

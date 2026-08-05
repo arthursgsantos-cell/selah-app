@@ -3,7 +3,7 @@
 import { useState, useTransition, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Menu, UserCircle, LogOut, LogIn, Bell, ClipboardList, CheckCheck, Loader2, Info, UserCheck, ArrowLeft, Ticket } from 'lucide-react'
+import { Menu, UserCircle, LogOut, LogIn, Bell, ClipboardList, CheckCheck, Loader2, Info, UserCheck, ArrowLeft, Ticket, GraduationCap } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { signOutAction } from '@/app/actions/meu-perfil'
@@ -22,6 +22,12 @@ interface HeaderProps {
   churchName?: string | null
   isGuest?: boolean
   notificacoesNaoLidas?: number
+  /**
+   * Quem tem sino. Antes era só admin e pastor; a equipe do Ensino entrou
+   * porque o pedido de inscrição chega por aqui, e o cargo de professor não
+   * vive em `Role` — o layout é quem sabe consultar `ensino_equipe`.
+   */
+  recebeNotificacoes?: boolean
 }
 
 const roleLabels: Record<string, string> = {
@@ -38,9 +44,10 @@ const tipoIcon: Record<string, React.ReactNode> = {
   novo_login: <UserCheck className="h-4 w-4 text-blue-500" />,
   match_confirmado: <UserCheck className="h-4 w-4 text-green-500" />,
   match_sugerido: <UserCheck className="h-4 w-4 text-amber-500" />,
+  inscricao_ensino: <GraduationCap className="h-4 w-4 text-primary" />,
 }
 
-export function Header({ userName = 'Usuário', userRole = 'membro', avatarUrl, churchLogoUrl, churchName, isGuest = false, notificacoesNaoLidas = 0 }: HeaderProps) {
+export function Header({ userName = 'Usuário', userRole = 'membro', avatarUrl, churchLogoUrl, churchName, isGuest = false, notificacoesNaoLidas = 0, recebeNotificacoes }: HeaderProps) {
   const [navOpen, setNavOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
@@ -99,7 +106,10 @@ export function Header({ userName = 'Usuário', userRole = 'membro', avatarUrl, 
     startTransition(async () => { await marcarTodasComoLidas() })
   }
 
-  const showNotificacoes = !isGuest && (userRole === 'admin' || userRole === 'pastor')
+  // `recebeNotificacoes` ausente cai no critério antigo, para o header seguir
+  // funcionando em qualquer tela que ainda não passe a prop.
+  const showNotificacoes =
+    !isGuest && (recebeNotificacoes ?? (userRole === 'admin' || userRole === 'pastor'))
 
   return (
     <header className="flex h-16 items-center justify-between border-b bg-background px-4 md:px-6">
@@ -295,29 +305,51 @@ export function Header({ userName = 'Usuário', userRole = 'membro', avatarUrl, 
                     Nenhuma notificação
                   </div>
                 ) : (
-                  notificacoes.map((n) => (
-                    <button
-                      key={n.id}
-                      onClick={() => !n.lida && handleMarcarLida(n.id)}
-                      className={`w-full flex gap-3 px-4 py-3 text-left hover:bg-muted/50 transition-colors border-b last:border-0 ${!n.lida ? 'bg-primary/5' : ''}`}
-                    >
-                      <div className="shrink-0 mt-0.5">
-                        {tipoIcon[n.tipo] ?? <Info className="h-4 w-4 text-muted-foreground" />}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className={`text-sm leading-snug ${!n.lida ? 'font-medium' : ''}`}>{n.titulo}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{n.mensagem}</p>
-                        <p className="text-[11px] text-muted-foreground/60 mt-1">
-                          {formatDistanceToNow(new Date(n.created_at), { addSuffix: true, locale: ptBR })}
-                        </p>
-                      </div>
-                      {!n.lida && (
-                        <div className="shrink-0 mt-1.5">
-                          <span className="h-2 w-2 rounded-full bg-primary block" />
+                  notificacoes.map((n) => {
+                    // `dados.href` transforma a notificação em atalho: o pedido
+                    // de inscrição leva direto à tela de aprovação, em vez de
+                    // deixar o professor procurar a turma no menu.
+                    const href = n.dados?.href
+                    const conteudo = (
+                      <>
+                        <div className="shrink-0 mt-0.5">
+                          {tipoIcon[n.tipo] ?? <Info className="h-4 w-4 text-muted-foreground" />}
                         </div>
-                      )}
-                    </button>
-                  ))
+                        <div className="min-w-0 flex-1">
+                          <p className={`text-sm leading-snug ${!n.lida ? 'font-medium' : ''}`}>{n.titulo}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{n.mensagem}</p>
+                          <p className="text-[11px] text-muted-foreground/60 mt-1">
+                            {formatDistanceToNow(new Date(n.created_at), { addSuffix: true, locale: ptBR })}
+                          </p>
+                        </div>
+                        {!n.lida && (
+                          <div className="shrink-0 mt-1.5">
+                            <span className="h-2 w-2 rounded-full bg-primary block" />
+                          </div>
+                        )}
+                      </>
+                    )
+                    const classe = `w-full flex gap-3 px-4 py-3 text-left hover:bg-muted/50 transition-colors border-b last:border-0 ${!n.lida ? 'bg-primary/5' : ''}`
+
+                    return href ? (
+                      <Link
+                        key={n.id}
+                        href={href}
+                        onClick={() => { if (!n.lida) handleMarcarLida(n.id); setNotifOpen(false) }}
+                        className={classe}
+                      >
+                        {conteudo}
+                      </Link>
+                    ) : (
+                      <button
+                        key={n.id}
+                        onClick={() => !n.lida && handleMarcarLida(n.id)}
+                        className={classe}
+                      >
+                        {conteudo}
+                      </button>
+                    )
+                  })
                 )}
               </div>
             </div>

@@ -3,10 +3,10 @@
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { CheckCircle2, Clock, XCircle, Loader2, Ban } from 'lucide-react'
+import { CheckCircle2, Clock, XCircle, Loader2, Ban, ExternalLink, MessageCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cancelarMinhaInscricaoAction } from '@/app/actions/ensino/inscricoes'
-import type { StatusInscricaoEnsino } from '@/lib/supabase/types'
+import type { StatusInscricaoEnsino, TipoInscricaoTurma } from '@/lib/supabase/types'
 
 interface Props {
   turmaId: string
@@ -14,6 +14,9 @@ interface Props {
   /** Falso quando as inscrições estão fechadas, a turma encerrou ou lotou. */
   disponivel: boolean
   motivoIndisponivel: string
+  tipo: TipoInscricaoTurma
+  linkUrl: string | null
+  whatsapp: string | null
 }
 
 const APRESENTACAO: Record<
@@ -52,7 +55,9 @@ const APRESENTACAO: Record<
   },
 }
 
-export function InscricaoTurma({ turmaId, inscricao, disponivel, motivoIndisponivel }: Props) {
+export function InscricaoTurma({
+  turmaId, inscricao, disponivel, motivoIndisponivel, tipo, linkUrl, whatsapp,
+}: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [erro, setErro] = useState<string | null>(null)
@@ -93,7 +98,38 @@ export function InscricaoTurma({ turmaId, inscricao, disponivel, motivoIndisponi
         </div>
       )}
 
-      {!ativa && disponivel && (
+      {/* Link externo e WhatsApp levam para fora, e o app não guarda inscrição
+          nenhuma — por isso continuam disponíveis mesmo para quem já tem um
+          registro antigo aqui dentro. */}
+      {disponivel && tipo === 'link' && linkUrl && (
+        <Button
+          size="lg"
+          className="w-full"
+          render={<a href={linkUrl} target="_blank" rel="noopener noreferrer" />}
+        >
+          Fazer inscrição
+          <ExternalLink className="h-4 w-4" />
+        </Button>
+      )}
+
+      {disponivel && tipo === 'whatsapp' && whatsapp && (
+        <Button
+          size="lg"
+          className="w-full"
+          render={
+            <a
+              href={`https://wa.me/${whatsapp.replace(/\D/g, '')}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            />
+          }
+        >
+          <MessageCircle className="h-4 w-4" />
+          Inscrever pelo WhatsApp
+        </Button>
+      )}
+
+      {!ativa && disponivel && (tipo === 'app' || tipo === 'formulario') && (
         <Button size="lg" className="w-full" render={<Link href={`/ensino/inscricao/${turmaId}`} />}>
           {inscricao ? 'Pedir inscrição de novo' : 'Quero me inscrever'}
         </Button>

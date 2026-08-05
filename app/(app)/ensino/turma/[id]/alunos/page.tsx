@@ -33,7 +33,13 @@ export default async function AlunosTurmaPage({ params }: { params: { id: string
   const [inscricoesRes, aulasRes] = await Promise.all([
     admin
       .from('ensino_inscricoes')
-      .select('id, nome, telefone, email, status, observacao, dados, criado_em, profiles(avatar_url)')
+      // A FK precisa ser nomeada: a tabela tem dois caminhos para `profiles`
+      // (`user_id` e `decidido_por`), e o embed ambíguo faz o PostgREST recusar
+      // a consulta inteira — a tela mostrava "nenhuma inscrição" com pedidos no
+      // banco.
+      .select(
+        'id, nome, telefone, email, status, observacao, dados, criado_em, profiles!ensino_inscricoes_user_id_fkey(avatar_url)'
+      )
       .eq('turma_id', turma.id)
       .order('criado_em'),
     admin

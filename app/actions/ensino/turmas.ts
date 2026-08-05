@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { acessoEnsino, podeLecionar } from '@/lib/ensino/permissoes'
-import type { StatusTurma } from '@/lib/supabase/types'
+import type { StatusTurma, TipoInscricaoTurma } from '@/lib/supabase/types'
 import { BUCKET_CAPAS, type ResultadoAcao } from '@/lib/ensino/tipos'
 
 /**
@@ -50,6 +50,9 @@ export interface DadosTurma {
   aprovacaoAutomatica?: boolean
   status?: StatusTurma
   whatsappUrl?: string | null
+  tipoInscricao?: TipoInscricaoTurma
+  linkInscricaoUrl?: string | null
+  whatsappInscricao?: string | null
   formularioId?: string | null
   /** Ids de perfis. Quem cria já entra como professor se a lista vier vazia. */
   professores?: string[]
@@ -89,6 +92,9 @@ export async function criarTurmaAction(dados: DadosTurma): Promise<
       aprovacao_automatica: dados.aprovacaoAutomatica ?? true,
       status: dados.status ?? 'aberta',
       whatsapp_url: limpar(dados.whatsappUrl),
+      tipo_inscricao: dados.tipoInscricao ?? 'app',
+      link_inscricao_url: limpar(dados.linkInscricaoUrl),
+      whatsapp_inscricao: limpar(dados.whatsappInscricao),
       formulario_id: dados.formularioId || null,
       criado_por: acesso.userId,
     })
@@ -144,6 +150,9 @@ export async function editarTurmaAction(
       aprovacao_automatica: dados.aprovacaoAutomatica ?? true,
       status: dados.status ?? 'aberta',
       whatsapp_url: limpar(dados.whatsappUrl),
+      tipo_inscricao: dados.tipoInscricao ?? 'app',
+      link_inscricao_url: limpar(dados.linkInscricaoUrl),
+      whatsapp_inscricao: limpar(dados.whatsappInscricao),
       formulario_id: dados.formularioId || null,
       atualizado_em: new Date().toISOString(),
     })
@@ -171,6 +180,33 @@ export async function editarTurmaAction(
   revalidatePath('/ensino')
   revalidatePath(`/ensino/turma/${id}`)
   revalidatePath('/ensino/professor')
+  return { ok: true }
+}
+
+/**
+ * Liga ou desliga a turma no carrossel da home.
+ *
+ * Mesma mecânica do destaque de eventos — os dois alimentam a mesma faixa.
+ */
+export async function alternarDestaqueTurmaAction(
+  id: string,
+  destaque: boolean
+): Promise<ResultadoAcao> {
+  const acesso = await acessoEnsino()
+  if (!(await podeLecionar(acesso, id))) {
+    return { ok: false, erro: 'Você não administra esta turma.' }
+  }
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('ensino_turmas')
+    .update({ destaque })
+    .eq('id', id)
+
+  if (error) return { ok: false, erro: error.message }
+
+  revalidatePath('/home')
+  revalidatePath(`/ensino/turma/${id}`)
   return { ok: true }
 }
 

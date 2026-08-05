@@ -4,13 +4,17 @@ import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
-import { ArrowLeft, CalendarDays, MapPin } from 'lucide-react'
+import { ArrowLeft, CalendarDays, MapPin, Users, Wallet } from 'lucide-react'
+import { formatarBRL } from '@/lib/evento-cobranca'
 import { CriarEventoDialog } from '@/components/shared/criar-evento-dialog'
 import { EditarEventoDialog } from '@/components/shared/editar-evento-dialog'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Suspense } from 'react'
 import { PageSearch } from '@/components/shared/page-search'
+import {
+  resumosDeEventos, acompanhaInscricoes, CARGOS_ACOMPANHAMENTO, type ResumoEvento,
+} from '@/lib/eventos-resumo'
 
 const tipoConfig: Record<string, { label: string; className: string }> = {
   culto: { label: 'Culto', className: 'bg-purple-100 text-purple-700' },
@@ -35,6 +39,44 @@ const SORT_OPTS = [
   { value: 'az',   label: 'A → Z'         },
 ]
 
+/**
+ * Linha de resumo no card: quantos se inscreveram e quanto já entrou.
+ *
+ * `resumo` indefinido significa que quem está vendo não acompanha inscrições —
+ * nesse caso não mostra nada, em vez de mostrar zero.
+ */
+function ResumoInscricoes({
+  resumo,
+  recebeInscricoes,
+}: {
+  resumo?: ResumoEvento
+  recebeInscricoes: boolean
+}) {
+  if (!resumo || !recebeInscricoes) return null
+
+  const ativos = resumo.total - resumo.cancelados
+
+  return (
+    <div className="flex items-center gap-2.5 flex-wrap mt-2 text-xs">
+      <span className="inline-flex items-center gap-1 font-medium">
+        <Users className="h-3 w-3 shrink-0 text-muted-foreground" />
+        {ativos} {ativos === 1 ? 'inscrito' : 'inscritos'}
+      </span>
+      {resumo.pendentes > 0 && (
+        <span className="text-amber-600 font-medium">{resumo.pendentes} pendentes</span>
+      )}
+      {resumo.percentualPago !== null && (
+        <span className="inline-flex items-center gap-1">
+          <Wallet className="h-3 w-3 shrink-0 text-muted-foreground" />
+          <span className={resumo.percentualPago >= 100 ? 'text-green-600 font-medium' : 'text-muted-foreground'}>
+            {formatarBRL(resumo.valorPago)} de {formatarBRL(resumo.valorPrevisto)}
+          </span>
+        </span>
+      )}
+    </div>
+  )
+}
+
 export default async function EventosPage({
   searchParams,
 }: {
@@ -56,6 +98,8 @@ export default async function EventosPage({
   if (!profile) redirect('/onboarding')
 
   const canCreate = profile.role === 'pastor' || profile.role === 'supervisor' || profile.role === 'admin'
+  // Líder também acompanha inscrições, mesmo sem poder criar evento.
+  const podeAcompanhar = CARGOS_ACOMPANHAMENTO.includes(profile.role)
 
   const q = (searchParams.q ?? '').toLowerCase().trim()
   const tipoFiltro = searchParams.tipo ?? ''
@@ -63,7 +107,7 @@ export default async function EventosPage({
 
   let proximosQuery = supabase
     .from('eventos')
-    .select('id, titulo, descricao, data_hora, local, tipo, rede_id, imagem_url, recorrencia_id, recorrencia_tipo, tipo_inscricao, whatsapp_inscricao, pix_chave, pix_tipo, pix_nome, pix_valor, formulario_id, link_inscricao_url, data_hora_fim')
+    .select('id, slug, titulo, descricao, data_hora, local, tipo, rede_id, imagem_url, recorrencia_id, recorrencia_tipo, tipo_inscricao, whatsapp_inscricao, pix_chave, pix_tipo, pix_nome, pix_valor, formulario_id, link_inscricao_url, data_hora_fim')
     .eq('igreja_id', profile.igreja_id)
     .gte('data_hora', new Date().toISOString())
     .limit(50)
@@ -82,7 +126,7 @@ export default async function EventosPage({
 
   const { data: passados } = await supabase
     .from('eventos')
-    .select('id, titulo, data_hora, local, tipo, imagem_url, recorrencia_id, recorrencia_tipo, tipo_inscricao, whatsapp_inscricao, pix_chave, pix_tipo, pix_nome, pix_valor, formulario_id, link_inscricao_url, data_hora_fim')
+    .select('id, slug, titulo, data_hora, local, tipo, imagem_url, recorrencia_id, recorrencia_tipo, tipo_inscricao, whatsapp_inscricao, pix_chave, pix_tipo, pix_nome, pix_valor, formulario_id, link_inscricao_url, data_hora_fim')
     .eq('igreja_id', profile.igreja_id)
     .lt('data_hora', new Date().toISOString())
     .order('data_hora', { ascending: false })
@@ -92,6 +136,26 @@ export default async function EventosPage({
     (!q || e.titulo.toLowerCase().includes(q) || e.local?.toLowerCase().includes(q)) &&
     (!tipoFiltro || e.tipo === tipoFiltro)
   )
+
+  // Resumo de inscrições e pagamentos por evento. Só para quem acompanha —
+  // para os demais, a consulta nem acontece.
+  const resumos = podeAcompanhar
+    ? await resumosDeEventos([
+        ...proximos.map((e) => e.id),
+        ...passadosFiltrados.map((e) => e.id),
+      ])
+    : {}
+
+  /**
+   * Para quem acompanha, clicar no evento abre a lista de inscritos — é o que
+   * a liderança quer ver. Os demais vão para a página pública do evento.
+   */
+  function destinoDoCard(evento: { id: string; slug?: string | null; tipo_inscricao?: string | null }) {
+    if (podeAcompanhar && acompanhaInscricoes(evento.tipo_inscricao)) {
+      return `/inscricoes/${evento.id}`
+    }
+    return `/evento/${evento.slug ?? evento.id}`
+  }
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
@@ -200,9 +264,35 @@ export default async function EventosPage({
                             {evento.descricao}
                           </p>
                         )}
+
+                        <ResumoInscricoes
+                          resumo={resumos[evento.id]}
+                          recebeInscricoes={acompanhaInscricoes(evento.tipo_inscricao)}
+                        />
                       </div>
                     </div>
                   </CardContent>
+
+                  {/* O card inteiro leva ao acompanhamento; o botão à direita
+                      abre a página pública, que é o outro destino esperado. */}
+                  <div className="flex items-center border-t divide-x">
+                    <Link
+                      href={destinoDoCard(evento)}
+                      className="flex-1 px-4 py-2.5 text-xs font-medium text-primary hover:bg-accent transition-colors text-center"
+                    >
+                      {podeAcompanhar && acompanhaInscricoes(evento.tipo_inscricao)
+                        ? 'Acompanhar inscrições'
+                        : 'Abrir evento'}
+                    </Link>
+                    {podeAcompanhar && acompanhaInscricoes(evento.tipo_inscricao) && (
+                      <Link
+                        href={`/evento/${evento.slug ?? evento.id}`}
+                        className="px-4 py-2.5 text-xs font-medium text-muted-foreground hover:bg-accent transition-colors"
+                      >
+                        Página do evento
+                      </Link>
+                    )}
+                  </div>
                 </Card>
               )
             })}
@@ -232,10 +322,12 @@ export default async function EventosPage({
             {passadosFiltrados.map((evento) => {
               const tipo = tipoConfig[evento.tipo] ?? tipoConfig.outro
               return (
-                <Card key={evento.id} className="opacity-60">
+                <Card key={evento.id} className="opacity-60 hover:opacity-100 transition-opacity">
                   <CardContent className="py-3 px-4">
                     <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
+                      {/* Só o conteúdo é link: o botão de editar não pode ficar
+                          dentro de uma âncora. */}
+                      <Link href={destinoDoCard(evento)} className="flex items-center gap-3 min-w-0 flex-1">
                         {evento.imagem_url && (
                           <img
                             src={evento.imagem_url}
@@ -250,7 +342,7 @@ export default async function EventosPage({
                             {evento.local && ` · ${evento.local}`}
                           </p>
                         </div>
-                      </div>
+                      </Link>
                       <div className="flex items-center gap-1 shrink-0">
                         <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${tipo.className}`}>
                           {tipo.label}

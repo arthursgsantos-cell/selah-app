@@ -1,6 +1,11 @@
 export type Role = 'admin' | 'pastor' | 'supervisor' | 'supervisor_treinamento' | 'lider' | 'lider_treinamento' | 'membro' | 'convidado'
 export type StatusPreCadastro = 'pendente' | 'confirmado' | 'rejeitado'
-export type TipoNotificacao = 'novo_login' | 'match_sugerido' | 'match_confirmado'
+export type TipoNotificacao =
+  | 'novo_login'
+  | 'match_sugerido'
+  | 'match_confirmado'
+  /** Pedido de inscrição numa turma, enviado aos professores dela. */
+  | 'inscricao_ensino'
 export type StatusPresenca = 'confirmado' | 'ausente' | 'pendente'
 export type Frequencia = 'semanal' | 'quinzenal'
 export type StatusEncontro = 'agendado' | 'realizado' | 'cancelado'
@@ -25,6 +30,11 @@ export type StatusTurma = 'aberta' | 'em_andamento' | 'concluida' | 'cancelada'
 export type StatusInscricaoEnsino = 'pendente' | 'aprovada' | 'recusada' | 'cancelada' | 'concluida'
 export type StatusAula = 'agendada' | 'realizada' | 'cancelada'
 export type TipoMaterial = 'arquivo' | 'link' | 'video'
+/**
+ * Como a pessoa se inscreve numa turma. `link` e `whatsapp` mandam para fora —
+ * nesses dois o app não registra inscrição nem monta lista de chamada.
+ */
+export type TipoInscricaoTurma = 'app' | 'formulario' | 'link' | 'whatsapp'
 export type CampoFormulario = {
   id: string
   tipo: 'texto' | 'email' | 'telefone' | 'numero' | 'opcoes' | 'checkbox' | 'textarea' | 'grupo'
@@ -69,6 +79,16 @@ export type Database = {
           youtube_url: string | null
           pastor_nome: string | null
           pastor_titulo: string | null
+          // Aparência da página inicial. `fundo_tipo` nulo = fundo padrão do app.
+          cor: string | null
+          cor_secundaria: string | null
+          fundo_tipo: string | null
+          fundo_imagem_url: string | null
+          fundo_opacidade: number
+          fundo_galeria: boolean
+          fundo_galeria_opacidade: number
+          fundo_auto_cor: boolean
+          fundo_auto_cor_origem: string | null
           created_at: string
         }
         Insert: {
@@ -86,6 +106,15 @@ export type Database = {
           youtube_url?: string | null
           pastor_nome?: string | null
           pastor_titulo?: string | null
+          cor?: string | null
+          cor_secundaria?: string | null
+          fundo_tipo?: string | null
+          fundo_imagem_url?: string | null
+          fundo_opacidade?: number
+          fundo_galeria?: boolean
+          fundo_galeria_opacidade?: number
+          fundo_auto_cor?: boolean
+          fundo_auto_cor_origem?: string | null
           created_at?: string
         }
         Update: {
@@ -103,6 +132,15 @@ export type Database = {
           youtube_url?: string | null
           pastor_nome?: string | null
           pastor_titulo?: string | null
+          cor?: string | null
+          cor_secundaria?: string | null
+          fundo_tipo?: string | null
+          fundo_imagem_url?: string | null
+          fundo_opacidade?: number
+          fundo_galeria?: boolean
+          fundo_galeria_opacidade?: number
+          fundo_auto_cor?: boolean
+          fundo_auto_cor_origem?: string | null
           created_at?: string
         }
         Relationships: []
@@ -1444,7 +1482,20 @@ export type Database = {
           inscricoes_abertas: boolean
           aprovacao_automatica: boolean
           status: StatusTurma
+          destaque: boolean
+          cor: string | null
+          cor_secundaria: string | null
+          fundo_tipo: string | null
+          fundo_imagem_url: string | null
+          fundo_opacidade: number
+          fundo_galeria: boolean
+          fundo_galeria_opacidade: number
+          fundo_auto_cor: boolean
+          fundo_auto_cor_origem: string | null
           whatsapp_url: string | null
+          tipo_inscricao: TipoInscricaoTurma
+          link_inscricao_url: string | null
+          whatsapp_inscricao: string | null
           formulario_id: string | null
           criado_por: string | null
           criado_em: string
@@ -1468,7 +1519,20 @@ export type Database = {
           inscricoes_abertas?: boolean
           aprovacao_automatica?: boolean
           status?: StatusTurma
+          destaque?: boolean
+          cor?: string | null
+          cor_secundaria?: string | null
+          fundo_tipo?: string | null
+          fundo_imagem_url?: string | null
+          fundo_opacidade?: number
+          fundo_galeria?: boolean
+          fundo_galeria_opacidade?: number
+          fundo_auto_cor?: boolean
+          fundo_auto_cor_origem?: string | null
           whatsapp_url?: string | null
+          tipo_inscricao?: TipoInscricaoTurma
+          link_inscricao_url?: string | null
+          whatsapp_inscricao?: string | null
           formulario_id?: string | null
           criado_por?: string | null
           criado_em?: string
@@ -1492,7 +1556,20 @@ export type Database = {
           inscricoes_abertas?: boolean
           aprovacao_automatica?: boolean
           status?: StatusTurma
+          destaque?: boolean
+          cor?: string | null
+          cor_secundaria?: string | null
+          fundo_tipo?: string | null
+          fundo_imagem_url?: string | null
+          fundo_opacidade?: number
+          fundo_galeria?: boolean
+          fundo_galeria_opacidade?: number
+          fundo_auto_cor?: boolean
+          fundo_auto_cor_origem?: string | null
           whatsapp_url?: string | null
+          tipo_inscricao?: TipoInscricaoTurma
+          link_inscricao_url?: string | null
+          whatsapp_inscricao?: string | null
           formulario_id?: string | null
           criado_por?: string | null
           criado_em?: string

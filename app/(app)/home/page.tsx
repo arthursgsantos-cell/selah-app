@@ -12,10 +12,14 @@ import { EventosDestaque, type EventoDestaque } from '@/components/home/eventos-
 import { SolicitarCelulaDialog } from '@/components/home/solicitar-celula-dialog'
 import { FotosComunidadeCarousel } from '@/components/home/fotos-comunidade-carousel'
 import { EncontroShareBtn } from '@/components/home/encontro-share-btn'
+import { PastoresCard, type PastorItem } from '@/components/home/pastores-card'
+import { HomeFundo } from '@/components/home/home-fundo'
+import { FundoGaleria } from '@/components/shared/fundo-galeria'
 import { format, formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import type { Role } from '@/lib/supabase/types'
 import { FUNCOES_ESCALA, funcaoComEmoji } from '@/lib/escala-funcoes'
+import { encontrosTexto } from '@/lib/ensino/turma'
 
 const roleLabels: Record<Role, string> = {
   admin: 'Admin',
@@ -44,8 +48,8 @@ export default async function HomePage() {
 
   // Fetch church (with name for guest welcome)
   const { data: ig } = profile?.igreja_id
-    ? await supabase.from('igrejas').select('id, nome, logo_url, descricao, instagram_url, facebook_url, youtube_url, pastor_nome, pastor_titulo, pastor_foto_url, horario_culto, endereco, fundada_em').eq('id', profile.igreja_id).single()
-    : await supabase.from('igrejas').select('id, nome, logo_url, descricao, instagram_url, facebook_url, youtube_url, pastor_nome, pastor_titulo, pastor_foto_url, horario_culto, endereco, fundada_em').limit(1).single()
+    ? await supabase.from('igrejas').select('id, nome, logo_url, descricao, instagram_url, facebook_url, youtube_url, pastor_nome, pastor_titulo, pastor_foto_url, horario_culto, endereco, fundada_em, cor, cor_secundaria, fundo_tipo, fundo_imagem_url, fundo_opacidade, fundo_galeria, fundo_galeria_opacidade').eq('id', profile.igreja_id).single()
+    : await supabase.from('igrejas').select('id, nome, logo_url, descricao, instagram_url, facebook_url, youtube_url, pastor_nome, pastor_titulo, pastor_foto_url, horario_culto, endereco, fundada_em, cor, cor_secundaria, fundo_tipo, fundo_imagem_url, fundo_opacidade, fundo_galeria, fundo_galeria_opacidade').limit(1).single()
 
   const church = ig as any
   const igrejaId = church?.id ?? null
@@ -190,6 +194,37 @@ export default async function HomePage() {
     capa: e.capa_pagina_url ?? e.imagem_url,
   }))
 
+  // Turmas destacadas entram na mesma faixa dos eventos: para quem vê a home,
+  // "destaque" é um conceito só. Concluída e cancelada ficam de fora — o
+  // carrossel é convite para entrar, não vitrine de arquivo.
+  const { data: turmasDestaque } = igrejaId
+    ? await admin
+        .from('ensino_turmas')
+        .select('id, nome, capa_url, local, dias_semana, horario_inicio, horario_fim, ensino_cursos(nome)')
+        .eq('igreja_id', igrejaId)
+        .eq('destaque', true)
+        .in('status', ['aberta', 'em_andamento'])
+        .limit(6)
+    : { data: [] }
+
+  for (const t of (turmasDestaque ?? []) as unknown as {
+    id: string; nome: string; capa_url: string | null; local: string | null
+    dias_semana: number[]; horario_inicio: string | null; horario_fim: string | null
+    ensino_cursos: { nome: string } | null
+  }[]) {
+    destaques.push({
+      id: `turma-${t.id}`,
+      slug: null,
+      titulo: t.nome,
+      data_hora: null,
+      subtitulo: encontrosTexto(t.dias_semana, t.horario_inicio, t.horario_fim) || null,
+      local: t.local,
+      capa: t.capa_url,
+      href: `/ensino/turma/${t.id}`,
+      selo: t.ensino_cursos?.nome ?? 'Ensino',
+    })
+  }
+
   const eventIds = (eventos ?? []).map((e) => e.id)
 
   // Nomes das redes para os eventos de tipo 'rede'
@@ -327,70 +362,19 @@ export default async function HomePage() {
         </div>
 
         {/* Cards dos pastores — baseado nos perfis com role='pastor' */}
-        {(() => {
-          type PastorRow = { id: string; nome: string; avatar_url: string | null; titulo: string | null }
-          const pastores = (pastorProfiles ?? []) as unknown as PastorRow[]
-
-          // Fallback: se não houver perfis de pastor, usa dados da igreja
-          if (pastores.length === 0 && church?.pastor_nome) {
-            return (
-              <div className="rounded-2xl border border-blue-100 bg-white overflow-hidden shadow-sm">
-                <div className="h-1 bg-gradient-to-r from-[#0B2447] via-[#0F52BA] to-[#4DA6FF]" />
-                <div className="p-4 flex items-center gap-4">
-                  {church?.pastor_foto_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={church.pastor_foto_url} alt={church.pastor_nome}
-                      className="h-16 w-16 rounded-full object-cover ring-2 ring-blue-100 shadow-md shrink-0" />
-                  ) : (
-                    <div className="h-16 w-16 rounded-full bg-gradient-to-br from-[#0B2447] to-[#0F52BA] flex items-center justify-center ring-2 ring-blue-100 shadow-md shrink-0">
-                      <span className="text-xl font-bold text-white">
-                        {(church.pastor_nome as string).split(' ').slice(0, 2).map((n: string) => n[0]).join('')}
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[10px] font-bold text-[#0F52BA] uppercase tracking-widest">{church.pastor_titulo ?? 'Pastor'}</p>
-                    <p className="font-bold text-lg text-gray-900 leading-tight mt-0.5">{church.pastor_nome}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{church?.nome ?? 'Igreja Batista Zona Sul'}</p>
-                  </div>
-                </div>
-              </div>
-            )
+        <PastoresCard
+          pastores={(pastorProfiles ?? []) as unknown as PastorItem[]}
+          igrejaNome={church?.nome ?? 'Igreja Batista Zona Sul'}
+          fallback={
+            church?.pastor_nome
+              ? {
+                  nome: church.pastor_nome as string,
+                  titulo: (church.pastor_titulo as string | null) ?? null,
+                  fotoUrl: (church.pastor_foto_url as string | null) ?? null,
+                }
+              : null
           }
-
-          if (pastores.length === 0) return null
-
-          return (
-            <div className="rounded-2xl border border-blue-100 bg-white overflow-hidden shadow-sm">
-              <div className="h-1 bg-gradient-to-r from-[#0B2447] via-[#0F52BA] to-[#4DA6FF]" />
-              <div className="divide-y divide-blue-50">
-                {pastores.map((pastor) => {
-                  const iniciais = pastor.nome.split(' ').slice(0, 2).map((n) => n[0]).join('')
-                  return (
-                    <div key={pastor.id} className="p-4 flex items-center gap-4">
-                      {pastor.avatar_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img referrerPolicy="no-referrer" src={pastor.avatar_url} alt={pastor.nome}
-                          className="h-14 w-14 rounded-full object-cover ring-2 ring-blue-100 shadow-md shrink-0" />
-                      ) : (
-                        <div className="h-14 w-14 rounded-full bg-gradient-to-br from-[#0B2447] to-[#0F52BA] flex items-center justify-center ring-2 ring-blue-100 shadow-md shrink-0">
-                          <span className="text-lg font-bold text-white">{iniciais}</span>
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[10px] font-bold text-[#0F52BA] uppercase tracking-widest">
-                          {pastor.titulo ?? 'Pastor'}
-                        </p>
-                        <p className="font-bold text-base text-gray-900 leading-tight mt-0.5">{pastor.nome}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">{church?.nome ?? 'Igreja Batista Zona Sul'}</p>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )
-        })()}
+        />
 
         {/* Info rápida — cultos e endereço */}
         {(church?.horario_culto || church?.endereco) && (
@@ -596,8 +580,33 @@ export default async function HomePage() {
   }
 
   // ── MEMBER / LOGGED-IN VIEW ─────────────────────────────────────────
+  const podeEditarHome = profile.role === 'pastor' || profile.role === 'admin'
+
   return (
     <div className="space-y-6 max-w-2xl mx-auto pb-6">
+
+      {/* Fundo da página inicial — configurado pela liderança e guardado em
+          `igrejas`. Sem `fundo_tipo` a home mantém o fundo padrão do app. */}
+      <FundoGaleria
+        fotos={galleryPhotos.map((f) => f.url)}
+        opacidade={church?.fundo_galeria_opacidade ?? 35}
+        ativo={church?.fundo_galeria ?? false}
+      />
+      {podeEditarHome && (
+        <div className="flex justify-end -mb-2">
+          <HomeFundo
+            cor={church?.cor ?? null}
+            corSecundaria={church?.cor_secundaria ?? null}
+            fundoTipo={church?.fundo_tipo ?? null}
+            fundoImagemUrl={church?.fundo_imagem_url ?? null}
+            fundoOpacidade={church?.fundo_opacidade ?? 100}
+            galeriaAtiva={church?.fundo_galeria ?? false}
+            galeriaOpacidade={church?.fundo_galeria_opacidade ?? 35}
+            totalFotos={galleryPhotos.length}
+            canEdit
+          />
+        </div>
+      )}
 
       {/* Hero — boas-vindas pessoal */}
       <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-[#0B2447] via-[#19376D] to-[#0F52BA] p-6 text-white shadow-lg">
@@ -619,109 +628,156 @@ export default async function HomePage() {
         </div>
       </div>
 
+      {/* Liderança — logo abaixo da saudação */}
+      <PastoresCard
+        pastores={(pastorProfiles ?? []) as unknown as PastorItem[]}
+        igrejaNome={church?.nome ?? 'Igreja Batista Zona Sul'}
+        fallback={
+          church?.pastor_nome
+            ? {
+                nome: church.pastor_nome as string,
+                titulo: (church.pastor_titulo as string | null) ?? null,
+                fotoUrl: (church.pastor_foto_url as string | null) ?? null,
+              }
+            : null
+        }
+      />
+
       {/* Destaques escolhidos na página de cada evento */}
       <EventosDestaque eventos={destaques} />
 
-      {/* Atalho para a célula — só aparece para quem está em uma */}
-      {celulaId && (
-        <Link
-          href="/celula"
-          className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm transition-colors hover:bg-accent"
-        >
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <Users className="h-5 w-5" />
+      {/*
+        Minha célula e o próximo encontro numa seção só.
+        Eram dois cartões distantes um do outro na página, e o membro tinha de
+        rolar entre eles para juntar duas informações da mesma célula.
+      */}
+      {celulaId ? (
+        <section className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm">
+          <Link
+            href="/celula"
+            className="flex items-center gap-3 p-4 transition-colors hover:bg-accent"
+          >
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <Users className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-bold text-primary uppercase tracking-widest">
+                Minha célula
+              </p>
+              <p className="truncate text-sm font-semibold leading-tight mt-0.5">
+                {(membroCelula as { celulas?: { nome?: string } | null } | null)?.celulas?.nome ?? 'Ver minha célula'}
+              </p>
+            </div>
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+          </Link>
+
+          <div className="border-t bg-muted/30 p-4">
+            <div className="flex items-center gap-2 mb-2.5">
+              <CalendarDays className="h-3.5 w-3.5 text-primary" />
+              <h2 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                Próximo encontro
+              </h2>
+            </div>
+
+            {proximoEncontro ? (
+              <>
+                <Link href={`/encontro/${proximoEncontro.id}`} className="block group">
+                  <div className="flex gap-3">
+                    {proximoEncontro.card_imagem_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={proximoEncontro.card_imagem_url}
+                        alt="Capa do encontro"
+                        className="h-14 w-14 rounded-xl object-cover shrink-0"
+                      />
+                    ) : (
+                      <div className="p-2.5 rounded-xl bg-primary/10 shrink-0 self-start">
+                        <CalendarDays className="h-5 w-5 text-primary" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="font-semibold capitalize text-sm">
+                          {format(new Date(proximoEncontro.data_hora), "EEEE, d 'de' MMMM", { locale: ptBR })}
+                        </p>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {format(new Date(proximoEncontro.data_hora), "HH'h'mm", { locale: ptBR })}
+                        {' · '}
+                        {formatDistanceToNow(new Date(proximoEncontro.data_hora), { locale: ptBR, addSuffix: true })}
+                      </p>
+                      {proximoEncontro.local && (
+                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                          <MapPin className="h-3 w-3 shrink-0" />
+                          {proximoEncontro.local}
+                        </p>
+                      )}
+                      {minhasEscalas && minhasEscalas.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {minhasEscalas.map((e) => (
+                            <Badge key={e.funcao} variant="secondary" className="text-xs">
+                              {funcaoLabels[e.funcao] ?? e.funcao}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+                <EncontroShareBtn
+                  celulaNome={(membroCelula as { celulas?: { nome?: string } | null } | null)?.celulas?.nome ?? 'Célula'}
+                  dataHora={proximoEncontro.data_hora}
+                  local={proximoEncontro.local ?? null}
+                  cardImagemUrl={proximoEncontro.card_imagem_url ?? null}
+                />
+              </>
+            ) : (
+              <div className="py-4 text-center">
+                <p className="text-sm text-muted-foreground">Nenhum encontro agendado</p>
+                <Link href="/celula" className="inline-block mt-2 text-xs font-semibold text-primary hover:underline">
+                  Agendar encontro →
+                </Link>
+              </div>
+            )}
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold leading-tight">Minha célula</p>
-            <p className="truncate text-xs text-muted-foreground">
-              {(membroCelula as { celulas?: { nome?: string } | null } | null)?.celulas?.nome ?? 'Ver minha célula'}
-            </p>
-          </div>
-          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-        </Link>
+        </section>
+      ) : (
+        <div className="rounded-2xl border border-dashed border-border p-8 text-center">
+          <Users className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+          <p className="text-sm font-medium text-muted-foreground">Você ainda não está em uma célula</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Solicite e nossa equipe vai te indicar a melhor célula
+          </p>
+          <SolicitarCelulaDialog email={user?.email ?? ''} nomeInicial={profile?.nome ?? ''} />
+        </div>
       )}
 
       {/* Atalho para o Ensino */}
       <Link
         href="/ensino"
-        className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm transition-colors hover:bg-accent"
+        className="group relative block overflow-hidden rounded-2xl bg-gradient-to-br from-[#0B2447] via-[#19376D] to-[#0F52BA] p-5 text-white shadow-md transition-shadow hover:shadow-lg"
       >
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-          <GraduationCap className="h-5 w-5" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold leading-tight">Ensino</p>
-          <p className="truncate text-xs text-muted-foreground">
-            Cursos, turmas e materiais da Escola Bíblica
-          </p>
-        </div>
-        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-      </Link>
-
-      {/* Cards dos pastores */}
-      {(() => {
-        type PastorRow = { id: string; nome: string; avatar_url: string | null; titulo: string | null }
-        const pastores = (pastorProfiles ?? []) as unknown as PastorRow[]
-
-        if (pastores.length === 0 && church?.pastor_nome) {
-          return (
-            <div className="rounded-2xl border border-blue-100 bg-white overflow-hidden shadow-sm">
-              <div className="h-1 bg-gradient-to-r from-[#0B2447] via-[#0F52BA] to-[#4DA6FF]" />
-              <div className="p-4 flex items-center gap-4">
-                {church?.pastor_foto_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={church.pastor_foto_url} alt={church.pastor_nome}
-                    className="h-16 w-16 rounded-full object-cover ring-2 ring-blue-100 shadow-md shrink-0" />
-                ) : (
-                  <div className="h-16 w-16 rounded-full bg-gradient-to-br from-[#0B2447] to-[#0F52BA] flex items-center justify-center ring-2 ring-blue-100 shadow-md shrink-0">
-                    <span className="text-xl font-bold text-white">
-                      {(church.pastor_nome as string).split(' ').slice(0, 2).map((n: string) => n[0]).join('')}
-                    </span>
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] font-bold text-[#0F52BA] uppercase tracking-widest">{church.pastor_titulo ?? 'Pastor'}</p>
-                  <p className="font-bold text-lg text-gray-900 leading-tight mt-0.5">{church.pastor_nome}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{church?.nome ?? 'Igreja Batista Zona Sul'}</p>
-                </div>
-              </div>
-            </div>
-          )
-        }
-
-        if (pastores.length === 0) return null
-
-        return (
-          <div className="rounded-2xl border border-blue-100 bg-white overflow-hidden shadow-sm">
-            <div className="h-1 bg-gradient-to-r from-[#0B2447] via-[#0F52BA] to-[#4DA6FF]" />
-            <div className="divide-y divide-blue-50">
-              {pastores.map((pastor) => {
-                const iniciais = pastor.nome.split(' ').slice(0, 2).map((n) => n[0]).join('')
-                return (
-                  <div key={pastor.id} className="p-4 flex items-center gap-4">
-                    {pastor.avatar_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img referrerPolicy="no-referrer" src={pastor.avatar_url} alt={pastor.nome}
-                        className="h-14 w-14 rounded-full object-cover ring-2 ring-blue-100 shadow-md shrink-0" />
-                    ) : (
-                      <div className="h-14 w-14 rounded-full bg-gradient-to-br from-[#0B2447] to-[#0F52BA] flex items-center justify-center ring-2 ring-blue-100 shadow-md shrink-0">
-                        <span className="text-lg font-bold text-white">{iniciais}</span>
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[10px] font-bold text-[#0F52BA] uppercase tracking-widest">
-                        {pastor.titulo ?? 'Pastor'}
-                      </p>
-                      <p className="font-bold text-base text-gray-900 leading-tight mt-0.5">{pastor.nome}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{church?.nome ?? 'Igreja Batista Zona Sul'}</p>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
+        <div
+          className="absolute inset-0 opacity-15"
+          style={{ backgroundImage: 'radial-gradient(circle at 85% 15%, white 0%, transparent 55%)' }}
+        />
+        <div className="relative flex items-center gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15 backdrop-blur">
+            <GraduationCap className="h-6 w-6" />
           </div>
-        )
-      })()}
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-white/70">
+              Escola Bíblica
+            </p>
+            <p className="text-base font-bold leading-tight mt-0.5">Ensino</p>
+            <p className="text-xs text-white/75 mt-1 leading-snug">
+              Cursos, turmas, materiais e sua frequência
+            </p>
+          </div>
+          <ChevronRight className="h-5 w-5 shrink-0 text-white/70 transition-transform group-hover:translate-x-0.5" />
+        </div>
+      </Link>
 
       {/* Aniversário próprio — destaque pessoal */}
       {meuAniversarioHoje && (
@@ -850,79 +906,6 @@ export default async function HomePage() {
           )}
         </section>
       )}
-
-      {/* Próximo encontro */}
-      <section>
-        <div className="flex items-center gap-2 mb-3">
-          <CalendarDays className="h-4 w-4 text-primary" />
-          <h2 className="text-sm font-semibold text-foreground">Próximo encontro</h2>
-        </div>
-        {proximoEncontro ? (
-          <Link href={`/encontro/${proximoEncontro.id}`}>
-            <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 to-accent/10 p-4 hover:shadow-md transition-all cursor-pointer group">
-              <div className="flex gap-3">
-                {proximoEncontro.card_imagem_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={proximoEncontro.card_imagem_url} alt="Capa do encontro" className="h-14 w-14 rounded-xl object-cover shrink-0" />
-                ) : (
-                  <div className="p-2.5 rounded-xl bg-primary/10 shrink-0 self-start">
-                    <CalendarDays className="h-5 w-5 text-primary" />
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="font-semibold capitalize text-sm">
-                      {format(new Date(proximoEncontro.data_hora), "EEEE, d 'de' MMMM", { locale: ptBR })}
-                    </p>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 group-hover:translate-x-0.5 transition-transform" />
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {format(new Date(proximoEncontro.data_hora), "HH'h'mm", { locale: ptBR })}
-                    {' · '}
-                    {formatDistanceToNow(new Date(proximoEncontro.data_hora), { locale: ptBR, addSuffix: true })}
-                  </p>
-                  {proximoEncontro.local && (
-                    <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                      <MapPin className="h-3 w-3 shrink-0" />
-                      {proximoEncontro.local}
-                    </p>
-                  )}
-                  {minhasEscalas && minhasEscalas.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {minhasEscalas.map((e) => (
-                        <Badge key={e.funcao} variant="secondary" className="text-xs">
-                          {funcaoLabels[e.funcao] ?? e.funcao}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <EncontroShareBtn
-                celulaNome={(membroCelula as { celulas?: { nome?: string } | null } | null)?.celulas?.nome ?? 'Célula'}
-                dataHora={proximoEncontro.data_hora}
-                local={proximoEncontro.local ?? null}
-                cardImagemUrl={proximoEncontro.card_imagem_url ?? null}
-              />
-            </div>
-          </Link>
-        ) : celulaId ? (
-          <div className="rounded-2xl border border-dashed border-border p-8 text-center">
-            <CalendarDays className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
-            <p className="text-sm font-medium text-muted-foreground">Nenhum encontro agendado</p>
-            <Link href="/celula" className="inline-block mt-3 text-xs font-semibold text-primary hover:underline">
-              Agendar encontro →
-            </Link>
-          </div>
-        ) : (
-          <div className="rounded-2xl border border-dashed border-border p-8 text-center">
-            <Users className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
-            <p className="text-sm font-medium text-muted-foreground">Você ainda não está em uma célula</p>
-            <p className="text-xs text-muted-foreground mt-1">Solicite e nossa equipe vai te indicar a melhor célula</p>
-            <SolicitarCelulaDialog email={user?.email ?? ''} nomeInicial={profile?.nome ?? ''} />
-          </div>
-        )}
-      </section>
 
       {/* Aniversariantes do mês */}
       {aniversariantesMes.length > 0 && (

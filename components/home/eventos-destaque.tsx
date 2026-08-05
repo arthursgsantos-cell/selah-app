@@ -10,10 +10,20 @@ export type EventoDestaque = {
   slug: string | null
   id: string
   titulo: string
-  data_hora: string
+  /** Nulo em itens sem data única — uma turma acontece toda semana. */
+  data_hora: string | null
   local: string | null
   /** Capa da página quando houver; senão o card do evento. */
   capa: string | null
+  /**
+   * Destino. Sem isso cai em `/evento/[slug ?? id]`, o comportamento dos
+   * eventos — as turmas passam o próprio caminho.
+   */
+  href?: string
+  /** Texto no lugar da data. Usado pelas turmas: "Quartas · 19h às 21h". */
+  subtitulo?: string | null
+  /** Rótulo do selo. Padrão "Destaque". */
+  selo?: string
 }
 
 interface Props {
@@ -27,9 +37,13 @@ interface Props {
  * com `scroll-snap` — funciona no toque do celular sem biblioteca e sem
  * quebrar o teclado.
  */
+/** Intervalo da passagem automática. */
+const INTERVALO_MS = 3000
+
 export function EventosDestaque({ eventos }: Props) {
   const trilhoRef = useRef<HTMLDivElement>(null)
   const [atual, setAtual] = useState(0)
+  const [pausado, setPausado] = useState(false)
 
   // Acompanha a rolagem para acender a bolinha certa.
   useEffect(() => {
@@ -45,6 +59,27 @@ export function EventosDestaque({ eventos }: Props) {
     return () => trilho.removeEventListener('scroll', aoRolar)
   }, [eventos.length])
 
+  /**
+   * Passagem automática a cada 3s, em laço.
+   *
+   * Pausa em três situações, e as três importam: o ponteiro em cima (a pessoa
+   * está lendo), o dedo tocando (senão o carrossel briga com o gesto de
+   * arrastar) e a aba em segundo plano — sem isso, voltar depois de meia hora
+   * traz uma fila de scrolls acumulados.
+   */
+  useEffect(() => {
+    if (eventos.length < 2 || pausado) return
+
+    const timer = setInterval(() => {
+      const t = trilhoRef.current
+      if (!t || document.hidden) return
+      const proximo = (Math.round(t.scrollLeft / t.clientWidth) + 1) % eventos.length
+      t.scrollTo({ left: proximo * t.clientWidth, behavior: 'smooth' })
+    }, INTERVALO_MS)
+
+    return () => clearInterval(timer)
+  }, [eventos.length, pausado])
+
   if (eventos.length === 0) return null
 
   function irPara(i: number) {
@@ -57,12 +92,16 @@ export function EventosDestaque({ eventos }: Props) {
     <section className="space-y-2">
       <div
         ref={trilhoRef}
+        onMouseEnter={() => setPausado(true)}
+        onMouseLeave={() => setPausado(false)}
+        onTouchStart={() => setPausado(true)}
+        onTouchEnd={() => setPausado(false)}
         className="flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {eventos.map((evento) => (
           <Link
             key={evento.id}
-            href={`/evento/${evento.slug ?? evento.id}`}
+            href={evento.href ?? `/evento/${evento.slug ?? evento.id}`}
             className="relative w-full shrink-0 snap-center overflow-hidden rounded-2xl shadow-md"
           >
             {evento.capa ? (
@@ -81,14 +120,18 @@ export function EventosDestaque({ eventos }: Props) {
 
             <div className="absolute inset-x-0 bottom-0 p-4 text-white">
               <span className="inline-block rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider backdrop-blur">
-                Destaque
+                {evento.selo ?? 'Destaque'}
               </span>
               <h2 className="mt-1.5 text-lg font-bold leading-tight drop-shadow">{evento.titulo}</h2>
               <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-white/85">
-                <span className="flex items-center gap-1 capitalize">
-                  <CalendarDays className="h-3 w-3 shrink-0" />
-                  {format(new Date(evento.data_hora), "d 'de' MMMM 'às' HH'h'mm", { locale: ptBR })}
-                </span>
+                {(evento.data_hora || evento.subtitulo) && (
+                  <span className="flex items-center gap-1 capitalize">
+                    <CalendarDays className="h-3 w-3 shrink-0" />
+                    {evento.data_hora
+                      ? format(new Date(evento.data_hora), "d 'de' MMMM 'às' HH'h'mm", { locale: ptBR })
+                      : evento.subtitulo}
+                  </span>
+                )}
                 {evento.local && (
                   <span className="flex items-center gap-1">
                     <MapPin className="h-3 w-3 shrink-0" />

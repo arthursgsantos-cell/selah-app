@@ -9,6 +9,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   let churchLogoUrl: string | null = null
   let churchName: string | null = null
   let notificacoesNaoLidas = 0
+  let recebeNotificacoes = false
 
   if (user) {
     const supabase = await createClient()
@@ -23,9 +24,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
     const isAdminOrPastor = profile.role === 'admin' || profile.role === 'pastor'
 
+    // Professor também precisa do sino: é por ele que chega o pedido de
+    // inscrição nas turmas dele.
+    const { data: equipeEnsino } = await supabase
+      .from('ensino_equipe')
+      .select('profile_id')
+      .eq('profile_id', user.id)
+      .maybeSingle()
+
+    recebeNotificacoes = isAdminOrPastor || equipeEnsino !== null
+
     const [igrejaRes, notifRes] = await Promise.all([
       supabase.from('igrejas').select('logo_url, nome').eq('id', profile.igreja_id).single(),
-      isAdminOrPastor
+      recebeNotificacoes
         ? (supabase as any)
             .from('notificacoes')
             .select('id', { count: 'exact', head: true })
@@ -50,6 +61,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           churchName={churchName}
           isGuest={!user}
           notificacoesNaoLidas={notificacoesNaoLidas}
+          recebeNotificacoes={recebeNotificacoes}
         />
         <main className="flex-1 overflow-y-auto p-4 md:p-6">
           {children}

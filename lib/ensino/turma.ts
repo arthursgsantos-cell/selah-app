@@ -66,6 +66,42 @@ export function periodoTexto(inicio: string | null, fim: string | null): string 
   return ''
 }
 
+/**
+ * Quantas aulas cabem entre duas datas, contando só os dias da semana da turma.
+ *
+ * É o número que o formulário sugere: com "quartas, de 12/08 a 02/09" a conta
+ * dá 4, e o professor não precisa abrir o calendário para descobrir. Continua
+ * editável — turma com feriado no meio ou aula extra foge da conta.
+ *
+ * `null` quando falta período ou dias, ou quando o intervalo é grande demais
+ * para ser um curso (mais de dois anos, provavelmente ano digitado errado).
+ */
+export function contarAulasNoPeriodo(
+  inicio: string | null | undefined,
+  fim: string | null | undefined,
+  dias: number[] | null | undefined
+): number | null {
+  if (!inicio || !fim || !dias?.length) return null
+
+  const [ai, mi, di] = inicio.split('-').map(Number)
+  const [af, mf, df] = fim.split('-').map(Number)
+  if ([ai, mi, di, af, mf, df].some((n) => !n || Number.isNaN(n))) return null
+
+  // Datas locais, e não `new Date(iso)`: a string "AAAA-MM-DD" seria lida como
+  // meia-noite UTC, que em Natal ainda é o dia anterior.
+  const cursor = new Date(ai, mi - 1, di)
+  const limite = new Date(af, mf - 1, df)
+  if (limite < cursor) return null
+
+  const dias_ = new Set(dias)
+  let total = 0
+  for (let i = 0; i <= 730 && cursor <= limite; i++) {
+    if (dias_.has(cursor.getDay())) total += 1
+    cursor.setDate(cursor.getDate() + 1)
+  }
+  return total
+}
+
 /** "AAAA-MM-DD" → "10/03/2026". */
 export function dataBr(iso: string): string {
   const [ano, mes, dia] = iso.split('-')

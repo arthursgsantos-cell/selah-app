@@ -88,10 +88,77 @@ export async function inscreverAction(params: {
 
   if (error) return { ok: false, erro: error.message }
 
+  // Só o pedido pendente vira notificação: inscrição aprovada na hora não pede
+  // nada do professor, e avisar de tudo faria o sino virar ruído ignorado.
+  if (status === 'pendente') {
+    await notificarProfessores({
+      turmaId: params.turmaId,
+      turmaNome: turma.nome,
+      alunoNome: acesso.nome,
+      igrejaId: acesso.igrejaId,
+    })
+  }
+
   revalidatePath('/ensino')
   revalidatePath(`/ensino/turma/${params.turmaId}`)
   revalidatePath('/ensino/aluno')
+  revalidatePath('/', 'layout')
   return { ok: true, status }
+}
+
+/**
+ * Avisa quem administra a turma de que há pedido esperando.
+ *
+ * Vai para os professores da turma e para a coordenação do Ensino — não para
+ * pastor e admin em massa: eles têm acesso a tudo, mas não são quem decide a
+ * inscrição no dia a dia, e receberiam notificação de toda turma da igreja.
+ *
+ * Falha aqui não derruba a inscrição: o pedido já está gravado, e o professor
+ * continua vendo o pendente no painel.
+ */
+async function notificarProfessores(params: {
+  turmaId: string
+  turmaNome: string
+  alunoNome: string
+  igrejaId: string
+}): Promise<void> {
+  try {
+    const admin = createAdminClient()
+
+    const [professoresRes, coordenadoresRes] = await Promise.all([
+      admin
+        .from('ensino_turma_professores')
+        .select('profile_id')
+        .eq('turma_id', params.turmaId),
+      admin
+        .from('ensino_equipe')
+        .select('profile_id')
+        .eq('igreja_id', params.igrejaId)
+        .eq('papel', 'coordenador'),
+    ])
+
+    const destinatarios = new Set([
+      ...(professoresRes.data ?? []).map((p) => p.profile_id),
+      ...(coordenadoresRes.data ?? []).map((c) => c.profile_id),
+    ])
+
+    if (destinatarios.size === 0) return
+
+    await admin.from('notificacoes').insert(
+      [...destinatarios].map((destinatarioId) => ({
+        igreja_id: params.igrejaId,
+        destinatario_id: destinatarioId,
+        tipo: 'inscricao_ensino' as const,
+        titulo: 'Novo pedido de inscrição',
+        mensagem: `${params.alunoNome} pediu inscrição em ${params.turmaNome}.`,
+        // `href` é lido pelo sino do header para transformar a notificação em
+        // link — leva direto para a tela de aprovação.
+        dados: { href: `/ensino/turma/${params.turmaId}/alunos`, turmaId: params.turmaId },
+      }))
+    )
+  } catch {
+    // Ver o comentário acima: notificação é acessório, a inscrição já está feita.
+  }
 }
 
 export async function cancelarMinhaInscricaoAction(

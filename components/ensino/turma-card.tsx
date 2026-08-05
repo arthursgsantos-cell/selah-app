@@ -50,17 +50,20 @@ export function TurmaCard({
   return (
     <Card>
       <CardContent className="pt-4 pb-4">
-        <Link href={href ?? `/ensino/turma/${turma.id}`} className="flex items-start gap-3">
+        <Link href={href ?? `/ensino/turma/${turma.id}`} className="flex items-start gap-3.5">
+          {/* Retrato, e não quadrado: a capa de um curso costuma ser capa de
+              livro ou arte vertical, e o recorte quadrado cortava o título da
+              própria arte. */}
           {turma.capaUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={turma.capaUrl}
               alt={turma.nome}
-              className="h-14 w-14 rounded-xl object-cover shrink-0"
+              className="w-20 sm:w-24 aspect-[3/4] rounded-xl object-cover shrink-0 shadow-sm"
             />
           ) : (
-            <div className="p-2.5 rounded-xl bg-primary/10 shrink-0 mt-0.5">
-              <GraduationCap className="h-5 w-5 text-primary" />
+            <div className="w-20 sm:w-24 aspect-[3/4] rounded-xl bg-gradient-to-br from-[#0B2447] to-[#0F52BA] shrink-0 flex items-center justify-center shadow-sm">
+              <GraduationCap className="h-8 w-8 text-white/80" />
             </div>
           )}
 
@@ -116,7 +119,7 @@ export function TurmaCard({
             )}
           </div>
 
-          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground self-center" />
+          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground self-center hidden sm:block" />
         </Link>
       </CardContent>
     </Card>
