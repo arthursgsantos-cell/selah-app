@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, CalendarDays, MapPin, Users, ClipboardList, Wallet } from 'lucide-react'
+import { ArrowLeft, CalendarDays, MapPin, Users, ClipboardList, Wallet, Receipt } from 'lucide-react'
 import { CobrancaEditor } from '@/components/eventos/cobranca-editor'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -189,6 +189,19 @@ export default async function EventoPage({ params }: { params: { id: string } })
     if (secao.tipo === 'inscricao') {
       return (
         <div className="space-y-3">
+          {/* Atalho para a própria inscrição. Só faz sentido com planilha —
+              é dela que sai o acompanhamento de pagamento — e com login, já
+              que quem identifica a pessoa é a sessão, não a URL. */}
+          {user && evento.inscricoes_planilha_url && (
+            <Link
+              href={`/minha-inscricao/${evento.slug ?? evento.id}`}
+              className="flex items-center justify-center gap-2 h-11 w-full rounded-xl border border-primary/30 bg-primary/5 text-sm font-semibold text-primary transition-colors hover:bg-primary/10"
+            >
+              <Receipt className="h-4 w-4" />
+              Minha inscrição
+            </Link>
+          )}
+
           {evento.tipo_inscricao === 'link' && (
             <InscritosPlanilha
               eventoId={evento.id}

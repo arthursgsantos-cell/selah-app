@@ -37,8 +37,10 @@ export default async function AlunosTurmaPage({ params }: { params: { id: string
       // (`user_id` e `decidido_por`), e o embed ambíguo faz o PostgREST recusar
       // a consulta inteira — a tela mostrava "nenhuma inscrição" com pedidos no
       // banco.
+      // Dois embeds para a mesma tabela, cada um com a FK nomeada e um apelido:
+      // `aluno` é quem se inscreveu, `decisor` é quem aprovou ou recusou.
       .select(
-        'id, nome, telefone, email, status, observacao, dados, criado_em, profiles!ensino_inscricoes_user_id_fkey(avatar_url)'
+        'id, nome, telefone, email, status, observacao, dados, criado_em, decidido_em, aluno:profiles!ensino_inscricoes_user_id_fkey(avatar_url), decisor:profiles!ensino_inscricoes_decidido_por_fkey(nome)'
       )
       .eq('turma_id', turma.id)
       .order('criado_em'),
@@ -52,8 +54,9 @@ export default async function AlunosTurmaPage({ params }: { params: { id: string
   const inscricoes = (inscricoesRes.data ?? []) as unknown as {
     id: string; nome: string; telefone: string | null; email: string | null
     status: StatusInscricaoEnsino; observacao: string | null
-    dados: Record<string, string>; criado_em: string
-    profiles: { avatar_url: string | null } | null
+    dados: Record<string, string>; criado_em: string; decidido_em: string | null
+    aluno: { avatar_url: string | null } | null
+    decisor: { nome: string } | null
   }[]
 
   const aulasRealizadas = (aulasRes.data ?? []).map((a) => a.id)
@@ -78,10 +81,12 @@ export default async function AlunosTurmaPage({ params }: { params: { id: string
       nome: i.nome,
       telefone: i.telefone,
       email: i.email,
-      avatarUrl: i.profiles?.avatar_url ?? null,
+      avatarUrl: i.aluno?.avatar_url ?? null,
       status: i.status,
       observacao: i.observacao,
       criadoEm: i.criado_em,
+      decididoPor: i.decisor?.nome ?? null,
+      decididoEm: i.decidido_em,
       dados: i.dados ?? {},
       percentual: f && f.total > 0 ? Math.round((f.presentes / f.total) * 100) : null,
       presentes: f?.presentes ?? 0,

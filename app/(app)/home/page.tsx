@@ -20,6 +20,7 @@ import { ptBR } from 'date-fns/locale'
 import type { Role } from '@/lib/supabase/types'
 import { FUNCOES_ESCALA, funcaoComEmoji } from '@/lib/escala-funcoes'
 import { encontrosTexto } from '@/lib/ensino/turma'
+import { TITULO_SECAO } from '@/lib/estilos'
 
 const roleLabels: Record<Role, string> = {
   admin: 'Admin',
@@ -462,7 +463,7 @@ export default async function HomePage() {
         {/* Próximos eventos */}
         {eventos && eventos.length > 0 && (
           <section>
-            <div className="flex items-center gap-2 mb-3">
+            <div className={`${TITULO_SECAO} mb-3`}>
               <Sparkles className="h-4 w-4 text-[#0F52BA]" />
               <h2 className="text-sm font-semibold">Próximos eventos</h2>
             </div>
@@ -796,7 +797,7 @@ export default async function HomePage() {
       {/* Eventos da igreja */}
       {eventos && eventos.length > 0 && (
         <section>
-          <div className="flex items-center gap-2 mb-3">
+          <div className={`${TITULO_SECAO} mb-3`}>
             <Sparkles className="h-4 w-4 text-primary" />
             <h2 className="text-sm font-semibold text-foreground">Eventos da igreja</h2>
           </div>
@@ -812,7 +813,7 @@ export default async function HomePage() {
       {/* Aniversariantes de hoje — destaque para toda a igleja */}
       {aniversariantesHoje.filter((p) => p.id !== profile.id).length > 0 && (
         <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-rose-50 via-pink-50 to-rose-50 border border-rose-200 p-4 shadow-sm">
-          <div className="flex items-center gap-2 mb-3">
+          <div className={`${TITULO_SECAO} mb-3`}>
             <span className="text-xl">🎂</span>
             <p className="font-semibold text-sm text-rose-700">
               {aniversariantesHoje.filter((p) => p.id !== profile.id).length === 1
@@ -910,7 +911,7 @@ export default async function HomePage() {
       {/* Aniversariantes do mês */}
       {aniversariantesMes.length > 0 && (
         <section>
-          <div className="flex items-center gap-2 mb-3">
+          <div className={`${TITULO_SECAO} mb-3`}>
             <Cake className="h-4 w-4 text-rose-500" />
             <h2 className="text-sm font-semibold text-foreground">Aniversariantes de {nomeMesCapitalizado}</h2>
           </div>
@@ -994,7 +995,7 @@ export default async function HomePage() {
 
       {/* Fotos — Nossa comunidade */}
       <section>
-        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2.5 px-0.5">Nossa comunidade</p>
+        <p className={`${TITULO_SECAO} text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2.5`}>Nossa comunidade</p>
         <FotosComunidadeCarousel fotos={galleryPhotos} />
       </section>
 
@@ -1042,7 +1043,7 @@ export default async function HomePage() {
 
       {/* Mapa */}
       <section>
-        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2.5 px-0.5">Como nos encontrar</p>
+        <p className={`${TITULO_SECAO} text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2.5`}>Como nos encontrar</p>
         <div className="rounded-2xl overflow-hidden border border-blue-100 relative">
           <iframe
             src="https://maps.google.com/maps?q=-5.8897333,-35.2013972&z=17&output=embed"

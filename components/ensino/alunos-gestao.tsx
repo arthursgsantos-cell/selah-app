@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, X, Loader2, Phone, Mail, Award, Users } from 'lucide-react'
+import { Check, X, Loader2, Phone, Mail, Award, Users, Clock } from 'lucide-react'
 import { STATUS_INSCRICAO, corFrequencia } from '@/lib/ensino/turma'
 import {
   decidirInscricaoAction,
@@ -19,11 +19,34 @@ export interface AlunoInscrito {
   status: StatusInscricaoEnsino
   observacao: string | null
   criadoEm: string
+  /** Quem aprovou ou recusou, e quando. Nulos enquanto o pedido está pendente. */
+  decididoPor: string | null
+  decididoEm: string | null
   dados: Record<string, string>
   /** Null quando ainda não houve aula realizada. */
   percentual: number | null
   presentes: number
   totalAulas: number
+}
+
+/**
+ * "05/08/2026 às 14:32" no fuso da igreja.
+ *
+ * `criado_em` e `decidido_em` são `timestamptz`, então aqui é o navegador que
+ * converte — e o membro em Natal vê a hora dele, não UTC.
+ */
+function dataHoraBr(iso: string): string {
+  return new Date(iso).toLocaleString('pt-BR', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  }).replace(', ', ' às ')
+}
+
+function rotuloDecisao(status: StatusInscricaoEnsino): string {
+  if (status === 'recusada') return 'Recusada'
+  if (status === 'cancelada') return 'Cancelada'
+  if (status === 'concluida') return 'Concluída'
+  return 'Aprovada'
 }
 
 export function AlunosGestao({
@@ -268,6 +291,20 @@ function Cartao({
           {aluno.observacao && (
             <p className="text-xs text-muted-foreground mt-1.5 italic">{aluno.observacao}</p>
           )}
+
+          {/* Trilha da decisão: quem resolveu e quando. Sem isso, uma recusa
+              questionada depois não tem a quem perguntar. */}
+          <p className="text-[11px] text-muted-foreground/70 mt-1.5 flex items-center gap-1 flex-wrap">
+            <Clock className="h-3 w-3 shrink-0" />
+            <span>Pedido em {dataHoraBr(aluno.criadoEm)}</span>
+            {aluno.decididoEm && (
+              <span>
+                · {rotuloDecisao(aluno.status)}
+                {aluno.decididoPor ? ` por ${aluno.decididoPor}` : ''} em{' '}
+                {dataHoraBr(aluno.decididoEm)}
+              </span>
+            )}
+          </p>
         </div>
       </div>
 

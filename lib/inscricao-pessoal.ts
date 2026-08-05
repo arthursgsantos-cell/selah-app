@@ -164,7 +164,16 @@ export async function buscarInscricao(
     const telefone = val(linha, idx.telefone)
 
     // Aba de pagamentos: uma linha por parcela.
-    const abaPagamentos = abas.find((a) => col(a, 'parcela') >= 0 && col(a, 'comprovante') >= 0)
+    //
+    // A exclusão da aba de inscritos não é zelo excessivo — sem ela o casamento
+    // dava errado de verdade. O cabeçalho dos inscritos tem "Parcelas pagas" e
+    // "Último comprovante", que satisfazem os dois trechos procurados aqui, e
+    // como ela vem primeiro na planilha era ela que o `find` devolvia. O
+    // resultado: a pessoa via um único "pagamento" com o valor TOTAL da
+    // inscrição e a data do envio do formulário, no lugar das parcelas reais.
+    const abaPagamentos = abas.find(
+      (a) => a !== abaInscritos && col(a, 'parcela') >= 0 && col(a, 'comprovante') >= 0
+    )
     const pagamentos: Pagamento[] = []
 
     if (abaPagamentos) {
