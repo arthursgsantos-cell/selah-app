@@ -1,0 +1,2 @@
+ALTER TABLE public.redes ADD COLUMN IF NOT EXISTS capa_url TEXT;
+ALTER TABLE public.redes ADD COLUMN IF NOT EXISTS logo_url TEXT;

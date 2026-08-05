@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/importacao/sync",
+      "schedule": "0 9 * * *"
+    }
+  ]
+}

@@ -1,0 +1,195 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* Mapeia variáveis CSS para classes utilitárias do Tailwind v4 */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --font-sans: var(--font-sans);
+
+  /* Animações do shadcn */
+  @keyframes accordion-down {
+    from { height: 0; }
+    to { height: var(--radix-accordion-content-height, var(--accordion-panel-height, auto)); }
+  }
+  @keyframes accordion-up {
+    from { height: var(--radix-accordion-content-height, var(--accordion-panel-height, auto)); }
+    to { height: 0; }
+  }
+}
+
+/* Variantes customizadas para componentes shadcn */
+@custom-variant data-open {
+  &:where([data-state="open"]), &:where([data-open]:not([data-open="false"])) { @slot; }
+}
+@custom-variant data-closed {
+  &:where([data-state="closed"]), &:where([data-closed]:not([data-closed="false"])) { @slot; }
+}
+@custom-variant data-checked {
+  &:where([data-state="checked"]), &:where([data-checked]:not([data-checked="false"])) { @slot; }
+}
+@custom-variant data-disabled {
+  &:where([data-disabled="true"]), &:where([data-disabled]:not([data-disabled="false"])) { @slot; }
+}
+
+/* Variáveis de cor — modo claro */
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  /* Azul da marca Igreja Batista Zona Sul */
+  --primary: oklch(0.50 0.20 240);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.96 0.03 240);
+  --secondary-foreground: oklch(0.28 0.10 240);
+  --muted: oklch(0.97 0.005 240);
+  --muted-foreground: oklch(0.52 0.02 240);
+  --accent: oklch(0.95 0.04 220);
+  --accent-foreground: oklch(0.28 0.12 220);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.918 0.008 240);
+  --input: oklch(0.918 0.008 240);
+  --ring: oklch(0.50 0.20 240);
+  --radius: 0.75rem;
+  --sidebar: oklch(0.985 0.005 240);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.50 0.20 240);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.95 0.03 240);
+  --sidebar-accent-foreground: oklch(0.28 0.10 240);
+  --sidebar-border: oklch(0.918 0.008 240);
+  --sidebar-ring: oklch(0.50 0.20 240);
+}
+
+.dark {
+  --background: oklch(0.13 0.02 240);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.18 0.025 240);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.18 0.025 240);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.65 0.20 240);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.25 0.04 240);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.25 0.02 240);
+  --muted-foreground: oklch(0.65 0.04 240);
+  --accent: oklch(0.28 0.06 220);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.65 0.20 240);
+  --sidebar: oklch(0.18 0.025 240);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.65 0.20 240);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.25 0.04 240);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.65 0.20 240);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+    &::-webkit-scrollbar { display: none; }
+  }
+}
+
+/* Estilo do dropdown nativo do Google Places Autocomplete */
+.pac-container {
+  border-radius: 0.75rem;
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 24px 0 rgb(0 0 0 / 0.10);
+  font-family: var(--font-sans), sans-serif;
+  margin-top: 4px;
+  overflow: hidden;
+}
+.pac-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  border-top: 1px solid var(--border);
+  color: var(--foreground);
+}
+.pac-item:first-child { border-top: none; }
+.pac-item:hover, .pac-item-selected {
+  background: var(--muted);
+}
+.pac-item-query {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--foreground);
+}
+.pac-matched { color: var(--primary); }
+.pac-icon { display: none; }
+.pac-logo::after { display: none; }
+
+/* Animações do visualizador de fotos.
+   A curva com overshoot (o último valor > 1) dá o "pulinho" no fim, que é o
+   que faz a entrada parecer viva em vez de mecânica. */
+@keyframes lightbox-entrada {
+  from { opacity: 0; transform: scale(0.82) rotate(-2.5deg); }
+  to   { opacity: 1; transform: scale(1) rotate(0); }
+}
+@keyframes lightbox-da-direita {
+  from { opacity: 0; transform: translateX(46px) scale(0.9) rotate(1.5deg); }
+  to   { opacity: 1; transform: translateX(0) scale(1) rotate(0); }
+}
+@keyframes lightbox-da-esquerda {
+  from { opacity: 0; transform: translateX(-46px) scale(0.9) rotate(-1.5deg); }
+  to   { opacity: 1; transform: translateX(0) scale(1) rotate(0); }
+}
+
+/* Quem pediu menos movimento no sistema não deve levar salto na tela. */
+@media (prefers-reduced-motion: reduce) {
+  [class*='animate-[lightbox'] { animation: none !important; }
+}

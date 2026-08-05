@@ -1,0 +1,223 @@
+'use client'
+
+import { useState, useTransition } from 'react'
+import { encaminharSolicitacaoAction, marcarAtendidoAction } from '@/app/actions/solicitar-celula'
+import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { CheckCheck, ChevronDown, ChevronUp, Users } from 'lucide-react'
+import { WhatsAppIcon } from '@/components/ui/whatsapp-icon'
+import { format } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
+
+interface Solicitacao {
+  id: string
+  nome: string
+  telefone: string
+  email: string
+  idade: number | null
+  estado_civil: string | null
+  tem_filhos: boolean | null
+  filhos_detalhes: string | null
+  bairro: string | null
+  tipo_membro: string | null
+  melhor_dia: string | null
+  status: string
+  criado_em: string
+  lider_encaminhado_id: string | null
+}
+
+interface Lider {
+  id: string
+  nome: string
+}
+
+interface Props {
+  solicitacoes: Solicitacao[]
+  lideres: Lider[]
+}
+
+const statusConfig: Record<string, { label: string; className: string }> = {
+  pendente:    { label: 'Pendente',    className: 'bg-yellow-100 text-yellow-700' },
+  encaminhado: { label: 'Encaminhado', className: 'bg-blue-100 text-blue-700' },
+  atendido:    { label: 'Atendido',    className: 'bg-green-100 text-green-700' },
+}
+
+function whatsappLink(telefone: string, nome: string) {
+  const num = telefone.replace(/\D/g, '')
+  const full = num.startsWith('55') ? num : `55${num}`
+  const msg = encodeURIComponent(
+    `Ola ${nome}! Recebemos sua solicitacao de participar de uma celula da nossa igreja. Vamos te indicar a melhor opcao para voce.`
+  )
+  return `https://wa.me/${full}?text=${msg}`
+}
+
+function SolicitacaoCard({ sol, lideres }: { sol: Solicitacao; lideres: Lider[] }) {
+  const [expanded, setExpanded] = useState(false)
+  const [liderSel, setLiderSel] = useState(sol.lider_encaminhado_id ?? '')
+  const [isPending, startTransition] = useTransition()
+  const status = statusConfig[sol.status] ?? statusConfig.pendente
+
+  const liderAtual = lideres.find((l) => l.id === sol.lider_encaminhado_id)
+
+  function handleEncaminhar() {
+    if (!liderSel) return
+    startTransition(async () => {
+      await encaminharSolicitacaoAction(sol.id, liderSel)
+    })
+  }
+
+  function handleAtendido() {
+    startTransition(async () => {
+      await marcarAtendidoAction(sol.id)
+    })
+  }
+
+  return (
+    <Card>
+      <CardContent className="py-3 px-4">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-sm font-semibold">{sol.nome}</p>
+              {sol.tipo_membro && (
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                  {sol.tipo_membro.charAt(0).toUpperCase() + sol.tipo_membro.slice(1)}
+                </span>
+              )}
+              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${status.className}`}>
+                {status.label}
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {format(new Date(sol.criado_em), "d 'de' MMMM 'de' yyyy", { locale: ptBR })}
+              {sol.bairro && ` · ${sol.bairro}`}
+              {sol.melhor_dia && ` · ${sol.melhor_dia}`}
+            </p>
+            {liderAtual && (
+              <p className="text-xs text-blue-600 mt-0.5">Encaminhado para: {liderAtual.nome.split(' ')[0]}</p>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <a
+              href={whatsappLink(sol.telefone, sol.nome)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg bg-green-500 text-white hover:bg-green-600 transition-colors"
+            >
+              <WhatsAppIcon className="h-3.5 w-3.5" />
+              WhatsApp
+            </a>
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground"
+            >
+              {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Expanded details */}
+        {expanded && (
+          <div className="mt-3 pt-3 border-t border-border space-y-3">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+              <div><span className="text-muted-foreground">Telefone: </span>{sol.telefone}</div>
+              <div><span className="text-muted-foreground">E-mail: </span>{sol.email}</div>
+              {sol.idade && <div><span className="text-muted-foreground">Idade: </span>{sol.idade} anos</div>}
+              {sol.estado_civil && <div><span className="text-muted-foreground">Estado civil: </span>{sol.estado_civil}</div>}
+              {sol.bairro && <div><span className="text-muted-foreground">Bairro: </span>{sol.bairro}</div>}
+              {sol.melhor_dia && <div><span className="text-muted-foreground">Melhor dia: </span>{sol.melhor_dia}</div>}
+              <div>
+                <span className="text-muted-foreground">Filhos: </span>
+                {sol.tem_filhos ? 'Sim' : 'Não'}
+              </div>
+            </div>
+            {sol.tem_filhos && sol.filhos_detalhes && (
+              <p className="text-xs"><span className="text-muted-foreground">Detalhes dos filhos: </span>{sol.filhos_detalhes}</p>
+            )}
+
+            {/* Encaminhar section */}
+            {sol.status !== 'atendido' && (
+              <div className="flex items-center gap-2 pt-1">
+                <select
+                  className="flex-1 h-8 rounded-lg border border-input bg-background px-2 text-xs outline-none focus:border-ring"
+                  value={liderSel}
+                  onChange={(e) => setLiderSel(e.target.value)}
+                >
+                  <option value="">Encaminhar para líder...</option>
+                  {lideres.map((l) => (
+                    <option key={l.id} value={l.id}>{l.nome}</option>
+                  ))}
+                </select>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!liderSel || isPending}
+                  onClick={handleEncaminhar}
+                  className="text-xs shrink-0"
+                >
+                  Encaminhar
+                </Button>
+                {sol.status === 'encaminhado' && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={isPending}
+                    onClick={handleAtendido}
+                    className="text-xs shrink-0 border-green-300 text-green-700 hover:bg-green-50"
+                  >
+                    <CheckCheck className="h-3.5 w-3.5 mr-1" />
+                    Atendido
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+export function SolicitacoesPanel({ solicitacoes, lideres }: Props) {
+  const pendentes = solicitacoes.filter((s) => s.status === 'pendente')
+  const encaminhados = solicitacoes.filter((s) => s.status === 'encaminhado')
+  const atendidos = solicitacoes.filter((s) => s.status === 'atendido')
+  const [mostrarAtendidos, setMostrarAtendidos] = useState(false)
+
+  if (solicitacoes.length === 0) {
+    return (
+      <Card>
+        <CardContent className="py-10 text-center">
+          <Users className="h-9 w-9 text-muted-foreground/30 mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">Nenhuma solicitação de célula</p>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <div className="space-y-2">
+      {[...pendentes, ...encaminhados].map((s) => (
+        <SolicitacaoCard key={s.id} sol={s} lideres={lideres} />
+      ))}
+
+      {atendidos.length > 0 && (
+        <>
+          <button
+            type="button"
+            onClick={() => setMostrarAtendidos((v) => !v)}
+            className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+          >
+            {mostrarAtendidos ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            {atendidos.length} atendido{atendidos.length > 1 ? 's' : ''}
+          </button>
+          {mostrarAtendidos && atendidos.map((s) => (
+            <SolicitacaoCard key={s.id} sol={s} lideres={lideres} />
+          ))}
+        </>
+      )}
+    </div>
+  )
+}
