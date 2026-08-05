@@ -17,12 +17,15 @@ export const PAINEL = 'rounded-2xl bg-card p-4 shadow-sm'
 export const CARTAO_ANINHADO = 'bg-muted'
 
 /**
- * Cabeçalho de seção sobre fundo personalizado.
+ * Seção de conteúdo sobre fundo personalizado — título e conteúdo no mesmo
+ * cartão.
  *
- * Um `<h2>` solto era legível enquanto o fundo era branco. Desde que a página
- * inicial também ganhou cor, imagem e a cascata de fotos, o mesmo título passou
- * a competir com o que está atrás — a pílula translúcida devolve o contraste
- * sem transformar cada título num painel inteiro.
+ * É a moldura que a página do evento usa (ver `SecaoChrome`). Um `<h2>` solto
+ * era legível enquanto o fundo era branco; desde que a home passou a aceitar
+ * cor, imagem e a cascata de fotos, o título precisa do mesmo cartão que o
+ * conteúdo — flutuar sozinho sobre a foto deixa a página remendada.
  */
-export const TITULO_SECAO =
-  'inline-flex items-center gap-2 rounded-full bg-card/85 px-3 py-1 shadow-sm backdrop-blur'
+export const SECAO = 'space-y-3 rounded-2xl bg-card p-4 shadow-sm'
+
+/** Cabeçalho dentro de uma `SECAO`. */
+export const SECAO_TITULO = 'flex items-center gap-2'

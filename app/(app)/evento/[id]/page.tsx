@@ -26,6 +26,7 @@ import { AdicionarSecao } from '@/components/eventos/adicionar-secao'
 import type { BotaoEvento, CardEvento } from '@/app/actions/evento-pagina'
 import type { SecaoEvento } from '@/app/actions/evento-secoes'
 import { contarInscritos } from '@/lib/inscricoes-planilha'
+import { buscarInscricao } from '@/lib/inscricao-pessoal'
 import { RedeShareButton } from '@/components/rede/rede-share-button'
 import type { TipoInscricao, TipoChavePix, CampoFormulario } from '@/lib/supabase/types'
 
@@ -99,7 +100,7 @@ export default async function EventoPage({ params }: { params: { id: string } })
   // Página pública: qualquer pessoa com o link vê o evento.
   const { data: { user } } = await supabase.auth.getUser()
   const { data: profile } = user
-    ? await supabase.from('profiles').select('role').eq('id', user.id).single()
+    ? await supabase.from('profiles').select('role, email, telefone').eq('id', user.id).single()
     : { data: null }
 
   const { data: eventoData } = await porSlugOuId(
@@ -161,6 +162,24 @@ export default async function EventoPage({ params }: { params: { id: string } })
         .maybeSingle()
     : { data: null }
 
+  /**
+   * A pessoa já está na planilha deste evento?
+   *
+   * Em evento com inscrição por link externo o app não registra nada, então
+   * saber se alguém já se inscreveu só é possível procurando na planilha pelo
+   * e-mail ou telefone do perfil. É o que decide entre oferecer "Fazer
+   * inscrição" e levar direto para "Minha inscrição" — mostrar os dois botões
+   * ao mesmo tempo confunde quem já está inscrito.
+   */
+  const jaInscritoNaPlanilha = Boolean(
+    user && evento.inscricoes_planilha_url
+      ? await buscarInscricao(evento.inscricoes_planilha_url, {
+          email: (profile as { email?: string | null } | null)?.email ?? user.email ?? null,
+          telefone: (profile as { telefone?: string | null } | null)?.telefone ?? null,
+        })
+      : null
+  )
+
   const totalVou = (presencasData ?? []).filter((p) => p.resposta === 'vou').length
 
   const canEdit = CARGOS_EDICAO.includes(profile?.role ?? '')
@@ -189,10 +208,10 @@ export default async function EventoPage({ params }: { params: { id: string } })
     if (secao.tipo === 'inscricao') {
       return (
         <div className="space-y-3">
-          {/* Atalho para a própria inscrição. Só faz sentido com planilha —
-              é dela que sai o acompanhamento de pagamento — e com login, já
-              que quem identifica a pessoa é a sessão, não a URL. */}
-          {user && evento.inscricoes_planilha_url && (
+          {/* Atalho para a própria inscrição, no lugar do botão de se
+              inscrever: quem já está na planilha quer ver o pagamento, não
+              preencher o formulário de novo. */}
+          {jaInscritoNaPlanilha && (
             <Link
               href={`/minha-inscricao/${evento.slug ?? evento.id}`}
               className="flex items-center justify-center gap-2 h-11 w-full rounded-xl border border-primary/30 bg-primary/5 text-sm font-semibold text-primary transition-colors hover:bg-primary/10"
@@ -214,7 +233,7 @@ export default async function EventoPage({ params }: { params: { id: string } })
             />
           )}
 
-          {!jaPassou && (
+          {!jaPassou && !jaInscritoNaPlanilha && (
             user ? (
               <InscricaoSection
                 eventoId={evento.id}
