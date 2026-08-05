@@ -16,6 +16,8 @@ import { resumoDoEvento } from '@/lib/eventos-resumo'
 import { carregarRelatorio } from '@/lib/inscricoes-relatorio'
 import { RelatorioInscricoes } from '@/components/eventos/relatorio-inscricoes'
 
+const PADRAO_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 const statusConfig = {
   pendente:   { label: 'Pendente',   className: 'bg-yellow-100 text-yellow-700' },
   confirmado: { label: 'Confirmado', className: 'bg-green-100 text-green-700'  },
@@ -55,20 +57,34 @@ export default async function InscritosList({ params }: { params: { eventoId: st
 
   const admin = createAdminClient()
 
-  const [{ data: evento }, { data: inscritosRaw }, { data: parcelasData }, resumo] = await Promise.all([
-    admin.from('eventos').select('id, titulo, slug, data_hora, formulario_id, local, inscricoes_planilha_url').eq('id', params.eventoId).single(),
+  // A URL aceita o slug ("/inscricoes/1-retiro-rede-one") para poder ser
+  // compartilhada; o UUID continua valendo porque links antigos já circulam.
+  // Filtrar `id` com algo que não é UUID faria o Postgres devolver erro, então
+  // o formato decide a coluna.
+  const consultaEvento = admin
+    .from('eventos')
+    .select('id, titulo, slug, data_hora, formulario_id, local, inscricoes_planilha_url')
+
+  const { data: evento } = await (PADRAO_UUID.test(params.eventoId)
+    ? consultaEvento.eq('id', params.eventoId)
+    : consultaEvento.eq('slug', params.eventoId)
+  ).maybeSingle()
+
+  if (!evento) notFound()
+
+  const eventoId = evento.id
+
+  const [{ data: inscritosRaw }, { data: parcelasData }, resumo] = await Promise.all([
     admin.from('inscricoes_evento')
       .select('id, nome, telefone, dados, status, criado_em, valor_total')
-      .eq('evento_id', params.eventoId)
+      .eq('evento_id', eventoId)
       .order('criado_em', { ascending: true }),
     admin.from('evento_parcelas')
       .select('id, numero, vencimento, percentual')
-      .eq('evento_id', params.eventoId)
+      .eq('evento_id', eventoId)
       .order('numero'),
-    resumoDoEvento(params.eventoId),
+    resumoDoEvento(eventoId),
   ])
-
-  if (!evento) notFound()
 
   // Quando o evento recebe inscrição por link, as pessoas estão na planilha e
   // não em `inscricoes_evento` — o relatório lê a fonte certa sozinho.
@@ -149,7 +165,7 @@ export default async function InscritosList({ params }: { params: { eventoId: st
           variant="outline"
           size="sm"
           className="shrink-0 nao-imprimir"
-          render={<Link href={`/evento/${(evento as { slug: string | null }).slug ?? params.eventoId}`} />}
+          render={<Link href={`/evento/${(evento as { slug: string | null }).slug ?? eventoId}`} />}
         >
           <ExternalLink className="h-4 w-4" />
           Página do evento
@@ -205,6 +221,7 @@ export default async function InscritosList({ params }: { params: { eventoId: st
           colunas={relatorio.colunas}
           registros={relatorio.registros}
           colunasCategoricas={relatorio.colunasCategoricas}
+          historicoPagamentos={relatorio.historicoPagamentos}
           eventoTitulo={evento.titulo}
         />
       )}
@@ -318,7 +335,7 @@ export default async function InscritosList({ params }: { params: { eventoId: st
                 {/* Controle de pagamentos (tesoureiro) */}
                 <PagamentosInscrito
                   inscricaoId={inscrito.id}
-                  eventoId={params.eventoId}
+                  eventoId={eventoId}
                   nome={inscrito.nome}
                   valorTotal={inscrito.valor_total as number | null}
                   parcelas={parcelas}

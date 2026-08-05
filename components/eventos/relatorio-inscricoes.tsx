@@ -1,15 +1,19 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Search, Printer, X, BarChart3, TableIcon, Filter } from 'lucide-react'
+import { Search, Printer, X, BarChart3, TableIcon, Filter, Receipt } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { distribuicao, type RegistroInscricao } from '@/lib/inscricoes-relatorio'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  distribuicao, paraNumero, type RegistroInscricao, type ParcelaPaga,
+} from '@/lib/inscricoes-relatorio'
 
 interface Props {
   colunas: string[]
   registros: RegistroInscricao[]
   colunasCategoricas: string[]
+  historicoPagamentos: (ParcelaPaga & { nome: string })[]
   eventoTitulo: string
 }
 
@@ -30,12 +34,14 @@ export function RelatorioInscricoes({
   colunas,
   registros,
   colunasCategoricas,
+  historicoPagamentos,
   eventoTitulo,
 }: Props) {
   const [busca, setBusca] = useState('')
   const [filtros, setFiltros] = useState<Record<string, string>>({})
   const [colunasVisiveis, setColunasVisiveis] = useState<string[]>(() => colunas.slice(0, 6))
   const [mostrarColunas, setMostrarColunas] = useState(false)
+  const [detalhe, setDetalhe] = useState<RegistroInscricao | null>(null)
 
   const filtrados = useMemo(() => {
     const termo = busca.trim().toLowerCase()
@@ -187,6 +193,10 @@ export function RelatorioInscricoes({
           <h2 className="text-sm font-semibold">Inscritos</h2>
         </div>
 
+        <p className="text-xs text-muted-foreground nao-imprimir">
+          Toque em uma linha para ver a ficha completa e os pagamentos.
+        </p>
+
         {filtrados.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border py-10 text-center">
             <p className="text-sm text-muted-foreground">
@@ -210,7 +220,17 @@ export function RelatorioInscricoes({
               </thead>
               <tbody className="divide-y">
                 {filtrados.map((r, i) => (
-                  <tr key={r.id} className="align-top">
+                  <tr
+                    key={r.id}
+                    onClick={() => setDetalhe(r)}
+                    tabIndex={0}
+                    role="button"
+                    aria-label={`Abrir ficha de ${r.valores[colunasVisiveis[0]] ?? `inscrição ${i + 1}`}`}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDetalhe(r) }
+                    }}
+                    className="cursor-pointer align-top transition-colors hover:bg-accent focus:bg-accent focus:outline-none"
+                  >
                     <td className="px-2 py-2 text-xs text-muted-foreground">{i + 1}</td>
                     {colunasVisiveis.map((c) => (
                       <td key={c} className="px-3 py-2">
@@ -224,7 +244,228 @@ export function RelatorioInscricoes({
           </div>
         )}
       </section>
+
+      <HistoricoPagamentos pagamentos={historicoPagamentos} />
+
+      <FichaInscrito
+        registro={detalhe}
+        colunas={colunas}
+        onFechar={() => setDetalhe(null)}
+      />
     </div>
+  )
+}
+
+/**
+ * Ficha individual — tudo o que a pessoa respondeu, mais as parcelas dela.
+ *
+ * A tabela mostra seis colunas para caber na tela; a ficha mostra as 24. É por
+ * isso que a linha é clicável: rolar a tabela de lado para conferir um dado de
+ * uma pessoa é pior que abrir a ficha dela.
+ */
+function FichaInscrito({
+  registro,
+  colunas,
+  onFechar,
+}: {
+  registro: RegistroInscricao | null
+  colunas: string[]
+  onFechar: () => void
+}) {
+  if (!registro) return null
+
+  const preenchidos = colunas.filter((c) => (registro.valores[c] ?? '').trim())
+  const titulo =
+    colunas.map((c) => (normalizar(c).includes('nome') ? registro.valores[c] : '')).find(Boolean) ??
+    'Inscrição'
+
+  return (
+    <Dialog open onOpenChange={(aberto) => { if (!aberto) onFechar() }}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{titulo}</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <dl className="divide-y rounded-xl border border-border">
+            {preenchidos.map((c) => (
+              <div key={c} className="flex gap-3 px-3 py-2 text-sm">
+                <dt className="w-2/5 shrink-0 text-xs text-muted-foreground">{c}</dt>
+                <dd className="min-w-0 flex-1 break-words">{registro.valores[c]}</dd>
+              </div>
+            ))}
+          </dl>
+
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              Pagamentos
+            </p>
+            {registro.pagamentos.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-border px-3 py-4 text-center text-sm text-muted-foreground">
+                Nenhuma parcela registrada.
+              </p>
+            ) : (
+              <div className="divide-y rounded-xl border border-border">
+                {registro.pagamentos.map((p, i) => (
+                  <div key={i} className="flex items-center gap-3 px-3 py-2.5">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">
+                        {p.valor}
+                        {p.parcela && (
+                          <span className="ml-2 text-xs font-normal text-muted-foreground">
+                            parcela {p.parcela}
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {p.data}
+                        {p.transacao && ` · ${p.transacao}`}
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium">
+                      {p.status}
+                    </span>
+                    {p.comprovanteUrl && (
+                      <a
+                        href={p.comprovanteUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="shrink-0 text-xs font-medium text-primary hover:underline"
+                      >
+                        comprovante
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function normalizar(s: string): string {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+}
+
+/**
+ * Histórico de pagamentos — a aba da planilha, interativa.
+ *
+ * Na planilha é uma grade estática. Aqui dá para buscar por nome, filtrar por
+ * status e abrir o comprovante direto, e o total acompanha o que está filtrado
+ * — que é o que o tesoureiro faz quando quer "quanto entrou de quem pagou a
+ * primeira parcela".
+ */
+function HistoricoPagamentos({
+  pagamentos,
+}: {
+  pagamentos: (ParcelaPaga & { nome: string })[]
+}) {
+  const [busca, setBusca] = useState('')
+  const [status, setStatus] = useState('')
+
+  const statusPossiveis = useMemo(
+    () => [...new Set(pagamentos.map((p) => p.status).filter(Boolean))],
+    [pagamentos]
+  )
+
+  const filtrados = useMemo(() => {
+    const t = busca.trim().toLowerCase()
+    return pagamentos.filter(
+      (p) =>
+        (!status || p.status === status) &&
+        (!t || p.nome.toLowerCase().includes(t) || p.transacao?.toLowerCase().includes(t))
+    )
+  }, [pagamentos, busca, status])
+
+  const total = useMemo(
+    () => filtrados.reduce((s, p) => s + paraNumero(p.valor), 0),
+    [filtrados]
+  )
+
+  if (pagamentos.length === 0) return null
+
+  return (
+    <section className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <Receipt className="h-4 w-4 text-muted-foreground" />
+        <h2 className="text-sm font-semibold">Histórico de pagamentos</h2>
+        <span className="text-xs text-muted-foreground">
+          {filtrados.length} {filtrados.length === 1 ? 'parcela' : 'parcelas'} ·{' '}
+          <strong className="text-foreground">
+            {total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+          </strong>
+        </span>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 nao-imprimir">
+        <div className="relative min-w-[10rem] flex-1">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder="Buscar por nome ou transação..."
+            className="pl-8"
+          />
+        </div>
+        {statusPossiveis.length > 1 && (
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            aria-label="Filtrar por status do pagamento"
+            className="h-8 rounded-lg border border-input bg-background px-2 text-xs outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
+          >
+            <option value="">Todos os status</option>
+            {statusPossiveis.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        )}
+      </div>
+
+      {filtrados.length === 0 ? (
+        <p className="rounded-2xl border border-dashed border-border py-8 text-center text-sm text-muted-foreground">
+          Nenhum pagamento com esses filtros.
+        </p>
+      ) : (
+        <div className="divide-y overflow-hidden rounded-2xl border border-border">
+          {filtrados.map((p, i) => (
+            <div key={i} className="flex items-center gap-3 px-3 py-2.5">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">{p.nome}</p>
+                <p className="text-xs text-muted-foreground">
+                  {p.data}
+                  {p.parcela && ` · parcela ${p.parcela}`}
+                  {p.transacao && ` · ${p.transacao.slice(0, 18)}`}
+                </p>
+              </div>
+              <span className="shrink-0 text-sm font-semibold tabular-nums">{p.valor}</span>
+              <span
+                className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                  normalizar(p.status).includes('confirmad')
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-muted text-muted-foreground'
+                }`}
+              >
+                {p.status}
+              </span>
+              {p.comprovanteUrl && (
+                <a
+                  href={p.comprovanteUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0 text-xs font-medium text-primary hover:underline nao-imprimir"
+                >
+                  ver
+                </a>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   )
 }
 

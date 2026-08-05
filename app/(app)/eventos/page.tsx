@@ -167,7 +167,8 @@ export default async function EventosPage({
   }
 
   function destinoDoCard(evento: EventoCard) {
-    if (podeAcompanhar && temInscritos(evento)) return `/inscricoes/${evento.id}`
+    // Slug quando existe: a URL vira compartilhável em vez de um UUID.
+    if (podeAcompanhar && temInscritos(evento)) return `/inscricoes/${evento.slug ?? evento.id}`
     return `/evento/${evento.slug ?? evento.id}`
   }
 

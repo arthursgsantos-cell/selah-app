@@ -17,12 +17,23 @@ import { baseDaPublicacao, parseCsv } from '@/lib/importacao/planilha'
 import { normalizarNome } from '@/lib/importacao/texto'
 import type { CampoFormulario } from '@/lib/supabase/types'
 
+export interface ParcelaPaga {
+  data: string
+  valor: string
+  parcela: string
+  transacao: string | null
+  comprovanteUrl: string | null
+  status: string
+}
+
 export interface RegistroInscricao {
   id: string
   /** Valores por rótulo de coluna, já em texto pronto para exibir. */
   valores: Record<string, string>
   /** Quando a inscrição entrou. ISO, ou null quando a fonte não informa. */
   criadoEm: string | null
+  /** Parcelas desta pessoa, para a ficha individual. */
+  pagamentos: ParcelaPaga[]
 }
 
 export interface RelatorioInscricoes {
@@ -30,6 +41,8 @@ export interface RelatorioInscricoes {
   /** Rótulos das colunas, na ordem em que devem aparecer. */
   colunas: string[]
   registros: RegistroInscricao[]
+  /** Todas as parcelas do evento, da mais recente para a mais antiga. */
+  historicoPagamentos: (ParcelaPaga & { nome: string })[]
   /** Colunas com poucos valores distintos — as que rendem gráfico. */
   colunasCategoricas: string[]
   totais: {
@@ -44,6 +57,7 @@ const VAZIO: RelatorioInscricoes = {
   fonte: 'app',
   colunas: [],
   registros: [],
+  historicoPagamentos: [],
   colunasCategoricas: [],
   totais: { inscritos: 0, valorPrevisto: 0, valorPago: 0, saldo: 0 },
 }
@@ -153,12 +167,25 @@ async function doApp(eventoId: string, formularioId: string | null): Promise<Rel
   // Pagamentos registrados no app, somados por inscrição.
   const ids = linhas.map((l) => l.id)
   const { data: pagamentos } = ids.length > 0
-    ? await admin.from('inscricao_pagamentos').select('inscricao_id, valor').in('inscricao_id', ids)
+    ? await admin
+        .from('inscricao_pagamentos')
+        .select('inscricao_id, valor, pago_em, metodo')
+        .in('inscricao_id', ids)
+        .order('pago_em')
     : { data: [] }
 
   const pagoPorInscricao = new Map<string, number>()
-  for (const p of (pagamentos ?? []) as { inscricao_id: string; valor: number }[]) {
+  const detalhePorInscricao = new Map<
+    string,
+    { valor: number; pago_em: string; metodo: string | null }[]
+  >()
+  for (const p of (pagamentos ?? []) as {
+    inscricao_id: string; valor: number; pago_em: string; metodo: string | null
+  }[]) {
     pagoPorInscricao.set(p.inscricao_id, (pagoPorInscricao.get(p.inscricao_id) ?? 0) + (p.valor ?? 0))
+    const lista = detalhePorInscricao.get(p.inscricao_id) ?? []
+    lista.push(p)
+    detalhePorInscricao.set(p.inscricao_id, lista)
   }
 
   const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -182,13 +209,30 @@ async function doApp(eventoId: string, formularioId: string | null): Promise<Rel
     }
     for (const campo of campos) valores[campo.label] = l.dados?.[campo.id] ?? ''
 
-    return { id: l.id, valores, criadoEm: l.criado_em }
+    return {
+      id: l.id,
+      valores,
+      criadoEm: l.criado_em,
+      pagamentos: (detalhePorInscricao.get(l.id) ?? []).map((p, i) => ({
+        data: new Date(p.pago_em).toLocaleDateString('pt-BR'),
+        valor: brl(p.valor),
+        parcela: String(i + 1),
+        transacao: null,
+        comprovanteUrl: null,
+        status: p.metodo ?? 'Registrado',
+      })),
+    }
   })
+
+  const historicoApp = registros
+    .flatMap((r) => r.pagamentos.map((p) => ({ ...p, nome: r.valores.Nome ?? '' })))
+    .reverse()
 
   return {
     fonte: 'app',
     colunas,
     registros,
+    historicoPagamentos: historicoApp,
     colunasCategoricas: detectarCategoricas(colunas, registros),
     totais: {
       inscritos: linhas.filter((l) => l.status !== 'cancelado').length,
@@ -216,7 +260,9 @@ async function daPlanilha(urlPublicada: string): Promise<RelatorioInscricoes> {
   const html = await baixar(`${base}html`)
   const gids = [...new Set([...html.matchAll(/gid=(\d+)/g)].map((m) => m[1]))]
 
-  let inscritos: { cabecalho: string[]; linhas: string[][] } | null = null
+  type Aba = { cabecalho: string[]; linhas: string[][] }
+  let inscritos: Aba | null = null
+  let pagamentos: Aba | null = null
 
   for (const gid of gids) {
     const texto = await baixar(`${base}?gid=${gid}&single=true&output=csv`)
@@ -225,11 +271,18 @@ async function daPlanilha(urlPublicada: string): Promise<RelatorioInscricoes> {
     if (linhas.length < 2) continue
 
     const cabecalho = linhas[0]
-    // A aba de inscritos é a que tem "nome completo"; a de pagamentos, não.
-    const ehInscritos = cabecalho.some((c) => normalizarNome(c).includes('nome completo'))
-    if (ehInscritos) {
-      inscritos = { cabecalho, linhas: linhas.slice(1).filter((l) => l.some((c) => c.trim())) }
-      break
+    const aba: Aba = { cabecalho, linhas: linhas.slice(1).filter((l) => l.some((c) => c.trim())) }
+
+    // "Nome completo" identifica a aba de inscritos. A checagem tem de vir
+    // primeiro: a de inscritos também traz "Parcelas pagas" e "Último
+    // comprovante", e sem isso ela seria confundida com a de pagamentos.
+    if (cabecalho.some((c) => normalizarNome(c).includes('nome completo'))) {
+      inscritos ??= aba
+    } else if (
+      cabecalho.some((c) => normalizarNome(c).includes('parcela')) &&
+      cabecalho.some((c) => normalizarNome(c).includes('comprovante'))
+    ) {
+      pagamentos ??= aba
     }
   }
 
@@ -242,10 +295,74 @@ async function daPlanilha(urlPublicada: string): Promise<RelatorioInscricoes> {
 
   const colunas = indices.map((c) => c.rotulo)
 
+  /** Só os dígitos, sem DDI — a planilha traz o número em formatos diferentes. */
+  const soDigitos = (t: string) => {
+    const d = (t ?? '').replace(/\D/g, '')
+    return d.length > 11 ? d.slice(-11) : d
+  }
+
+  // Parcelas agrupadas por pessoa. O casamento é por telefone e, na falta
+  // dele, pelo nome normalizado — a aba de pagamentos não tem e-mail.
+  const parcelasPorPessoa = new Map<string, ParcelaPaga[]>()
+  const historicoPagamentos: (ParcelaPaga & { nome: string })[] = []
+  if (pagamentos) {
+    const cab = pagamentos.cabecalho.map(normalizarNome)
+    const col = (...trechos: string[]) => {
+      for (const t of trechos) {
+        const i = cab.findIndex((c) => c.includes(normalizarNome(t)))
+        if (i >= 0) return i
+      }
+      return -1
+    }
+    const idx = {
+      nome: col('nome'),
+      telefone: col('telefone'),
+      data: col('data/hora do pagamento', 'data'),
+      valor: col('valor'),
+      parcela: col('parcela'),
+      transacao: col('id da transacao', 'transacao'),
+      comprovante: col('comprovante'),
+      status: col('status'),
+    }
+    const val = (l: string[], i: number) => (i >= 0 ? (l[i] ?? '').trim() : '')
+
+    for (const l of pagamentos.linhas) {
+      const chaveTel = soDigitos(val(l, idx.telefone))
+      const chaveNome = normalizarNome(val(l, idx.nome))
+      const parcela: ParcelaPaga = {
+        data: val(l, idx.data),
+        valor: val(l, idx.valor),
+        parcela: val(l, idx.parcela),
+        transacao: val(l, idx.transacao) || null,
+        comprovanteUrl: val(l, idx.comprovante) || null,
+        status: val(l, idx.status) || 'Registrado',
+      }
+      historicoPagamentos.push({ ...parcela, nome: val(l, idx.nome) })
+
+      for (const chave of [chaveTel && `tel:${chaveTel}`, chaveNome && `nome:${chaveNome}`]) {
+        if (!chave) continue
+        const lista = parcelasPorPessoa.get(chave) ?? []
+        lista.push(parcela)
+        parcelasPorPessoa.set(chave, lista)
+      }
+    }
+  }
+
+  const colNome = colunas.find((c) => normalizarNome(c).includes('nome completo'))
+  const colTelefone = colunas.find((c) => normalizarNome(c).includes('telefone'))
+
   const registros: RegistroInscricao[] = inscritos.linhas.map((linha, n) => {
     const valores: Record<string, string> = {}
     for (const { rotulo, i } of indices) valores[rotulo] = (linha[i] ?? '').trim()
-    return { id: `linha-${n}`, valores, criadoEm: null }
+
+    const tel = colTelefone ? soDigitos(valores[colTelefone]) : ''
+    const nome = colNome ? normalizarNome(valores[colNome]) : ''
+    const parcelas =
+      (tel && parcelasPorPessoa.get(`tel:${tel}`)) ||
+      (nome && parcelasPorPessoa.get(`nome:${nome}`)) ||
+      []
+
+    return { id: `linha-${n}`, valores, criadoEm: null, pagamentos: parcelas }
   })
 
   // Os totais saem das colunas de dinheiro da própria planilha, quando existem.
@@ -265,10 +382,19 @@ async function daPlanilha(urlPublicada: string): Promise<RelatorioInscricoes> {
     if (colSaldo) saldo += paraNumero(r.valores[colSaldo])
   }
 
+  // "04/08/2026 14:09:14" → ordenável sem depender de Date, que leria a data
+  // brasileira como mês/dia.
+  const chaveData = (d: string) => {
+    const m = /^(\d{2})\/(\d{2})\/(\d{4})[ ,]*(\d{2}:\d{2}(:\d{2})?)?/.exec(d.trim())
+    return m ? `${m[3]}-${m[2]}-${m[1]} ${m[4] ?? ''}` : d
+  }
+  historicoPagamentos.sort((a, b) => chaveData(b.data).localeCompare(chaveData(a.data)))
+
   return {
     fonte: 'planilha',
     colunas,
     registros,
+    historicoPagamentos,
     colunasCategoricas: detectarCategoricas(colunas, registros),
     totais: {
       inscritos: registros.length,
