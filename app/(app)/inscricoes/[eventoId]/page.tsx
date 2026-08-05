@@ -13,6 +13,8 @@ import type { CampoFormulario } from '@/lib/supabase/types'
 import { PagamentosInscrito } from '@/components/eventos/pagamentos-inscrito'
 import { formatarBRL, type ParcelaEvento, type PagamentoInscricao } from '@/lib/evento-cobranca'
 import { resumoDoEvento } from '@/lib/eventos-resumo'
+import { carregarRelatorio } from '@/lib/inscricoes-relatorio'
+import { RelatorioInscricoes } from '@/components/eventos/relatorio-inscricoes'
 
 const statusConfig = {
   pendente:   { label: 'Pendente',   className: 'bg-yellow-100 text-yellow-700' },
@@ -54,7 +56,7 @@ export default async function InscritosList({ params }: { params: { eventoId: st
   const admin = createAdminClient()
 
   const [{ data: evento }, { data: inscritosRaw }, { data: parcelasData }, resumo] = await Promise.all([
-    admin.from('eventos').select('titulo, slug, data_hora, formulario_id, local').eq('id', params.eventoId).single(),
+    admin.from('eventos').select('id, titulo, slug, data_hora, formulario_id, local, inscricoes_planilha_url').eq('id', params.eventoId).single(),
     admin.from('inscricoes_evento')
       .select('id, nome, telefone, dados, status, criado_em, valor_total')
       .eq('evento_id', params.eventoId)
@@ -67,6 +69,12 @@ export default async function InscritosList({ params }: { params: { eventoId: st
   ])
 
   if (!evento) notFound()
+
+  // Quando o evento recebe inscrição por link, as pessoas estão na planilha e
+  // não em `inscricoes_evento` — o relatório lê a fonte certa sozinho.
+  const relatorio = await carregarRelatorio(
+    evento as unknown as { id: string; formulario_id: string | null; inscricoes_planilha_url: string | null }
+  )
 
   const parcelas = (parcelasData ?? []) as ParcelaEvento[]
 
@@ -96,9 +104,34 @@ export default async function InscritosList({ params }: { params: { eventoId: st
   const inscritos = inscritosRaw ?? []
   const ativos = inscritos.filter((i) => i.status !== 'cancelado')
 
+  // O relatório da planilha traz os próprios totais; o do app usa o resumo já
+  // calculado. Uma variável só para a tela não precisar saber a origem.
+  const totais = relatorio && relatorio.fonte === 'planilha'
+    ? {
+        inscritos: relatorio.totais.inscritos,
+        previsto: relatorio.totais.valorPrevisto,
+        pago: relatorio.totais.valorPago,
+        saldo: relatorio.totais.saldo,
+      }
+    : {
+        inscritos: resumo.total - resumo.cancelados,
+        previsto: resumo.valorPrevisto,
+        pago: resumo.valorPago,
+        saldo: resumo.saldo,
+      }
+
+  const percentualPago = totais.previsto > 0
+    ? Math.round((totais.pago / totais.previsto) * 100)
+    : null
+
   return (
-    <div className="max-w-2xl mx-auto space-y-5">
-      <Button variant="ghost" size="sm" render={<Link href="/eventos" />} className="-ml-1">
+    <div className="max-w-4xl mx-auto space-y-5 area-impressao">
+      <Button
+        variant="ghost"
+        size="sm"
+        render={<Link href="/eventos" />}
+        className="-ml-1 nao-imprimir"
+      >
         <ArrowLeft className="h-4 w-4" />
         Voltar
       </Button>
@@ -115,7 +148,7 @@ export default async function InscritosList({ params }: { params: { eventoId: st
         <Button
           variant="outline"
           size="sm"
-          className="shrink-0"
+          className="shrink-0 nao-imprimir"
           render={<Link href={`/evento/${(evento as { slug: string | null }).slug ?? params.eventoId}`} />}
         >
           <ExternalLink className="h-4 w-4" />
@@ -125,21 +158,58 @@ export default async function InscritosList({ params }: { params: { eventoId: st
 
       {/* Consolidado — o que o tesoureiro e a liderança querem de relance */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <Indicador rotulo="inscritos" valor={resumo.total - resumo.cancelados} icone={<Users className="h-4 w-4" />} />
-        <Indicador
-          rotulo="confirmados"
-          valor={resumo.confirmados}
-          classe={resumo.confirmados > 0 ? 'text-green-600' : undefined}
-        />
-        <Indicador
-          rotulo="pendentes"
-          valor={resumo.pendentes}
-          classe={resumo.pendentes > 0 ? 'text-amber-600' : undefined}
-        />
-        <Indicador rotulo="cancelados" valor={resumo.cancelados} />
+        <Indicador rotulo="inscritos" valor={totais.inscritos} icone={<Users className="h-4 w-4" />} />
+        {relatorio?.fonte === 'planilha' ? (
+          <>
+            <Indicador rotulo="previsto (R$)" valor={Math.round(totais.previsto)} />
+            <Indicador
+              rotulo="recebido (R$)"
+              valor={Math.round(totais.pago)}
+              classe={totais.pago > 0 ? 'text-green-600' : undefined}
+            />
+            <Indicador
+              rotulo="a receber (R$)"
+              valor={Math.round(totais.saldo)}
+              classe={totais.saldo > 0 ? 'text-amber-600' : undefined}
+            />
+          </>
+        ) : (
+          <>
+            <Indicador
+              rotulo="confirmados"
+              valor={resumo.confirmados}
+              classe={resumo.confirmados > 0 ? 'text-green-600' : undefined}
+            />
+            <Indicador
+              rotulo="pendentes"
+              valor={resumo.pendentes}
+              classe={resumo.pendentes > 0 ? 'text-amber-600' : undefined}
+            />
+            <Indicador rotulo="cancelados" valor={resumo.cancelados} />
+          </>
+        )}
       </div>
 
-      {resumo.valorPrevisto > 0 && (
+      {/* A planilha não pôde ser lida: avisar é melhor que mostrar tabela vazia
+          dando a entender que ninguém se inscreveu. */}
+      {relatorio === null && (
+        <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Não consegui ler a planilha de inscrições. Confira em Arquivo → Compartilhar →
+          Publicar na web se o documento inteiro continua publicado.
+        </p>
+      )}
+
+      {/* Gráficos, filtros e tabela */}
+      {relatorio && relatorio.registros.length > 0 && (
+        <RelatorioInscricoes
+          colunas={relatorio.colunas}
+          registros={relatorio.registros}
+          colunasCategoricas={relatorio.colunasCategoricas}
+          eventoTitulo={evento.titulo}
+        />
+      )}
+
+      {totais.previsto > 0 && (
         <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
           <div className="flex items-center gap-2">
             <Wallet className="h-4 w-4 text-muted-foreground" />
@@ -151,44 +221,51 @@ export default async function InscritosList({ params }: { params: { eventoId: st
           <div className="grid grid-cols-3 gap-3 text-sm">
             <div>
               <p className="text-xs text-muted-foreground">Previsto</p>
-              <p className="font-semibold">{formatarBRL(resumo.valorPrevisto)}</p>
+              <p className="font-semibold">{formatarBRL(totais.previsto)}</p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Recebido</p>
-              <p className="font-semibold text-green-600">{formatarBRL(resumo.valorPago)}</p>
+              <p className="font-semibold text-green-600">{formatarBRL(totais.pago)}</p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">A receber</p>
-              <p className={`font-semibold ${resumo.saldo > 0 ? 'text-amber-600' : 'text-muted-foreground'}`}>
-                {formatarBRL(resumo.saldo)}
+              <p className={`font-semibold ${totais.saldo > 0 ? 'text-amber-600' : 'text-muted-foreground'}`}>
+                {formatarBRL(totais.saldo)}
               </p>
             </div>
           </div>
 
-          {resumo.percentualPago !== null && (
+          {percentualPago !== null && (
             <div className="space-y-1">
               <div className="h-2 rounded-full bg-muted overflow-hidden">
                 <div
                   className="h-full rounded-full bg-green-500 transition-all"
-                  style={{ width: `${Math.min(100, resumo.percentualPago)}%` }}
+                  style={{ width: `${Math.min(100, percentualPago)}%` }}
                 />
               </div>
               <p className="text-xs text-muted-foreground text-right tabular-nums">
-                {resumo.percentualPago}% recebido
+                {percentualPago}% recebido
               </p>
             </div>
           )}
         </div>
       )}
 
-      {inscritos.length === 0 ? (
+      {/* Só quando não há relatório nenhum: com planilha, dizer "nenhuma
+          inscrição" seria mentira — elas estão na tabela acima. */}
+      {inscritos.length === 0 && (relatorio?.registros.length ?? 0) === 0 && relatorio !== null && (
         <Card>
           <CardContent className="py-12 text-center text-sm text-muted-foreground">
             Nenhuma inscrição ainda.
           </CardContent>
         </Card>
-      ) : (
-        <div className="space-y-3">
+      )}
+
+      {/* Fichas com controle de pagamento — só existem para inscrição pelo
+          app, e ficam fora do PDF por causa dos botões. */}
+      {inscritos.length > 0 && (
+        <div className="space-y-3 nao-imprimir">
+          <h2 className="text-sm font-semibold">Fichas e pagamentos</h2>
           {inscritos.map((inscrito, i) => {
             const status = statusConfig[inscrito.status as keyof typeof statusConfig] ?? statusConfig.pendente
             const dados = inscrito.dados as Record<string, string>

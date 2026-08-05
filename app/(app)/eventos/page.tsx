@@ -107,7 +107,7 @@ export default async function EventosPage({
 
   let proximosQuery = supabase
     .from('eventos')
-    .select('id, slug, titulo, descricao, data_hora, local, tipo, rede_id, imagem_url, recorrencia_id, recorrencia_tipo, tipo_inscricao, whatsapp_inscricao, pix_chave, pix_tipo, pix_nome, pix_valor, formulario_id, link_inscricao_url, data_hora_fim')
+    .select('id, slug, inscricoes_planilha_url, titulo, descricao, data_hora, local, tipo, rede_id, imagem_url, recorrencia_id, recorrencia_tipo, tipo_inscricao, whatsapp_inscricao, pix_chave, pix_tipo, pix_nome, pix_valor, formulario_id, link_inscricao_url, data_hora_fim')
     .eq('igreja_id', profile.igreja_id)
     .gte('data_hora', new Date().toISOString())
     .limit(50)
@@ -126,7 +126,7 @@ export default async function EventosPage({
 
   const { data: passados } = await supabase
     .from('eventos')
-    .select('id, slug, titulo, data_hora, local, tipo, imagem_url, recorrencia_id, recorrencia_tipo, tipo_inscricao, whatsapp_inscricao, pix_chave, pix_tipo, pix_nome, pix_valor, formulario_id, link_inscricao_url, data_hora_fim')
+    .select('id, slug, inscricoes_planilha_url, titulo, data_hora, local, tipo, imagem_url, recorrencia_id, recorrencia_tipo, tipo_inscricao, whatsapp_inscricao, pix_chave, pix_tipo, pix_nome, pix_valor, formulario_id, link_inscricao_url, data_hora_fim')
     .eq('igreja_id', profile.igreja_id)
     .lt('data_hora', new Date().toISOString())
     .order('data_hora', { ascending: false })
@@ -150,10 +150,24 @@ export default async function EventosPage({
    * Para quem acompanha, clicar no evento abre a lista de inscritos — é o que
    * a liderança quer ver. Os demais vão para a página pública do evento.
    */
-  function destinoDoCard(evento: { id: string; slug?: string | null; tipo_inscricao?: string | null }) {
-    if (podeAcompanhar && acompanhaInscricoes(evento.tipo_inscricao)) {
-      return `/inscricoes/${evento.id}`
-    }
+  type EventoCard = {
+    id: string
+    slug?: string | null
+    tipo_inscricao?: string | null
+    inscricoes_planilha_url?: string | null
+  }
+
+  /**
+   * O evento tem inscritos que o app consegue mostrar? Vale para os dois
+   * caminhos: formulário/PIX gravam em `inscricoes_evento`, e a inscrição por
+   * link externo tem a planilha publicada.
+   */
+  function temInscritos(evento: EventoCard): boolean {
+    return acompanhaInscricoes(evento.tipo_inscricao) || Boolean(evento.inscricoes_planilha_url)
+  }
+
+  function destinoDoCard(evento: EventoCard) {
+    if (podeAcompanhar && temInscritos(evento)) return `/inscricoes/${evento.id}`
     return `/evento/${evento.slug ?? evento.id}`
   }
 
@@ -280,11 +294,11 @@ export default async function EventosPage({
                       href={destinoDoCard(evento)}
                       className="flex-1 px-4 py-2.5 text-xs font-medium text-primary hover:bg-accent transition-colors text-center"
                     >
-                      {podeAcompanhar && acompanhaInscricoes(evento.tipo_inscricao)
-                        ? 'Acompanhar inscrições'
+                      {podeAcompanhar && temInscritos(evento)
+                        ? 'Ver inscrições'
                         : 'Abrir evento'}
                     </Link>
-                    {podeAcompanhar && acompanhaInscricoes(evento.tipo_inscricao) && (
+                    {podeAcompanhar && temInscritos(evento) && (
                       <Link
                         href={`/evento/${evento.slug ?? evento.id}`}
                         className="px-4 py-2.5 text-xs font-medium text-muted-foreground hover:bg-accent transition-colors"

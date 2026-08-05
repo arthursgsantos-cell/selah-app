@@ -193,3 +193,41 @@
 @media (prefers-reduced-motion: reduce) {
   [class*='animate-[lightbox'] { animation: none !important; }
 }
+
+/* ---------------------------------------------------------------------------
+   Impressão / exportar em PDF
+
+   Existe para o relatório de inscrições: "Salvar como PDF" do navegador é o
+   caminho sem dependência nova, e sem estas regras o PDF sairia com o menu do
+   app, os botões de filtro e a tabela cortada na largura da tela.
+
+   `.nao-imprimir` some; `.area-impressao` vira a página inteira.
+--------------------------------------------------------------------------- */
+@media print {
+  .nao-imprimir { display: none !important; }
+
+  header, nav { display: none !important; }
+
+  /* O layout do app rola dentro de um <main>; na impressão isso truncaria
+     tudo o que não coubesse na primeira tela. */
+  html, body, main { height: auto !important; overflow: visible !important; }
+
+  .area-impressao {
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Fundo personalizado e cascata de fotos não vão para o papel. */
+  .fixed { display: none !important; }
+
+  /* Cartões viram blocos com contorno fino — sombra imprime como borrão. */
+  .area-impressao [class*="shadow"] { box-shadow: none !important; }
+  .area-impressao [class*="rounded"] { border: 1px solid #ddd; }
+
+  table { width: 100% !important; font-size: 10px !important; }
+  thead { display: table-header-group; }
+  tr, .quebra-evitar { break-inside: avoid; }
+
+  a[href]::after { content: none !important; }
+}
