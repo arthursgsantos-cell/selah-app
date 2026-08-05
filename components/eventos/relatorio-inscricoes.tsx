@@ -281,19 +281,44 @@ function FichaInscrito({
 
   return (
     <Dialog open onOpenChange={(aberto) => { if (!aberto) onFechar() }}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto">
+      {/* Mais larga que o padrão (`sm:max-w-sm`): são 24 campos, e a pergunta
+          do formulário costuma ser uma frase inteira.
+          `overflow-x-hidden` é a rede de segurança — um link do Drive sem
+          espaço nenhum estourava a caixa e escondia os rótulos. */}
+      <DialogContent className="max-h-[85vh] overflow-y-auto overflow-x-hidden sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{titulo}</DialogTitle>
+          <DialogTitle className="break-words">{titulo}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Rótulo em cima e valor embaixo: lado a lado, a pergunta longa
+              espremia a resposta numa coluna de duas palavras. */}
           <dl className="divide-y rounded-xl border border-border">
-            {preenchidos.map((c) => (
-              <div key={c} className="flex gap-3 px-3 py-2 text-sm">
-                <dt className="w-2/5 shrink-0 text-xs text-muted-foreground">{c}</dt>
-                <dd className="min-w-0 flex-1 break-words">{registro.valores[c]}</dd>
-              </div>
-            ))}
+            {preenchidos.map((c) => {
+              const valor = registro.valores[c]
+              const ehLink = /^https?:\/\//i.test(valor)
+              return (
+                <div key={c} className="px-3 py-2">
+                  <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                    {c}
+                  </dt>
+                  <dd className="mt-0.5 text-sm [overflow-wrap:anywhere]">
+                    {ehLink ? (
+                      <a
+                        href={valor}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-primary hover:underline"
+                      >
+                        abrir link
+                      </a>
+                    ) : (
+                      valor
+                    )}
+                  </dd>
+                </div>
+              )
+            })}
           </dl>
 
           <div>
@@ -307,8 +332,8 @@ function FichaInscrito({
             ) : (
               <div className="divide-y rounded-xl border border-border">
                 {registro.pagamentos.map((p, i) => (
-                  <div key={i} className="flex items-center gap-3 px-3 py-2.5">
-                    <div className="min-w-0 flex-1">
+                  <div key={i} className="px-3 py-2.5">
+                    <div className="flex items-baseline justify-between gap-2">
                       <p className="text-sm font-medium">
                         {p.valor}
                         {p.parcela && (
@@ -317,24 +342,30 @@ function FichaInscrito({
                           </span>
                         )}
                       </p>
-                      <p className="text-xs text-muted-foreground">
-                        {p.data}
-                        {p.transacao && ` · ${p.transacao}`}
-                      </p>
+                      <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium">
+                        {p.status}
+                      </span>
                     </div>
-                    <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium">
-                      {p.status}
-                    </span>
-                    {p.comprovanteUrl && (
-                      <a
-                        href={p.comprovanteUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="shrink-0 text-xs font-medium text-primary hover:underline"
-                      >
-                        comprovante
-                      </a>
-                    )}
+                    <p className="mt-0.5 text-xs text-muted-foreground [overflow-wrap:anywhere]">
+                      {p.data}
+                    </p>
+                    <div className="mt-1 flex items-center gap-3 text-xs">
+                      {p.comprovanteUrl && (
+                        <a
+                          href={p.comprovanteUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-primary hover:underline"
+                        >
+                          comprovante
+                        </a>
+                      )}
+                      {p.transacao && (
+                        <span className="truncate text-muted-foreground/70" title={p.transacao}>
+                          {p.transacao}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
