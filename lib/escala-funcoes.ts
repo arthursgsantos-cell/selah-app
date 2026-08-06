@@ -7,8 +7,12 @@ interface FuncaoConfig {
   emoji: string
 }
 
-/** Ordem em que as funções aparecem na tela. */
+/**
+ * Ordem em que as funções aparecem na tela. Anfitriões vem primeiro: é a
+ * decisão que trava as outras, porque define onde o encontro acontece.
+ */
 export const FUNCOES_ESCALA: FuncaoEscala[] = [
+  'anfitriao',
   'louvor',
   'quebra_gelo',
   'edificacao',
@@ -18,6 +22,7 @@ export const FUNCOES_ESCALA: FuncaoEscala[] = [
 ]
 
 export const FUNCAO_CONFIG: Record<FuncaoEscala, FuncaoConfig> = {
+  anfitriao: { label: 'Anfitriões', emoji: '🏠' },
   louvor: { label: 'Louvor', emoji: '🎵' },
   quebra_gelo: { label: 'Quebra-gelo', emoji: '🎲' },
   edificacao: { label: 'Edificação', emoji: '📖' },

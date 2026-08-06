@@ -163,7 +163,7 @@ export default async function MinhasCelulaPage() {
   const { data: eventosConfirmadosData } = eventosComPresencaIds.length
     ? await admin
         .from('eventos')
-        .select('id, titulo, data_hora, local, tipo, imagem_url')
+        .select('id, slug, titulo, data_hora, local, tipo, imagem_url')
         .in('id', eventosComPresencaIds)
         .gte('data_hora', new Date().toISOString())
         .order('data_hora', { ascending: true })
@@ -171,7 +171,7 @@ export default async function MinhasCelulaPage() {
     : { data: [] }
 
   type EventoComMembros = {
-    id: string; titulo: string; data_hora: string; local: string | null
+    id: string; slug: string | null; titulo: string; data_hora: string; local: string | null
     tipo: string; imagem_url: string | null
     membrosVao: Array<{ nome: string; avatar_url: string | null }>
   }
@@ -403,7 +403,11 @@ export default async function MinhasCelulaPage() {
             <h2 className="text-sm font-semibold text-foreground">Eventos da igreja</h2>
           </div>
           {eventosConfirmados.map((ev) => (
-            <div key={ev.id} className="rounded-2xl border border-border bg-card p-3 flex gap-3">
+            <Link
+              key={ev.id}
+              href={`/evento/${ev.slug ?? ev.id}`}
+              className="rounded-2xl border border-border bg-card p-3 flex gap-3 hover:bg-accent transition-colors"
+            >
               {ev.imagem_url ? (
                 <img src={ev.imagem_url} alt={ev.titulo} className="h-12 w-12 rounded-xl object-cover shrink-0" />
               ) : (
@@ -439,7 +443,7 @@ export default async function MinhasCelulaPage() {
                   ))}
                 </div>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       )}
