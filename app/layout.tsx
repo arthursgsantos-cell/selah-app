@@ -1,5 +1,6 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
+import { PwaInstaller } from '@/components/shared/pwa-installer'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' })
@@ -7,34 +8,37 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-sans' })
 const TITULO = 'IBZS · Gestão de Células'
 const DESCRICAO = 'Gerencie sua célula, encontros e eventos da sua igreja.'
 
-/**
- * A logo em `/logo-icon.png` tem 1024x1024 e 697 KB — peso demais para um
- * ícone de aba, que é exibido em 16 ou 32px. O otimizador do Next entrega o
- * mesmo arquivo redimensionado (96px sai em 3 KB) sem precisar manter cópias
- * do asset no repositório.
- *
- * Nota: `app/favicon.ico` foi removido de propósito. Era o arquivo padrão do
- * Next — a logo da Vercel — e, por ser .ico, ganhava do PNG na aba.
- */
 const iconeLogo = (largura: number) =>
   `/_next/image?url=%2Flogo-icon.png&w=${largura}&q=75`
 
-/**
- * `metadataBase` é obrigatório para o Next transformar esses caminhos em URL
- * absoluta — WhatsApp, Telegram e a folha de compartilhamento do celular só
- * aceitam caminho absoluto no og:image e, sem ele, caem no ícone genérico da
- * hospedagem.
- */
+export const viewport: Viewport = {
+  themeColor: '#0f62fe',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
+}
+
 export const metadata: Metadata = {
   metadataBase: new URL('https://ibzs.vercel.app'),
   title: TITULO,
   description: DESCRICAO,
+  manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'IBZS',
+  },
   icons: {
     icon: [
+      { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png' },
       { url: iconeLogo(48), sizes: '48x48', type: 'image/png' },
-      { url: iconeLogo(96), sizes: '96x96', type: 'image/png' },
     ],
-    apple: iconeLogo(256),
+    apple: [
+      { url: '/icons/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
   },
   openGraph: {
     type: 'website',
@@ -57,7 +61,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="pt-BR" className={inter.variable}>
       <body className="font-sans antialiased bg-background text-foreground">
         {children}
+        <PwaInstaller />
       </body>
     </html>
   )
 }
+
