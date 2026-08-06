@@ -1,0 +1,46 @@
+name: Deploy de produção (Vercel)
+
+# Sobe para produção a cada push na main. Também dá para rodar na mão
+# pela aba Actions do GitHub (botão "Run workflow").
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# IDs do projeto na Vercel. Não são segredo: sozinhos não dão acesso a nada,
+# só apontam para qual projeto o deploy vai. O que precisa ser secreto é o
+# VERCEL_TOKEN, guardado em Settings > Secrets and variables > Actions.
+env:
+  VERCEL_ORG_ID: team_m5FsEET4GFJEdSPWMvHfBVMr
+  VERCEL_PROJECT_ID: prj_NwXQMUc4PBji9LNcTU0lJ4ZQ9Tlp
+
+jobs:
+  deploy:
+    name: Build e deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Conferir se o token está configurado
+        run: |
+          if [ -z "${{ secrets.VERCEL_TOKEN }}" ]; then
+            echo "::error::Falta o secret VERCEL_TOKEN. Crie um token em vercel.com/account/tokens e adicione em Settings > Secrets and variables > Actions deste repositório."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Instalar a CLI da Vercel
+        run: npm install --global vercel@latest
+
+      - name: Puxar as variáveis de ambiente da Vercel
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Publicar em produção
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
