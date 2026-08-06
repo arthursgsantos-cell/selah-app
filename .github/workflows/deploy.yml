@@ -16,7 +16,7 @@ env:
 
 jobs:
   deploy:
-    name: Build e deploy
+    name: Deploy
     runs-on: ubuntu-latest
     steps:
       - name: Conferir se o token está configurado
@@ -30,17 +30,14 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: npm
+          node-version: 22
 
       - name: Instalar a CLI da Vercel
         run: npm install --global vercel@latest
 
-      - name: Puxar as variáveis de ambiente da Vercel
-        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Build
-        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-
+      # O build acontece dentro da Vercel, não aqui. É de propósito: as
+      # variáveis de ambiente do projeto estão marcadas como Sensitive, o que
+      # impede a CLI de lê-las de fora. Buildar no runner geraria um bundle
+      # sem NEXT_PUBLIC_SUPABASE_URL e quebraria as páginas de auth.
       - name: Publicar em produção
-        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel deploy --prod --yes --token=${{ secrets.VERCEL_TOKEN }}
