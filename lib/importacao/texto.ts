@@ -6,6 +6,8 @@
  * senão a resolução de célula por apelido dá resultados diferentes no banco e
  * no código.
  */
+import { normalizarHorario } from '@/lib/dia-semana'
+
 const ACENTOS = /[̀-ͯ]/g
 
 export function normalizarNome(valor: string): string {
@@ -42,6 +44,31 @@ export function dataHoraPublicacao(valor: string): string {
   const hora = (m[4] ?? '00').padStart(2, '0')
   const minuto = m[5] ?? '00'
   return `${m[3]}-${m[2]}-${m[1]}T${hora}:${minuto}:00${FUSO_BRASILIA}`
+}
+
+/**
+ * Data e hora de um encontro de célula, a partir das colunas separadas que a
+ * planilha usa ("Data do encontro" e "Horário").
+ *
+ * "08/08/2026" + "08:30" → "2026-08-08T08:30:00-03:00".
+ *
+ * Devolve `null` quando a data não é legível — a linha vira pendência em vez de
+ * criar encontro em dia inventado. O horário, esse sim, tem reserva: sem ele
+ * vale o horário fixo da célula.
+ */
+export function dataHoraEncontro(
+  data: string,
+  horario: string,
+  horarioPadrao: string | null
+): string | null {
+  const br = /^(\d{2})\/(\d{2})\/(\d{4})/.exec(data.trim())
+  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(data.trim())
+  if (!br && !iso) return null
+
+  const dia = br ? `${br[3]}-${br[2]}-${br[1]}` : `${iso![1]}-${iso![2]}-${iso![3]}`
+  const hora = normalizarHorario(horario) || normalizarHorario(horarioPadrao) || '19:00'
+
+  return `${dia}T${hora}:00${FUSO_BRASILIA}`
 }
 
 export type PeriodoEvento = {

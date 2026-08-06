@@ -3,13 +3,14 @@ import { createClient } from '@/lib/supabase/server'
 import { sincronizarConteudos } from '@/lib/importacao'
 
 export const dynamic = 'force-dynamic'
-// Teto do plano atual da Vercel. As três importações compartilham a mesma
+// Teto do plano atual da Vercel. Todas as importações compartilham a mesma
 // leitura da planilha e do Drive justamente para caber aqui.
 export const maxDuration = 60
 
 /**
- * Importa roteiros, fotos das células e eventos a partir da planilha de
- * controle publicada no Google Sheets.
+ * Importa roteiros, fotos das células, eventos, os encontros da célula (card de
+ * informações) e a lista de lanche a partir da planilha de controle publicada
+ * no Google Sheets.
  *
  * GET  — usado pelo Vercel Cron. Exige o header Authorization com CRON_SECRET.
  * POST — usado pelo botão "Sincronizar conteúdos"; exige pastor/admin logado.

@@ -20,6 +20,8 @@ type Resposta = {
   roteiros?: Bloco
   fotos?: Bloco
   eventos?: Bloco
+  encontros?: Bloco
+  lanches?: Bloco
 }
 
 export type RegistroImportacao = {
@@ -36,6 +38,8 @@ const ROTULO_TIPO: Record<string, string> = {
   roteiro: 'Roteiro',
   foto_celula: 'Foto de célula',
   evento: 'Evento',
+  encontro_celula: 'Encontro de célula',
+  lanche: 'Item de lanche',
 }
 
 const ESTILO_STATUS: Record<string, { rotulo: string; classe: string }> = {
@@ -103,6 +107,8 @@ export function ImportacaoSection({ registros }: { registros: RegistroImportacao
             <ResumoBloco titulo="Roteiros" bloco={resposta.roteiros} />
             <ResumoBloco titulo="Fotos das células" bloco={resposta.fotos} />
             <ResumoBloco titulo="Eventos" bloco={resposta.eventos} />
+            <ResumoBloco titulo="Encontros de célula" bloco={resposta.encontros} />
+            <ResumoBloco titulo="Lista de lanche" bloco={resposta.lanches} />
           </CardContent>
         </Card>
       )}

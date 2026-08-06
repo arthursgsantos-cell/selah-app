@@ -2,7 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { criarLeitorDrive, type LeitorDrive } from './drive'
 import { baixarAbas, type Aba } from './planilha'
 
-export type TipoImportacao = 'roteiro' | 'foto_celula' | 'evento'
+export type TipoImportacao = 'roteiro' | 'foto_celula' | 'evento' | 'encontro_celula' | 'lanche'
 export type StatusImportacao = 'importado' | 'ignorado' | 'pendente' | 'erro'
 
 export type LinhaImportacao = {

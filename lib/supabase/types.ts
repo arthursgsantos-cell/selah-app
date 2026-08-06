@@ -15,7 +15,14 @@ export type TipoEvento = 'culto' | 'igreja' | 'rede' | 'celula' | 'outro'
 export type RecorrenciaTipo = 'semanal' | 'quinzenal' | 'mensal'
 export type TipoInscricao = 'aberto' | 'whatsapp' | 'formulario' | 'pix' | 'link'
 export type TipoChavePix = 'cpf' | 'cnpj' | 'email' | 'telefone' | 'aleatoria'
-export type TipoImportacao = 'roteiro' | 'foto_celula' | 'evento'
+export type TipoImportacao =
+  | 'roteiro'
+  | 'foto_celula'
+  | 'evento'
+  /** Card de informações do encontro da célula. */
+  | 'encontro_celula'
+  /** Um item da lista de lanche daquele encontro. */
+  | 'lanche'
 export type StatusImportacao = 'importado' | 'ignorado' | 'pendente' | 'erro'
 export type TipoSecaoEvento = 'inscricao' | 'botoes' | 'cards' | 'video' | 'fotos'
 
