@@ -287,6 +287,35 @@
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+/* Link externo vira "chip" com o ícone do site — como o Google Docs mostra
+   endereço colado. `link-preview-layer.tsx` liga o passar-o-mouse/segurar
+   dele a uma prévia da página. */
+.texto-rico a.link-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  margin: 0 0.05em;
+  padding: 0.1em 0.6em 0.1em 0.4em;
+  border-radius: 999px;
+  background: var(--muted);
+  border: 1px solid var(--border);
+  color: var(--foreground);
+  text-decoration: none;
+  font-weight: 500;
+  vertical-align: middle;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+.texto-rico a.link-chip:hover,
+.texto-rico a.link-chip:focus-visible {
+  background: var(--accent);
+  border-color: var(--primary);
+}
+.texto-rico a.link-chip .link-chip__icone {
+  width: 1em;
+  height: 1em;
+  border-radius: 3px;
+  flex: none;
+}
 .texto-rico strong { font-weight: 650; }
 .texto-rico code {
   font-family: var(--font-mono), monospace;

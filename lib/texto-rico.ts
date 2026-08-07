@@ -28,7 +28,37 @@ const escapar = (s: string) => s.replace(/[&<>"]/g, (c) => ESCAPES[c])
 /** Só endereço de página, e-mail ou caminho interno viram link. */
 const ENDERECO_SEGURO = /^(https?:\/\/|mailto:|\/)/i
 
-const LINK_ABRE = (url: string) => `<a href="${url}" target="_blank" rel="noopener noreferrer">`
+/**
+ * Domínio de um endereço http(s), para buscar o favicon do site — ou `null`
+ * quando não é um endereço externo (e-mail, caminho interno) ou não dá pra
+ * interpretar como URL.
+ */
+function dominioExterno(url: string): string | null {
+  if (!/^https?:\/\//i.test(url)) return null
+  try {
+    return new URL(url).hostname
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Um link vira "chip": ícone do site + rótulo, como o Google Docs mostra
+ * endereços colados. Só endereços externos ganham o chip — e-mail e link
+ * interno continuam como texto sublinhado simples. `link-preview-layer.tsx`
+ * é quem faz o chip abrir a prévia ao passar o mouse ou segurar o dedo.
+ */
+function linkHtml(url: string, rotulo: string): string {
+  const dominio = dominioExterno(url)
+  const abre = dominio
+    ? `<a href="${url}" target="_blank" rel="noopener noreferrer" class="link-chip">`
+    : `<a href="${url}" target="_blank" rel="noopener noreferrer">`
+
+  if (!dominio) return `${abre}${rotulo}</a>`
+
+  const favicon = `https://www.google.com/s2/favicons?sz=64&domain=${dominio}`
+  return `${abre}<img src="${favicon}" alt="" class="link-chip__icone" loading="lazy" /><span>${rotulo}</span></a>`
+}
 
 /**
  * Formatação dentro de uma linha.
@@ -45,14 +75,14 @@ function comFormato(texto: string): string {
 
   // [rótulo](endereço)
   s = s.replace(/\[([^\]\n]+)\]\(([^)\s]+)\)/g, (todo, rotulo: string, url: string) =>
-    ENDERECO_SEGURO.test(url) ? guardar(`${LINK_ABRE(url)}${rotulo}</a>`) : todo
+    ENDERECO_SEGURO.test(url) ? guardar(linkHtml(url, rotulo)) : todo
   )
 
   // Endereço solto, colado no meio da frase. A pontuação final fica de fora:
   // "veja em https://ibzs.com." não deve levar o ponto para dentro do link.
   s = s.replace(
     /(^|[\s(])(https?:\/\/[^\s<]*[^\s<.,;:!?)"'])/g,
-    (_todo, antes: string, url: string) => `${antes}${guardar(`${LINK_ABRE(url)}${url}</a>`)}`
+    (_todo, antes: string, url: string) => `${antes}${guardar(linkHtml(url, url))}`
   )
 
   s = s

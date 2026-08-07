@@ -5,6 +5,7 @@ import {
   Bold, Italic, Heading2, Heading3, List, ListOrdered, Quote, Link2, Minus, Eye, PenLine,
 } from 'lucide-react'
 import { textoRicoParaHtml } from '@/lib/texto-rico'
+import { LinkPreviewLayer } from '@/components/shared/link-preview-layer'
 
 /**
  * Editor de texto formatado.
@@ -173,7 +174,7 @@ export function EditorTexto({
       {vendo ? (
         <div className="px-3 py-2.5" style={{ minHeight: `${minRows * 1.5}rem` }}>
           {value.trim() ? (
-            <div className="texto-rico" dangerouslySetInnerHTML={{ __html: html }} />
+            <LinkPreviewLayer className="texto-rico" html={html} />
           ) : (
             <p className="text-sm text-muted-foreground">Nada escrito ainda.</p>
           )}

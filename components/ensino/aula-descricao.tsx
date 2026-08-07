@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Pencil, Check, X, FileText, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { EditorTexto } from '@/components/shared/editor-texto'
+import { LinkPreviewLayer } from '@/components/shared/link-preview-layer'
 import { salvarDescricaoAulaAction } from '@/app/actions/ensino/aulas'
 import { textoRicoParaHtml } from '@/lib/texto-rico'
 import { PAINEL } from '@/lib/estilos'
@@ -115,10 +116,7 @@ export function AulaDescricao({
 
   return (
     <div className={`${PAINEL} space-y-3`}>
-      <div
-        className="texto-rico"
-        dangerouslySetInnerHTML={{ __html: textoRicoParaHtml(descricao) }}
-      />
+      <LinkPreviewLayer className="texto-rico" html={textoRicoParaHtml(descricao)} />
       {podeEditar && (
         <button
           type="button"
