@@ -327,6 +327,22 @@ export default async function HomePage() {
     return (
       <div className="space-y-4 max-w-2xl mx-auto pb-8">
 
+        {/* Mesmo fundo personalizado (cor/gradiente/nébula) da home de quem
+            está logado. Sem `canEdit`: visitante nunca vê o botão de editar,
+            só o resultado. Galeria da comunidade fica de fora — reservada
+            para membros. */}
+        <HomeFundo
+          cor={church?.cor ?? null}
+          corSecundaria={church?.cor_secundaria ?? null}
+          fundoTipo={church?.fundo_tipo ?? null}
+          fundoImagemUrl={church?.fundo_imagem_url ?? null}
+          fundoOpacidade={church?.fundo_opacidade ?? 100}
+          galeriaAtiva={false}
+          galeriaOpacidade={church?.fundo_galeria_opacidade ?? 35}
+          totalFotos={galleryPhotos.length}
+          canEdit={false}
+        />
+
         {/* Hero — identidade da igreja */}
         <div className="relative rounded-3xl overflow-hidden shadow-xl">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -413,17 +429,6 @@ export default async function HomePage() {
             )}
           </div>
         )}
-
-        {/* Fotos — Nossa comunidade */}
-        <section>
-          <div className="mb-2.5 flex items-center justify-between gap-2 px-0.5">
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Nossa comunidade</p>
-            <Link href="/galeria" className="text-[11px] font-medium text-primary hover:underline">
-              Ver galeria
-            </Link>
-          </div>
-          <FotosComunidadeCarousel fotos={galleryPhotos} />
-        </section>
 
         {/* CTA — Ensino. Sem login o middleware manda para o /login guardando o
             destino, então o visitante volta para cá depois de entrar. */}
@@ -587,6 +592,9 @@ export default async function HomePage() {
 
   // ── MEMBER / LOGGED-IN VIEW ─────────────────────────────────────────
   const podeEditarHome = profile.role === 'pastor' || profile.role === 'admin'
+  // Convidado tem perfil (logou, passou pelo onboarding) mas ainda não é
+  // membro de fato — a galeria da comunidade fica reservada para quem é.
+  const isMember = profile.role !== 'convidado'
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto pb-6">
@@ -998,16 +1006,19 @@ export default async function HomePage() {
       )}
 
 
-      {/* Fotos — Nossa comunidade */}
-      <section className={SECAO}>
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Nossa comunidade</p>
-          <Link href="/galeria" className="text-[11px] font-medium text-primary hover:underline">
-            Ver galeria
-          </Link>
-        </div>
-        <FotosComunidadeCarousel fotos={galleryPhotos} />
-      </section>
+      {/* Fotos — Nossa comunidade. Restrita a quem já é membro: convidado
+          ainda não entrou pra célula, então não faz parte dessas fotos. */}
+      {isMember && (
+        <section className={SECAO}>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Nossa comunidade</p>
+            <Link href="/galeria" className="text-[11px] font-medium text-primary hover:underline">
+              Ver galeria
+            </Link>
+          </div>
+          <FotosComunidadeCarousel fotos={galleryPhotos} />
+        </section>
+      )}
 
       {/* Info da igreja — cultos, endereço, redes sociais */}
       {(church?.horario_culto || church?.endereco || church?.instagram_url || church?.facebook_url || church?.youtube_url) && (

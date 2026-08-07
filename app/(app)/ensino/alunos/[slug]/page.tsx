@@ -275,8 +275,13 @@ export default async function FichaAlunoPage({ params }: { params: { slug: strin
 
 function CartaoMatricula({ matricula: m }: { matricula: MatriculaDetalhada }) {
   const extras = Object.entries(m.dados).filter(([, v]) => v)
-  const encontros = encontrosTexto(m.diasSemana, m.horarioInicio, m.horarioFim)
-  const periodo = periodoTexto(m.dataInicio, m.dataFim)
+  const gravado = m.modo === 'gravado'
+  const encontros = gravado ? null : encontrosTexto(m.diasSemana, m.horarioInicio, m.horarioFim)
+  const periodo = gravado ? null : periodoTexto(m.dataInicio, m.dataFim)
+  const assistidas = m.aulas.filter((a) => a.concluida).length
+  const percentualProgresso = m.aulas.length > 0
+    ? Math.round((assistidas / m.aulas.length) * 100)
+    : null
 
   return (
     <div className={`${PAINEL} space-y-3`}>
@@ -299,45 +304,57 @@ function CartaoMatricula({ matricula: m }: { matricula: MatriculaDetalhada }) {
         </span>
       </div>
 
-      {/* Frequência, com a mesma grade de quadradinhos da área do aluno */}
+      {/* Curso gravado: progresso nas aulas assistidas. Presencial: frequência da chamada. */}
       <div className="rounded-xl bg-muted p-3">
         <div className="flex items-center justify-between gap-2">
           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-            Frequência
+            {gravado ? 'Progresso' : 'Frequência'}
           </span>
-          <span className={`text-lg font-bold leading-none ${corFrequencia(m.percentual)}`}>
-            {m.percentual === null ? '—' : `${m.percentual}%`}
+          <span
+            className={`text-lg font-bold leading-none ${corFrequencia(gravado ? percentualProgresso : m.percentual)}`}
+          >
+            {gravado
+              ? (percentualProgresso === null ? '—' : `${percentualProgresso}%`)
+              : (m.percentual === null ? '—' : `${m.percentual}%`)}
           </span>
         </div>
         <p className="text-xs text-muted-foreground mt-1">
-          {m.registros === 0
-            ? 'Nenhuma chamada registrada ainda.'
-            : `${m.presentes} ${m.presentes === 1 ? 'presença' : 'presenças'} em ${m.registros} ${m.registros === 1 ? 'aula' : 'aulas'}.`}
+          {gravado
+            ? (assistidas === 0
+              ? 'Nenhuma aula assistida ainda.'
+              : `${assistidas} ${assistidas === 1 ? 'aula assistida' : 'aulas assistidas'} de ${m.aulas.length}.`)
+            : (m.registros === 0
+              ? 'Nenhuma chamada registrada ainda.'
+              : `${m.presentes} ${m.presentes === 1 ? 'presença' : 'presenças'} em ${m.registros} ${m.registros === 1 ? 'aula' : 'aulas'}.`)}
         </p>
 
         {m.aulas.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-2.5">
-            {m.aulas.map((a) => (
-              <span
-                key={a.numero}
-                title={`Aula ${a.numero} · ${dataBr(a.data)}${a.titulo ? ` · ${a.titulo}` : ''}`}
-                className={`h-6 w-6 rounded-md flex items-center justify-center text-[10px] font-bold ${
-                  a.presente === true
-                    ? 'bg-green-100 text-green-700'
-                    : a.presente === false
-                      ? 'bg-red-100 text-red-600'
-                      : 'bg-background text-muted-foreground/40 border border-border'
-                }`}
-              >
-                {a.presente === true ? (
-                  <Check className="h-3 w-3" />
-                ) : a.presente === false ? (
-                  <X className="h-3 w-3" />
-                ) : (
-                  <Minus className="h-2.5 w-2.5" />
-                )}
-              </span>
-            ))}
+            {m.aulas.map((a) => {
+              const marcada = gravado ? a.concluida : a.presente === true
+              const ausente = !gravado && a.presente === false
+              return (
+                <span
+                  key={a.numero}
+                  title={`Aula ${a.numero}${a.titulo ? ` · ${a.titulo}` : ''}${gravado ? '' : ` · ${dataBr(a.data)}`}`}
+                  className={`h-6 w-6 rounded-md flex items-center justify-center text-[10px] font-bold ${
+                    marcada
+                      ? 'bg-green-100 text-green-700'
+                      : ausente
+                        ? 'bg-red-100 text-red-600'
+                        : 'bg-background text-muted-foreground/40 border border-border'
+                  }`}
+                >
+                  {marcada ? (
+                    <Check className="h-3 w-3" />
+                  ) : ausente ? (
+                    <X className="h-3 w-3" />
+                  ) : (
+                    <Minus className="h-2.5 w-2.5" />
+                  )}
+                </span>
+              )
+            })}
           </div>
         )}
       </div>

@@ -29,6 +29,8 @@ export interface Matricula {
   turmaId: string
   turmaNome: string
   cursoNome: string
+  /** 'gravado' não tem chamada — o acompanhamento é o progresso nas aulas. */
+  modo: 'presencial' | 'gravado'
   status: StatusInscricaoEnsino
   criadoEm: string
   decididoEm: string | null
@@ -65,6 +67,8 @@ export interface AulaDoAluno {
   status: StatusAula
   /** Null = chamada ainda não registrada para esta pessoa nesta aula. */
   presente: boolean | null
+  /** Só faz sentido em turma gravada: a pessoa marcou como assistida. */
+  concluida: boolean
 }
 
 export interface MatriculaDetalhada extends Matricula {
@@ -139,11 +143,11 @@ export async function listarAlunos(igrejaId: string): Promise<AlunoResumo[]> {
 
   const { data: turmasRaw } = await admin
     .from('ensino_turmas')
-    .select('id, nome, ensino_cursos(nome)')
+    .select('id, nome, modo, ensino_cursos(nome)')
     .eq('igreja_id', igrejaId)
 
   const turmas = (turmasRaw ?? []) as unknown as {
-    id: string; nome: string; ensino_cursos: { nome: string } | null
+    id: string; nome: string; modo: 'presencial' | 'gravado'; ensino_cursos: { nome: string } | null
   }[]
   if (turmas.length === 0) return []
 
@@ -234,6 +238,7 @@ export async function listarAlunos(igrejaId: string): Promise<AlunoResumo[]> {
         turmaId: i.turma_id,
         turmaNome: turma?.nome ?? 'Turma',
         cursoNome: turma?.ensino_cursos?.nome ?? 'Curso',
+        modo: turma?.modo ?? 'presencial',
         status: i.status,
         criadoEm: i.criado_em,
         decididoEm: i.decidido_em,
@@ -283,7 +288,7 @@ export async function fichaDoAluno(igrejaId: string, slug: string): Promise<Fich
   const admin = createAdminClient()
   const turmaIds = [...new Set(resumo.matriculas.map((m) => m.turmaId))]
 
-  const [perfilRes, dependentesRes, inscricoesRes, aulasRes, presencasRes] = await Promise.all([
+  const [perfilRes, dependentesRes, inscricoesRes, aulasRes, presencasRes, progressoRes] = await Promise.all([
     admin
       .from('profiles')
       .select(
@@ -302,7 +307,7 @@ export async function fichaDoAluno(igrejaId: string, slug: string): Promise<Fich
       // `profiles` (`user_id` e `decidido_por`) e o embed ambíguo faz o
       // PostgREST recusar a consulta inteira.
       .select(
-        'id, turma_id, status, observacao, dados, criado_em, decidido_em, decisor:profiles!ensino_inscricoes_decidido_por_fkey(nome), ensino_turmas(nome, status, local, data_inicio, data_fim, dias_semana, horario_inicio, horario_fim, ensino_cursos(nome))'
+        'id, turma_id, status, observacao, dados, criado_em, decidido_em, decisor:profiles!ensino_inscricoes_decidido_por_fkey(nome), ensino_turmas(nome, status, modo, local, data_inicio, data_fim, dias_semana, horario_inicio, horario_fim, ensino_cursos(nome))'
       )
       .eq('user_id', resumo.userId)
       .in('turma_id', turmaIds)
@@ -316,6 +321,13 @@ export async function fichaDoAluno(igrejaId: string, slug: string): Promise<Fich
       .from('ensino_presencas')
       .select('aula_id, presente')
       .eq('user_id', resumo.userId),
+    // Progresso do "assisti" — só existe em turma gravada, mas custa pouco
+    // buscar sempre e deixar o cruzamento decidir onde importa.
+    admin
+      .from('ensino_progresso')
+      .select('aula_id')
+      .eq('user_id', resumo.userId)
+      .in('turma_id', turmaIds),
   ])
 
   const perfil = perfilRes.data as {
@@ -342,6 +354,10 @@ export async function fichaDoAluno(igrejaId: string, slug: string): Promise<Fich
     ])
   )
 
+  const concluidas = new Set(
+    ((progressoRes.data ?? []) as { aula_id: string }[]).map((p) => p.aula_id)
+  )
+
   const porInscricao = new Map(resumo.matriculas.map((m) => [m.inscricaoId, m]))
 
   const matriculas: MatriculaDetalhada[] = ((inscricoesRes.data ?? []) as unknown as {
@@ -350,7 +366,7 @@ export async function fichaDoAluno(igrejaId: string, slug: string): Promise<Fich
     criado_em: string; decidido_em: string | null
     decisor: { nome: string } | null
     ensino_turmas: {
-      nome: string; status: StatusTurma; local: string | null
+      nome: string; status: StatusTurma; modo: 'presencial' | 'gravado'; local: string | null
       data_inicio: string | null; data_fim: string | null; dias_semana: number[]
       horario_inicio: string | null; horario_fim: string | null
       ensino_cursos: { nome: string } | null
@@ -363,6 +379,7 @@ export async function fichaDoAluno(igrejaId: string, slug: string): Promise<Fich
       turmaId: i.turma_id,
       turmaNome: turma?.nome ?? 'Turma',
       cursoNome: turma?.ensino_cursos?.nome ?? 'Curso',
+      modo: turma?.modo ?? 'presencial',
       status: i.status,
       criadoEm: i.criado_em,
       decididoEm: i.decidido_em,
@@ -387,6 +404,7 @@ export async function fichaDoAluno(igrejaId: string, slug: string): Promise<Fich
           data: a.data,
           status: a.status,
           presente: presencas.has(a.id) ? presencas.get(a.id)! : null,
+          concluida: concluidas.has(a.id),
         })),
     }
   })
