@@ -237,3 +237,66 @@
 
   a[href]::after { content: none !important; }
 }
+
+/* Texto formatado escrito pelo professor (ver `lib/texto-rico.ts`).
+   As tags saem do conversor sem classe nenhuma — o estilo mora aqui para que
+   a aula, e qualquer página que venha a usar o editor, leiam igual. */
+.texto-rico {
+  font-size: 0.9375rem;
+  line-height: 1.7;
+}
+.texto-rico > *:first-child { margin-top: 0; }
+.texto-rico > *:last-child { margin-bottom: 0; }
+.texto-rico p { margin: 0 0 0.85em; }
+.texto-rico h2 {
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.35;
+  margin: 1.5em 0 0.5em;
+}
+.texto-rico h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.4;
+  margin: 1.35em 0 0.45em;
+}
+.texto-rico h4 {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  margin: 1.2em 0 0.4em;
+  color: var(--muted-foreground);
+}
+.texto-rico ul, .texto-rico ol {
+  margin: 0 0 0.85em;
+  padding-left: 1.35em;
+}
+.texto-rico ul { list-style: disc; }
+.texto-rico ol { list-style: decimal; }
+.texto-rico li { margin-bottom: 0.3em; }
+.texto-rico li::marker { color: var(--primary); }
+/* Citação: o versículo é o que mais aparece aqui, e precisa saltar do corpo. */
+.texto-rico blockquote {
+  margin: 0 0 0.95em;
+  padding: 0.15em 0 0.15em 0.9em;
+  border-left: 3px solid var(--primary);
+  color: var(--muted-foreground);
+  font-style: italic;
+}
+.texto-rico a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.texto-rico strong { font-weight: 650; }
+.texto-rico code {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.85em;
+  background: var(--muted);
+  border-radius: 0.35rem;
+  padding: 0.1em 0.35em;
+}
+.texto-rico hr {
+  margin: 1.5em 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}

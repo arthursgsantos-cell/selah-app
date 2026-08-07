@@ -3,7 +3,7 @@ import { notFound, redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import {
   ArrowLeft, CalendarDays, MapPin, ClipboardList, ChevronLeft, ChevronRight,
-  Check, X, PlayCircle, FolderOpen, Pencil, Lock,
+  Check, X, PlayCircle, FolderOpen, Pencil, Lock, Video,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -11,10 +11,11 @@ import { loginCom } from '@/lib/destino-login'
 import { acessoEnsino, podeLecionar } from '@/lib/ensino/permissoes'
 import { resolverVideo } from '@/lib/video-embed'
 import { dataBr, STATUS_AULA } from '@/lib/ensino/turma'
-import { nomeDoDia } from '@/lib/dia-semana'
-import { PAINEL } from '@/lib/estilos'
+import { nomeDoDia, dataLocalIso } from '@/lib/dia-semana'
+import { textoRicoEmTextoPuro } from '@/lib/texto-rico'
 import { MateriaisAula, type MaterialAula } from '@/components/ensino/materiais-aula'
 import { AulaConcluidaBtn } from '@/components/ensino/aula-concluida-btn'
+import { AulaDescricao } from '@/components/ensino/aula-descricao'
 import type { ModoTurma, StatusAula, TipoMaterial } from '@/lib/supabase/types'
 
 export async function generateMetadata({
@@ -24,7 +25,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { data } = await createAdminClient()
     .from('ensino_aulas')
-    .select('numero, titulo, ensino_turmas(nome)')
+    .select('numero, titulo, descricao, ensino_turmas(nome)')
     .eq('turma_id', params.id)
     .eq('numero', Number(params.numero))
     .maybeSingle()
@@ -32,11 +33,17 @@ export async function generateMetadata({
   if (!data) return { title: 'Aula não encontrada' }
 
   const aula = data as unknown as {
-    numero: number; titulo: string | null; ensino_turmas: { nome: string } | null
+    numero: number; titulo: string | null; descricao: string | null
+    ensino_turmas: { nome: string } | null
   }
+
+  // A prévia do link no WhatsApp mostra o começo da aula, sem os asteriscos
+  // da marcação.
+  const resumo = aula.descricao ? textoRicoEmTextoPuro(aula.descricao) : ''
 
   return {
     title: `${aula.titulo ?? `Aula ${aula.numero}`} · ${aula.ensino_turmas?.nome ?? 'Turma'} · IBZS`,
+    ...(resumo ? { description: resumo.slice(0, 200) } : {}),
   }
 }
 
@@ -107,7 +114,7 @@ export default async function AulaPage({
   const [materiaisRes, minhasPresencasRes, progressoRes, inscricaoRes] = await Promise.all([
     supabase
       .from('ensino_materiais')
-      .select('id, titulo, descricao, tipo, url, arquivo_nome, arquivo_tamanho')
+      .select('id, titulo, descricao, tipo, url, arquivo_nome, arquivo_tamanho, criado_em')
       .eq('aula_id', aula.id)
       .order('ordem')
       .order('criado_em'),
@@ -131,6 +138,7 @@ export default async function AulaPage({
   const materiais = (materiaisRes.data ?? []) as {
     id: string; titulo: string; descricao: string | null; tipo: TipoMaterial
     url: string | null; arquivo_nome: string | null; arquivo_tamanho: number | null
+    criado_em: string
   }[]
 
   // O endereço do vídeo aparece no HTML — é o preço de tocar dentro da página,
@@ -177,6 +185,16 @@ export default async function AulaPage({
 
   const [ano, mes, dia] = aula.data.split('-').map(Number)
   const diaSemana = nomeDoDia(new Date(ano, mes - 1, dia).getDay())
+
+  /**
+   * Quando o vídeo entrou no ar.
+   *
+   * É a data em que o material foi cadastrado aqui, não a que o YouTube exibe:
+   * a data de publicação do canal só sai pela API do YouTube, que pede chave e
+   * uma chamada externa a cada aula aberta. O que interessa ao aluno — desde
+   * quando esta aula está disponível — é justamente esta.
+   */
+  const videoEm = players[0]?.material.criado_em ?? null
 
   return (
     <div className="space-y-5 max-w-3xl mx-auto pb-6">
@@ -251,6 +269,22 @@ export default async function AulaPage({
               )}
             </>
           )}
+          {/* Sem data de encontro, o que situa a aula no tempo é quando ela
+              entrou no ar e quando foi cadastrada. */}
+          {gravado && (
+            <>
+              {videoEm && (
+                <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                  <Video className="h-3.5 w-3.5" />
+                  Vídeo de {dataBr(dataLocalIso(videoEm))}
+                </span>
+              )}
+              <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                <CalendarDays className="h-3.5 w-3.5" />
+                Aula criada em {dataBr(aula.data)}
+              </span>
+            </>
+          )}
           {gravado && concluidas.has(aula.id) && (
             <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-700 inline-flex items-center gap-1">
               <Check className="h-3 w-3" />
@@ -302,11 +336,7 @@ export default async function AulaPage({
         </div>
       ))}
 
-      {aula.descricao && (
-        <div className={PAINEL}>
-          <p className="text-sm leading-relaxed whitespace-pre-wrap">{aula.descricao}</p>
-        </div>
-      )}
+      <AulaDescricao aulaId={aula.id} descricao={aula.descricao} podeEditar={leciona} />
 
       {leciona && (
         <div className="flex flex-wrap gap-2">

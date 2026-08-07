@@ -84,7 +84,7 @@ export async function editarAulaAction(
   const admin = createAdminClient()
   const { data: aula } = await admin
     .from('ensino_aulas')
-    .select('turma_id')
+    .select('turma_id, numero')
     .eq('id', id)
     .single()
 
@@ -99,7 +99,11 @@ export async function editarAulaAction(
     .update({
       data: params.data,
       titulo: params.titulo?.trim() || null,
-      descricao: params.descricao?.trim() || null,
+      // `undefined` é "não mexa": quem chama sem o campo (um formulário que
+      // não edita a descrição) não pode apagar o artigo que já estava lá.
+      ...(params.descricao !== undefined
+        ? { descricao: params.descricao?.trim() || null }
+        : {}),
       hora_inicio: params.horaInicio || null,
       local: params.local?.trim() || null,
       ...(params.status ? { status: params.status } : {}),
@@ -108,7 +112,45 @@ export async function editarAulaAction(
 
   if (error) return { ok: false, erro: error.message }
   revalidatePath(`/ensino/turma/${aula.turma_id}/aulas`)
+  revalidatePath(`/ensino/turma/${aula.turma_id}/aula/${aula.numero}`)
   revalidatePath(`/ensino/chamada/${id}`)
+  return { ok: true }
+}
+
+/**
+ * Só a descrição, salva da própria página da aula.
+ *
+ * Separada de `editarAulaAction` porque ali a data é obrigatória: o professor
+ * que só quer escrever o texto da aula não deve precisar reenviar data, hora e
+ * local para isso.
+ */
+export async function salvarDescricaoAulaAction(
+  id: string,
+  descricao: string
+): Promise<ResultadoAcao> {
+  const acesso = await acessoEnsino()
+
+  const admin = createAdminClient()
+  const { data: aula } = await admin
+    .from('ensino_aulas')
+    .select('turma_id, numero')
+    .eq('id', id)
+    .single()
+
+  if (!aula) return { ok: false, erro: 'Aula não encontrada.' }
+  if (!(await podeLecionar(acesso, aula.turma_id))) {
+    return { ok: false, erro: 'Você não administra esta turma.' }
+  }
+
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('ensino_aulas')
+    .update({ descricao: descricao.trim() || null })
+    .eq('id', id)
+
+  if (error) return { ok: false, erro: error.message }
+  revalidatePath(`/ensino/turma/${aula.turma_id}/aula/${aula.numero}`)
+  revalidatePath(`/ensino/turma/${aula.turma_id}/aulas`)
   return { ok: true }
 }
 
@@ -153,15 +195,11 @@ export async function gerarAulasAction(
   const admin = createAdminClient()
   const { data: turma } = await admin
     .from('ensino_turmas')
-    .select('data_inicio, data_fim, dias_semana, total_aulas, horario_inicio, local')
+    .select('modo, data_inicio, data_fim, dias_semana, total_aulas, horario_inicio, local')
     .eq('id', turmaId)
     .single()
 
   if (!turma) return { ok: false, erro: 'Turma não encontrada.' }
-  if (!turma.data_inicio) return { ok: false, erro: 'Defina a data de início da turma primeiro.' }
-  if (!turma.dias_semana?.length) {
-    return { ok: false, erro: 'Defina os dias da semana das aulas primeiro.' }
-  }
 
   const { data: existentes } = await admin
     .from('ensino_aulas')
@@ -180,6 +218,39 @@ export async function gerarAulasAction(
   const partes = (iso: string) => iso.split('-').map(Number)
   const iso = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+  /**
+   * Turma gravada não tem calendário para varrer: as aulas nascem todas hoje,
+   * numeradas de 1 até o total do curso, e é o professor que depois põe o vídeo
+   * e o texto em cada uma. A data serve como "criada em" — a aula gravada não
+   * acontece num dia, ela é publicada num dia.
+   */
+  if (turma.modo === 'gravado') {
+    if (total <= 0) {
+      return { ok: false, erro: 'Defina o nº de aulas da turma primeiro.' }
+    }
+
+    const hoje = iso(new Date())
+    const novasGravadas = Array.from({ length: total - jaCriadas }, (_, i) => ({
+      turma_id: turmaId,
+      numero: jaCriadas + i + 1,
+      data: hoje,
+      hora_inicio: null,
+      local: null,
+    }))
+
+    const { error } = await admin.from('ensino_aulas').insert(novasGravadas)
+    if (error) return { ok: false, erro: error.message }
+
+    revalidatePath(`/ensino/turma/${turmaId}/aulas`)
+    revalidatePath(`/ensino/turma/${turmaId}`)
+    return { ok: true, criadas: novasGravadas.length }
+  }
+
+  if (!turma.data_inicio) return { ok: false, erro: 'Defina a data de início da turma primeiro.' }
+  if (!turma.dias_semana?.length) {
+    return { ok: false, erro: 'Defina os dias da semana das aulas primeiro.' }
+  }
 
   const ultimaData = existentes?.[0]?.data ?? null
   const [ai, mi, di] = partes(ultimaData ?? turma.data_inicio)

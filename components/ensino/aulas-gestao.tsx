@@ -37,12 +37,20 @@ export function AulasGestao({
   aulas,
   totalAlunos,
   podeGerar,
+  gravado,
+  totalAulas,
 }: {
   turmaId: string
   aulas: AulaGestao[]
   totalAlunos: number
-  /** Falso quando a turma ainda não tem data de início ou dias da semana. */
+  /**
+   * Presencial: falso quando falta data de início ou dias da semana.
+   * Gravado: falso quando a turma não tem nº de aulas definido.
+   */
   podeGerar: boolean
+  gravado: boolean
+  /** Nº de aulas do curso — o que o gerador de turma gravada usa. */
+  totalAulas: number | null
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -69,17 +77,31 @@ export function AulasGestao({
     })
   }
 
+  const faltam = gravado && totalAulas ? totalAulas - aulas.length : 0
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 flex-wrap">
-        <AulaDialog turmaId={turmaId} proximoNumero={(aulas.at(-1)?.numero ?? 0) + 1} />
-        {podeGerar && (
+        <AulaDialog
+          turmaId={turmaId}
+          gravado={gravado}
+          proximoNumero={(aulas.at(-1)?.numero ?? 0) + 1}
+        />
+        {podeGerar && (!gravado || faltam > 0) && (
           <Button variant="outline" size="sm" onClick={gerar} disabled={isPending}>
             {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-            Gerar calendário
+            {gravado
+              ? `Gerar ${faltam} ${faltam === 1 ? 'aula' : 'aulas'}`
+              : 'Gerar calendário'}
           </Button>
         )}
       </div>
+
+      {gravado && !podeGerar && aulas.length === 0 && (
+        <p className="text-xs text-muted-foreground">
+          Defina o nº de aulas na turma para criar todas de uma vez.
+        </p>
+      )}
 
       {aviso && (
         <p className="rounded-lg bg-green-50 border border-green-200 px-3 py-2 text-sm text-green-700">
@@ -93,9 +115,13 @@ export function AulasGestao({
           <ClipboardList className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
           <p className="text-sm text-muted-foreground">Nenhuma aula cadastrada</p>
           <p className="text-xs text-muted-foreground/70 mt-1 max-w-xs mx-auto">
-            {podeGerar
-              ? 'Use "Gerar calendário" para criar todas as datas de uma vez, a partir dos dias e do período da turma.'
-              : 'Defina a data de início e os dias da semana na turma para gerar o calendário automaticamente.'}
+            {gravado
+              ? podeGerar
+                ? `Use "Gerar ${faltam} ${faltam === 1 ? 'aula' : 'aulas'}" para criar todas de uma vez, numeradas — depois é só pôr o vídeo e o texto de cada uma.`
+                : 'Defina o nº de aulas na turma para criar todas de uma vez.'
+              : podeGerar
+                ? 'Use "Gerar calendário" para criar todas as datas de uma vez, a partir dos dias e do período da turma.'
+                : 'Defina a data de início e os dias da semana na turma para gerar o calendário automaticamente.'}
           </p>
         </div>
       ) : (
@@ -120,33 +146,52 @@ export function AulasGestao({
                       {a.titulo ?? `Aula ${a.numero}`}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {diaSemana?.slice(0, 3)}, {dataBr(a.data)}
-                      {a.horaInicio && ` · ${a.horaInicio.slice(0, 5)}`}
+                      {gravado ? (
+                        `Criada em ${dataBr(a.data)}`
+                      ) : (
+                        <>
+                          {diaSemana?.slice(0, 3)}, {dataBr(a.data)}
+                          {a.horaInicio && ` · ${a.horaInicio.slice(0, 5)}`}
+                        </>
+                      )}
                     </p>
                   </Link>
-                  <p className="text-[11px] mt-0.5 flex items-center gap-1.5">
-                    <span className={`font-medium px-1.5 py-0.5 rounded-full ${STATUS_AULA[a.status].classe}`}>
-                      {STATUS_AULA[a.status].label}
-                    </span>
-                    {chamadaFeita ? (
-                      <span className="text-green-600 flex items-center gap-0.5">
-                        <Check className="h-3 w-3" />
-                        {a.presentes}/{a.marcados} presentes
+                  {/* Situação e chamada são do encontro presencial: numa aula
+                      gravada não há sala para "agendar" nem lista para chamar. */}
+                  {!gravado && (
+                    <p className="text-[11px] mt-0.5 flex items-center gap-1.5">
+                      <span className={`font-medium px-1.5 py-0.5 rounded-full ${STATUS_AULA[a.status].classe}`}>
+                        {STATUS_AULA[a.status].label}
                       </span>
-                    ) : (
-                      <span className="text-muted-foreground/70">chamada não feita</span>
-                    )}
-                  </p>
+                      {chamadaFeita ? (
+                        <span className="text-green-600 flex items-center gap-0.5">
+                          <Check className="h-3 w-3" />
+                          {a.presentes}/{a.marcados} presentes
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground/70">chamada não feita</span>
+                      )}
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-1 shrink-0">
-                  <Link
-                    href={`/ensino/chamada/${a.id}`}
-                    className="text-xs font-medium px-2.5 py-1.5 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
-                  >
-                    Chamada
-                  </Link>
-                  <AulaDialog turmaId={turmaId} aula={a} />
+                  {gravado ? (
+                    <Link
+                      href={`/ensino/turma/${turmaId}/aula/${a.numero}`}
+                      className="text-xs font-medium px-2.5 py-1.5 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
+                    >
+                      Abrir
+                    </Link>
+                  ) : (
+                    <Link
+                      href={`/ensino/chamada/${a.id}`}
+                      className="text-xs font-medium px-2.5 py-1.5 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
+                    >
+                      Chamada
+                    </Link>
+                  )}
+                  <AulaDialog turmaId={turmaId} aula={a} gravado={gravado} />
                   <button
                     type="button"
                     onClick={() => excluir(a.id)}
@@ -163,7 +208,7 @@ export function AulasGestao({
         </div>
       )}
 
-      {totalAlunos === 0 && aulas.length > 0 && (
+      {!gravado && totalAlunos === 0 && aulas.length > 0 && (
         <p className="text-xs text-muted-foreground">
           A turma ainda não tem alunos aprovados — a lista de chamada vai aparecer vazia.
         </p>
@@ -172,14 +217,22 @@ export function AulasGestao({
   )
 }
 
+/** Data de hoje em "AAAA-MM-DD", pelo calendário local — não pelo UTC. */
+function hoje(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 function AulaDialog({
   turmaId,
   aula,
   proximoNumero,
+  gravado,
 }: {
   turmaId: string
   aula?: AulaGestao
   proximoNumero?: number
+  gravado: boolean
 }) {
   const editando = aula !== undefined
   const router = useRouter()
@@ -188,7 +241,9 @@ function AulaDialog({
   const [erro, setErro] = useState<string | null>(null)
 
   const [titulo, setTitulo] = useState(aula?.titulo ?? '')
-  const [data, setData] = useState(aula?.data ?? '')
+  // Numa turma gravada a data não é perguntada: a aula é publicada hoje, e é
+  // esse dia que a página mostra como "criada em".
+  const [data, setData] = useState(aula?.data ?? (gravado ? hoje() : ''))
   const [horaInicio, setHoraInicio] = useState(aula?.horaInicio?.slice(0, 5) ?? '')
   const [local, setLocal] = useState(aula?.local ?? '')
   const [status, setStatus] = useState<StatusAula>(aula?.status ?? 'agendada')
@@ -217,7 +272,7 @@ function AulaDialog({
 
       if (!r.ok) { setErro(r.erro); return }
       setOpen(false)
-      if (!editando) { setTitulo(''); setData(''); setLocal('') }
+      if (!editando) { setTitulo(''); setData(gravado ? hoje() : ''); setLocal('') }
       router.refresh()
     })
   }
@@ -265,41 +320,51 @@ function AulaDialog({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="aula-data">Data</Label>
-              <input
-                id="aula-data"
-                type="date"
-                value={data}
-                onChange={(e) => setData(e.target.value)}
-                required
-                className={campoClass}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="aula-hora">Horário</Label>
-              <input
-                id="aula-hora"
-                type="time"
-                value={horaInicio}
-                onChange={(e) => setHoraInicio(e.target.value)}
-                className={campoClass}
-              />
-            </div>
-          </div>
+          {gravado ? (
+            <p className="text-xs text-muted-foreground rounded-lg bg-muted px-3 py-2 leading-relaxed">
+              O vídeo e o conteúdo escrito da aula ficam na página dela — abra a
+              aula depois de criar. A data guardada é a de hoje, como registro de
+              quando a aula foi publicada.
+            </p>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="aula-data">Data</Label>
+                  <input
+                    id="aula-data"
+                    type="date"
+                    value={data}
+                    onChange={(e) => setData(e.target.value)}
+                    required
+                    className={campoClass}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="aula-hora">Horário</Label>
+                  <input
+                    id="aula-hora"
+                    type="time"
+                    value={horaInicio}
+                    onChange={(e) => setHoraInicio(e.target.value)}
+                    className={campoClass}
+                  />
+                </div>
+              </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="aula-local">Local (opcional)</Label>
-            <Input
-              id="aula-local"
-              placeholder="Ex: Sala 2"
-              value={local}
-              onChange={(e) => setLocal(e.target.value)}
-            />
-          </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="aula-local">Local (opcional)</Label>
+                <Input
+                  id="aula-local"
+                  placeholder="Ex: Sala 2"
+                  value={local}
+                  onChange={(e) => setLocal(e.target.value)}
+                />
+              </div>
+            </>
+          )}
 
-          {editando && (
+          {editando && !gravado && (
             <div className="space-y-1.5">
               <Label htmlFor="aula-status">Situação</Label>
               <select

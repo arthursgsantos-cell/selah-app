@@ -346,6 +346,10 @@ export function TurmaForm({
         )}
       </Secao>
 
+      {/* Turma gravada não tem calendário: não há dia da semana, horário nem
+          sala. O que resta de "quando" é a data em que cada aula foi publicada,
+          e essa o próprio cadastro da aula guarda. */}
+      {modo !== 'gravado' && (
       <Secao titulo="Quando e onde">
         <div className="space-y-1.5">
           <Label>Dias das aulas</Label>
@@ -417,6 +421,7 @@ export function TurmaForm({
           />
         </div>
       </Secao>
+      )}
 
       <Secao titulo="Aulas e vagas">
         <div className="grid grid-cols-2 gap-3">
@@ -448,7 +453,15 @@ export function TurmaForm({
           </div>
         </div>
 
-        {aulasCalculadas !== null && (
+        {modo === 'gravado' && (
+          <p className="text-xs text-muted-foreground">
+            É o número que a turma vai usar em &quot;Gerar aulas&quot; para criar
+            todas de uma vez, já numeradas — depois é só pôr o vídeo e o texto de
+            cada uma.
+          </p>
+        )}
+
+        {modo !== 'gravado' && aulasCalculadas !== null && (
           <p className="text-xs text-muted-foreground flex items-start gap-1.5">
             <Calculator className="h-3.5 w-3.5 shrink-0 mt-0.5" />
             <span>
@@ -471,7 +484,7 @@ export function TurmaForm({
             </span>
           </p>
         )}
-        {aulasCalculadas === null && (
+        {modo !== 'gravado' && aulasCalculadas === null && (
           <p className="text-xs text-muted-foreground">
             Preencha os dias das aulas e o período para o número ser calculado sozinho.
           </p>

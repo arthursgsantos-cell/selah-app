@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { loginCom } from '@/lib/destino-login'
 import { acessoEnsino, podeLecionar } from '@/lib/ensino/permissoes'
 import { AulasGestao, type AulaGestao } from '@/components/ensino/aulas-gestao'
-import type { StatusAula } from '@/lib/supabase/types'
+import type { ModoTurma, StatusAula } from '@/lib/supabase/types'
 
 export const metadata = { title: 'Aulas da turma · Ensino IBZS' }
 
@@ -17,7 +17,7 @@ export default async function AulasTurmaPage({ params }: { params: { id: string 
 
   const { data: turmaRaw } = await admin
     .from('ensino_turmas')
-    .select('id, nome, data_inicio, dias_semana, ensino_cursos(nome)')
+    .select('id, nome, modo, total_aulas, data_inicio, dias_semana, ensino_cursos(nome)')
     .eq('id', params.id)
     .maybeSingle()
 
@@ -25,9 +25,12 @@ export default async function AulasTurmaPage({ params }: { params: { id: string 
   if (!(await podeLecionar(acesso, params.id))) redirect(`/ensino/turma/${params.id}`)
 
   const turma = turmaRaw as unknown as {
-    id: string; nome: string; data_inicio: string | null; dias_semana: number[]
+    id: string; nome: string; modo: ModoTurma; total_aulas: number | null
+    data_inicio: string | null; dias_semana: number[]
     ensino_cursos: { nome: string } | null
   }
+
+  const gravado = turma.modo === 'gravado'
 
   const [aulasRes, alunosRes] = await Promise.all([
     admin
@@ -85,7 +88,9 @@ export default async function AulasTurmaPage({ params }: { params: { id: string 
       </Link>
 
       <div>
-        <h1 className="text-xl font-bold leading-tight">Aulas e chamada</h1>
+        <h1 className="text-xl font-bold leading-tight">
+          {gravado ? 'Aulas do curso' : 'Aulas e chamada'}
+        </h1>
         <p className="text-sm text-muted-foreground mt-0.5">
           {turma.ensino_cursos?.nome} · {turma.nome}
         </p>
@@ -95,7 +100,13 @@ export default async function AulasTurmaPage({ params }: { params: { id: string 
         turmaId={turma.id}
         aulas={aulas}
         totalAlunos={alunosRes.count ?? 0}
-        podeGerar={Boolean(turma.data_inicio) && (turma.dias_semana?.length ?? 0) > 0}
+        gravado={gravado}
+        totalAulas={turma.total_aulas}
+        podeGerar={
+          gravado
+            ? (turma.total_aulas ?? 0) > 0
+            : Boolean(turma.data_inicio) && (turma.dias_semana?.length ?? 0) > 0
+        }
       />
     </div>
   )
