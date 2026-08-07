@@ -2,7 +2,7 @@ import Image from 'next/image'
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-[#0D47A1] via-[#1565C0] to-[#1976D2]">
+    <div className="min-h-[100dvh] flex items-center justify-center p-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))] bg-gradient-to-br from-[#0D47A1] via-[#1565C0] to-[#1976D2]">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center">
           <img

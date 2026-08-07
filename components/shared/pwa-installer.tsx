@@ -108,7 +108,7 @@ export function PwaInstaller() {
     <>
       {/* Banner flutuante no rodapé */}
       {showBanner && !showIosModal && (
-        <div className="fixed bottom-4 left-4 right-4 z-50 m-auto max-w-md animate-in fade-in slide-in-from-bottom-5 duration-300">
+        <div className="pb-safe fixed bottom-4 left-4 right-4 z-50 m-auto max-w-md animate-in fade-in slide-in-from-bottom-5 duration-300">
           <div className="flex items-center justify-between gap-3 rounded-2xl bg-card border border-border p-3.5 shadow-2xl backdrop-blur-md">
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold shadow-sm">

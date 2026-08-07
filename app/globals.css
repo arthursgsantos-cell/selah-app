@@ -137,6 +137,12 @@
   .text-balance {
     text-wrap: balance;
   }
+  /* Recortes do aparelho — status bar/notch em cima, barra de gestos embaixo.
+     O app roda com `viewport-fit=cover` e status bar translúcida, então o
+     conteúdo começa em y=0 e passaria por baixo do relógio e da bateria.
+     Fora do iPhone os valores são 0 e nada muda. */
+  .pt-safe { padding-top: env(safe-area-inset-top); }
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
   .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;

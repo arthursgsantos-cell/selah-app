@@ -166,7 +166,9 @@ export function Lightbox({ fotos, indice, onFechar, animado = false, acao }: Pro
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[9999] flex flex-col bg-black/95 backdrop-blur-sm"
+      // O preto cobre a tela inteira, mas o conteúdo (botão de fechar em cima,
+      // miniaturas embaixo) fica dentro da área livre do aparelho.
+      className="pt-safe pb-safe fixed inset-0 z-[9999] flex flex-col bg-black/95 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-label="Visualizador de fotos"

@@ -161,7 +161,7 @@ export function FormularioEditor({ formularioId, inicial }: Props) {
       )}
 
       {/* Barra fixa: salvar sempre alcançável, mesmo em formulário longo */}
-      <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-background/95 backdrop-blur-sm p-3 z-40">
+      <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-background/95 backdrop-blur-sm p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] z-40">
         <div className="max-w-2xl mx-auto flex items-center gap-3">
           <div className="flex-1 min-w-0">
             {erro && <p className="text-xs text-destructive leading-tight">{erro}</p>}

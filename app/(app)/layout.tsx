@@ -51,7 +51,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    /* `dvh` em vez de `vh`: no Safari do iPhone a barra de endereço faz o
+       `100vh` passar da área visível e cortar o rodapé da tela. */
+    <div className="flex h-[100dvh] overflow-hidden">
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header
           userName={profile?.nome}
@@ -63,7 +65,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           notificacoesNaoLidas={notificacoesNaoLidas}
           recebeNotificacoes={recebeNotificacoes}
         />
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">
+        {/* O padding de baixo soma a barra de gestos para o último cartão da
+            página não ficar embaixo dela. */}
+        <main className="flex-1 overflow-y-auto p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:p-6 md:pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
           {children}
         </main>
       </div>

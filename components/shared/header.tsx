@@ -112,7 +112,10 @@ export function Header({ userName = 'Usuário', userRole = 'membro', avatarUrl, 
     !isGuest && (recebeNotificacoes ?? (userRole === 'admin' || userRole === 'pastor'))
 
   return (
-    <header className="flex h-16 items-center justify-between border-b bg-background px-4 md:px-6">
+    /* A faixa do recorte entra como padding e a altura cresce junto, então a
+       linha do logo continua com 4rem de área útil e o conteúdo deixa de
+       passar por baixo do relógio e da bateria do iPhone. */
+    <header className="pt-safe flex h-[calc(4rem+env(safe-area-inset-top))] items-center justify-between border-b bg-background px-4 md:px-6">
       {/* Logo */}
       <Link href="/home" className="inline-flex items-center gap-2">
         {churchLogoUrl ? (
