@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import Link from 'next/link'
 import { Lightbox } from '@/components/shared/lightbox'
 import { uploadFotoComunidadeAction, deleteFotoComunidadeAction } from '@/app/actions/fotos-comunidade'
 import { Button } from '@/components/ui/button'
-import { ImagePlus, X, Loader2 } from 'lucide-react'
+import { ChevronRight, ImagePlus, Images, X, Loader2 } from 'lucide-react'
 
 type FotoGaleria = { id: string; url: string; criado_em: string; celula?: string | null; rede?: string | null }
 type FotoEncontro = { url: string; criado_em: string }
@@ -94,6 +95,11 @@ export function GaleriaComunidadeSection({ fotosInit, fotosEncontro = [] }: Prop
     ...fotosEncontro.map((f): ItemGrid => ({ tipo: 'encontro', ...f })),
   ].sort((a, b) => new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime())
 
+  // O painel é um resumo: seis fotos dão o pulso da semana sem virar um mural
+  // de rolagem infinita. O acervo inteiro, separado por rede e célula, fica em
+  // /galeria.
+  const visiveis = grid.slice(0, 6)
+
   const semFotos = grid.length === 0 && progresso.length === 0
 
   return (
@@ -146,7 +152,7 @@ export function GaleriaComunidadeSection({ fotosInit, fotosEncontro = [] }: Prop
               )}
             </div>
           ))}
-          {grid.map((item, i) => (
+          {visiveis.map((item, i) => (
             <div key={item.tipo === 'galeria' ? item.id : `enc-${i}`} className="relative aspect-square rounded-xl overflow-hidden group">
               <button
                 type="button"
@@ -175,12 +181,23 @@ export function GaleriaComunidadeSection({ fotosInit, fotosEncontro = [] }: Prop
         </div>
       )}
 
+      {grid.length > visiveis.length && (
+        <Link
+          href="/galeria"
+          className="mt-3 flex items-center justify-center gap-1.5 rounded-xl border border-border bg-card py-2.5 text-sm font-medium transition-colors hover:bg-accent"
+        >
+          <Images className="h-4 w-4 text-muted-foreground" />
+          Ver todas as {grid.length} fotos
+          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+        </Link>
+      )}
+
       <p className="text-[10px] text-muted-foreground mt-2 px-0.5">
         Imagens são comprimidas automaticamente. Máximo 1200px, formato JPEG.
       </p>
 
       <Lightbox
-        fotos={grid.map((item) => ({
+        fotos={visiveis.map((item) => ({
           url: item.url,
           celula: item.tipo === 'galeria' ? item.celula : null,
           rede: item.tipo === 'galeria' ? item.rede : null,

@@ -30,9 +30,10 @@ export async function middleware(request: NextRequest) {
   const isCallback = path.startsWith('/auth/')
   const isStatic = path.startsWith('/_next') || path === '/favicon.ico' || path.includes('.')
   const isLanding = path === '/'
-  // /home e as páginas de rede e evento têm view de visitante — sem login
+  // /home, a galeria e as páginas de rede e evento têm view de visitante
   const isPublicPage =
-    path === '/home' || path.startsWith('/rede/') || path.startsWith('/evento/')
+    path === '/home' || path === '/galeria' ||
+    path.startsWith('/rede/') || path.startsWith('/evento/')
 
   if (isStatic || isCallback) return supabaseResponse
 

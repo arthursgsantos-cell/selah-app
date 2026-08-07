@@ -416,7 +416,12 @@ export default async function HomePage() {
 
         {/* Fotos — Nossa comunidade */}
         <section>
-          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2.5 px-0.5">Nossa comunidade</p>
+          <div className="mb-2.5 flex items-center justify-between gap-2 px-0.5">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Nossa comunidade</p>
+            <Link href="/galeria" className="text-[11px] font-medium text-primary hover:underline">
+              Ver galeria
+            </Link>
+          </div>
           <FotosComunidadeCarousel fotos={galleryPhotos} />
         </section>
 
@@ -995,7 +1000,12 @@ export default async function HomePage() {
 
       {/* Fotos — Nossa comunidade */}
       <section className={SECAO}>
-        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Nossa comunidade</p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Nossa comunidade</p>
+          <Link href="/galeria" className="text-[11px] font-medium text-primary hover:underline">
+            Ver galeria
+          </Link>
+        </div>
         <FotosComunidadeCarousel fotos={galleryPhotos} />
       </section>
 
