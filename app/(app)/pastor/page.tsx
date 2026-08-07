@@ -68,7 +68,7 @@ export default async function PastorPage() {
       .eq('igreja_id', profile.igreja_id),
     admin
       .from('resumos_culto')
-      .select('id, titulo, conteudo, pdf_url, data_culto, validade_ate')
+      .select('id, titulo, conteudo, pdf_url, data_culto, validade_ate, created_by, publicado_por')
       .eq('igreja_id', profile.igreja_id)
       .order('data_culto', { ascending: false })
       .limit(5),
@@ -105,6 +105,30 @@ export default async function PastorPage() {
       .order('importado_em', { ascending: false })
       .limit(100),
   ])
+
+  // Quem publicou cada resumo: os importados da planilha trazem o nome escrito
+  // lá (`publicado_por`); os publicados pelo app guardam só o uuid de quem
+  // operou, então o nome vem do perfil.
+  type ResumoRow = {
+    id: string; titulo: string; conteudo: string; pdf_url: string | null
+    data_culto: string; validade_ate: string
+    created_by: string | null; publicado_por: string | null
+  }
+  const resumosRaw = (resumosData ?? []) as ResumoRow[]
+  const autorIds = [...new Set(resumosRaw.map((r) => r.created_by).filter(Boolean))] as string[]
+
+  const { data: autoresData } = autorIds.length > 0
+    ? await admin.from('profiles').select('id, nome').in('id', autorIds)
+    : { data: [] }
+
+  const nomePorId = new Map(
+    ((autoresData ?? []) as { id: string; nome: string }[]).map((p) => [p.id, p.nome])
+  )
+
+  const resumos = resumosRaw.map((r) => ({
+    ...r,
+    autor: r.publicado_por?.trim() || (r.created_by ? nomePorId.get(r.created_by) ?? null : null),
+  }))
 
   const redeIds = (redes ?? []).map((r) => r.id)
 
@@ -183,7 +207,7 @@ export default async function PastorPage() {
       />
 
       {/* Resumo do culto */}
-      <ResumoCultoSection resumos={resumosData ?? []} />
+      <ResumoCultoSection resumos={resumos} />
 
       {/* Importação de roteiros, fotos e eventos a partir da planilha */}
       <ImportacaoSection registros={(importacoesData ?? []) as RegistroImportacao[]} />

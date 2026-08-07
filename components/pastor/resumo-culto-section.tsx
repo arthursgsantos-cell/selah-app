@@ -22,7 +22,6 @@ import {
 import {
   BookOpen,
   CalendarDays,
-  ExternalLink,
   FileText,
   Loader2,
   Pencil,
@@ -30,9 +29,10 @@ import {
   RefreshCw,
   Sparkles,
   Upload,
+  User,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
+import { BotaoPdf } from '@/components/shared/pdf-dialog'
 
 interface Resumo {
   id: string
@@ -41,6 +41,8 @@ interface Resumo {
   pdf_url: string | null
   data_culto: string
   validade_ate: string
+  /** Nome de quem publicou — da planilha ou do perfil de quem usou o app. */
+  autor?: string | null
 }
 
 interface Props {
@@ -284,19 +286,15 @@ function ResumoCard({ resumo }: { resumo: Resumo }) {
       <div className="flex items-center gap-3 flex-wrap">
         <span className="flex items-center gap-1 text-xs text-muted-foreground">
           <CalendarDays className="h-3 w-3" />
-          {format(parseISO(resumo.data_culto), "d 'de' MMMM", { locale: ptBR })}
+          {format(parseISO(resumo.data_culto), 'dd/MM/yyyy')}
         </span>
-        {resumo.pdf_url && (
-          <a
-            href={resumo.pdf_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 text-xs text-primary hover:underline"
-          >
-            <ExternalLink className="h-3 w-3" />
-            Abrir PDF
-          </a>
+        {resumo.autor && (
+          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+            <User className="h-3 w-3" />
+            {resumo.autor}
+          </span>
         )}
+        {resumo.pdf_url && <BotaoPdf url={resumo.pdf_url} titulo={resumo.titulo} />}
       </div>
 
       {editando ? (

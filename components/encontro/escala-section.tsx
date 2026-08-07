@@ -2,11 +2,11 @@
 
 import { useState, useTransition } from 'react'
 import { format, parseISO } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
 import { upsertEscalaAction, updateEncontroAction } from '@/app/actions/encontro'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Pencil, Check, X, FileText, ExternalLink, Heart } from 'lucide-react'
+import { BotaoPdf } from '@/components/shared/pdf-dialog'
+import { Pencil, Check, X, FileText, Heart } from 'lucide-react'
 import type { FuncaoEscala } from '@/lib/supabase/types'
 import { FUNCAO_CONFIG } from '@/lib/escala-funcoes'
 
@@ -29,6 +29,8 @@ interface ResumoDisponivel {
   conteudo: string | null
   pdf_url: string | null
   data_culto: string
+  /** Nome de quem publicou — da planilha ou do perfil de quem usou o app. */
+  autor?: string | null
 }
 
 interface Props {
@@ -46,7 +48,7 @@ interface Props {
 
 function formatDataBr(data_culto: string) {
   try {
-    return format(parseISO(data_culto), "d 'de' MMMM 'de' yyyy", { locale: ptBR })
+    return format(parseISO(data_culto), 'dd/MM/yyyy')
   } catch {
     return data_culto
   }
@@ -265,7 +267,7 @@ export function EscalaSection({
   )
 }
 
-function ResumoCard({ resumo }: { resumo: { titulo: string; conteudo: string | null; pdf_url: string | null; data_culto: string } }) {
+function ResumoCard({ resumo }: { resumo: ResumoDisponivel }) {
   return (
     <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-1.5">
       <div className="flex items-start justify-between gap-2">
@@ -273,19 +275,12 @@ function ResumoCard({ resumo }: { resumo: { titulo: string; conteudo: string | n
           <FileText className="h-3.5 w-3.5 text-primary/60 shrink-0" />
           <span className="text-xs font-semibold text-primary/80 uppercase tracking-wide leading-tight">{resumo.titulo}</span>
         </div>
-        {resumo.pdf_url && (
-          <a
-            href={resumo.pdf_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 text-xs text-primary hover:underline shrink-0"
-          >
-            <ExternalLink className="h-3 w-3" />
-            Abrir PDF
-          </a>
-        )}
+        {resumo.pdf_url && <BotaoPdf url={resumo.pdf_url} titulo={resumo.titulo} />}
       </div>
-      <p className="text-xs text-muted-foreground">Culto de {formatDataBr(resumo.data_culto)}</p>
+      <p className="text-xs text-muted-foreground">
+        Culto de {formatDataBr(resumo.data_culto)}
+        {resumo.autor && ` · publicado por ${resumo.autor}`}
+      </p>
       {resumo.conteudo && (
         <p className="text-xs text-foreground/70 line-clamp-3 whitespace-pre-wrap">{resumo.conteudo}</p>
       )}

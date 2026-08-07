@@ -136,11 +136,34 @@ export default async function EncontroPage({ params }: { params: { id: string } 
   const { data: resumosDisponiveis } = profile?.igreja_id
     ? await admin
         .from('resumos_culto')
-        .select('id, titulo, conteudo, pdf_url, data_culto, validade_ate')
+        .select('id, titulo, conteudo, pdf_url, data_culto, validade_ate, created_by, publicado_por')
         .eq('igreja_id', profile.igreja_id)
         .order('data_culto', { ascending: false })
         .limit(8)
     : { data: [] }
+
+  // Quem publicou: o roteiro importado da planilha traz o nome escrito lá; o
+  // publicado pelo app guarda só o uuid, e o nome vem do perfil.
+  type ResumoRow = {
+    id: string; titulo: string; conteudo: string; pdf_url: string | null
+    data_culto: string; validade_ate: string
+    created_by: string | null; publicado_por: string | null
+  }
+  const resumosRaw = (resumosDisponiveis ?? []) as ResumoRow[]
+  const autorIds = [...new Set(resumosRaw.map((r) => r.created_by).filter(Boolean))] as string[]
+
+  const { data: autoresResumo } = autorIds.length > 0
+    ? await admin.from('profiles').select('id, nome').in('id', autorIds)
+    : { data: [] }
+
+  const nomeDoAutor = new Map(
+    ((autoresResumo ?? []) as { id: string; nome: string }[]).map((p) => [p.id, p.nome])
+  )
+
+  const resumos = resumosRaw.map((r) => ({
+    ...r,
+    autor: r.publicado_por?.trim() || (r.created_by ? nomeDoAutor.get(r.created_by) ?? null : null),
+  }))
 
   const isMember = !!membroCelula
   const isLider = membroCelula?.papel === 'lider'
@@ -279,7 +302,7 @@ export default async function EncontroPage({ params }: { params: { id: string } 
             canEdit={canEdit}
             canSeeEdificacaoResumo={canSeeEdificacaoResumo}
             edificacaoResumo={encontro.edificacao_resumo}
-            resumosDisponiveis={resumosDisponiveis ?? []}
+            resumosDisponiveis={resumos}
             resumoCultoId={encontro.resumo_culto_id ?? null}
             currentUserId={user.id}
             conjugeNome={conjugeNome}

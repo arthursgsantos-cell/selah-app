@@ -1,9 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { BookOpen, CalendarDays, ChevronDown, ExternalLink } from 'lucide-react'
+import { BookOpen, CalendarDays, ChevronDown, User } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
+import { BotaoPdf } from '@/components/shared/pdf-dialog'
 
 interface Resumo {
   id: string
@@ -12,6 +12,8 @@ interface Resumo {
   pdf_url: string | null
   data_culto: string
   validade_ate: string
+  /** Nome de quem publicou — da planilha ou do perfil de quem usou o app. */
+  autor?: string | null
 }
 
 interface Props {
@@ -44,7 +46,7 @@ export function ResumoCultoCard({ resumos, encontroDate }: Props) {
           >
             {resumos.map((r) => (
               <option key={r.id} value={r.id}>
-                {format(parseISO(r.data_culto), "d 'de' MMMM", { locale: ptBR })} · {r.titulo}
+                {format(parseISO(r.data_culto), 'dd/MM/yyyy')} · {r.titulo}
               </option>
             ))}
           </select>
@@ -58,22 +60,20 @@ export function ResumoCultoCard({ resumos, encontroDate }: Props) {
             <BookOpen className="h-4 w-4 text-primary shrink-0" />
             <p className="text-sm font-semibold truncate">{resumo.titulo}</p>
           </div>
-          {resumo.pdf_url && (
-            <a
-              href={resumo.pdf_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 text-xs text-primary hover:underline shrink-0"
-            >
-              <ExternalLink className="h-3 w-3" />
-              Abrir PDF
-            </a>
-          )}
+          {resumo.pdf_url && <BotaoPdf url={resumo.pdf_url} titulo={resumo.titulo} />}
         </div>
 
-        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-          <CalendarDays className="h-3 w-3" />
-          Culto de {format(parseISO(resumo.data_culto), "d 'de' MMMM", { locale: ptBR })}
+        <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1">
+            <CalendarDays className="h-3 w-3" />
+            Culto de {format(parseISO(resumo.data_culto), 'dd/MM/yyyy')}
+          </span>
+          {resumo.autor && (
+            <span className="flex items-center gap-1">
+              <User className="h-3 w-3" />
+              {resumo.autor}
+            </span>
+          )}
         </div>
 
         <div>
