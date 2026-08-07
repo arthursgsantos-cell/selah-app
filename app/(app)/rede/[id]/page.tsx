@@ -172,6 +172,11 @@ export default async function RedeDetalhesPage({ params }: { params: { id: strin
   const galeriaAtiva = aparencia.fundo_galeria ?? true
   const galeriaOpacidade = aparencia.fundo_galeria_opacidade ?? 15
 
+  // Rede sem capa não fica com o retângulo colorido vazio: entra a foto mais
+  // recente das células dela. Quem já subiu uma capa continua com a sua — a
+  // automática é só o preenchimento de quem não escolheu nada.
+  const capaPadrao = fotosDoFundo[0] ?? null
+
   return (
     <div className="space-y-5 max-w-2xl mx-auto pb-8">
       <FundoGaleria fotos={fotosDoFundo} opacidade={galeriaOpacidade} ativo={galeriaAtiva} />
@@ -207,6 +212,7 @@ export default async function RedeDetalhesPage({ params }: { params: { id: strin
         <RedeCapaUpload
           redeId={params.id}
           capaUrl={rede.capa_url}
+          capaPadrao={capaPadrao}
           cor={rede.cor}
           canEdit={canEdit}
         />

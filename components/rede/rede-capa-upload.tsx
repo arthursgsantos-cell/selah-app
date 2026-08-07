@@ -7,14 +7,21 @@ import { uploadCapaRedeAction } from '@/app/actions/rede'
 interface Props {
   redeId: string
   capaUrl: string | null
+  /**
+   * Foto mais recente das células da rede, usada quando a rede ainda não tem
+   * capa própria. Rede com capa enviada à mão não muda — ela sempre vence.
+   */
+  capaPadrao?: string | null
   cor: string
   canEdit: boolean
 }
 
-export function RedeCapaUpload({ redeId, capaUrl, cor, canEdit }: Props) {
+export function RedeCapaUpload({ redeId, capaUrl, capaPadrao = null, cor, canEdit }: Props) {
   const [preview, setPreview] = useState<string | null>(capaUrl)
   const [isPending, startTransition] = useTransition()
   const fileRef = useRef<HTMLInputElement>(null)
+
+  const exibida = preview ?? capaPadrao
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -35,12 +42,12 @@ export function RedeCapaUpload({ redeId, capaUrl, cor, canEdit }: Props) {
   return (
     <div
       className={`relative w-full h-48 rounded-2xl overflow-hidden ${canEdit ? 'cursor-pointer group' : ''}`}
-      style={!preview ? { background: `linear-gradient(135deg, ${cor}55 0%, ${cor}cc 100%)` } : undefined}
+      style={!exibida ? { background: `linear-gradient(135deg, ${cor}55 0%, ${cor}cc 100%)` } : undefined}
       onClick={() => canEdit && fileRef.current?.click()}
     >
-      {preview ? (
+      {exibida ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={preview} alt="Capa da rede" className="absolute inset-0 w-full h-full object-cover" />
+        <img src={exibida} alt="Capa da rede" className="absolute inset-0 w-full h-full object-cover" />
       ) : (
         <div className="absolute inset-0 flex items-end p-4">
           {canEdit && (
