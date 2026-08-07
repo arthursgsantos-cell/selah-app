@@ -3,26 +3,24 @@ import { loginCom } from '@/lib/destino-login'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
 import Link from 'next/link'
-import { ArrowLeft, Users, Phone, User, Wallet, ExternalLink } from 'lucide-react'
+import { ArrowLeft, Users, Wallet, ExternalLink } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import type { CampoFormulario } from '@/lib/supabase/types'
-import { PagamentosInscrito } from '@/components/eventos/pagamentos-inscrito'
+import {
+  GestaoInscritos,
+  type InscritoGestao,
+  type PagamentoGestao,
+} from '@/components/eventos/gestao-inscritos'
+import { OrganizadoresEvento } from '@/components/eventos/organizadores-evento'
+import { acessoAoEvento } from '@/lib/eventos-permissoes'
 import { formatarBRL, type ParcelaEvento, type PagamentoInscricao } from '@/lib/evento-cobranca'
 import { resumoDoEvento } from '@/lib/eventos-resumo'
 import { carregarRelatorio } from '@/lib/inscricoes-relatorio'
 import { RelatorioInscricoes } from '@/components/eventos/relatorio-inscricoes'
 
 const PADRAO_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
-const statusConfig = {
-  pendente:   { label: 'Pendente',   className: 'bg-yellow-100 text-yellow-700' },
-  confirmado: { label: 'Confirmado', className: 'bg-green-100 text-green-700'  },
-  cancelado:  { label: 'Cancelado',  className: 'bg-red-100 text-red-700'      },
-}
 
 function Indicador({
   rotulo, valor, icone, classe,
@@ -46,15 +44,6 @@ export default async function InscritosList({ params }: { params: { eventoId: st
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect(loginCom(`/inscricoes/${params.eventoId}`))
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  const canView = ['pastor', 'admin', 'supervisor', 'supervisor_treinamento', 'lider'].includes(profile?.role ?? '')
-  if (!canView) redirect('/home')
-
   const admin = createAdminClient()
 
   // A URL aceita o slug ("/inscricoes/1-retiro-rede-one") para poder ser
@@ -63,7 +52,7 @@ export default async function InscritosList({ params }: { params: { eventoId: st
   // o formato decide a coluna.
   const consultaEvento = admin
     .from('eventos')
-    .select('id, titulo, slug, data_hora, formulario_id, local, inscricoes_planilha_url')
+    .select('id, titulo, slug, data_hora, formulario_id, local, inscricoes_planilha_url, created_by, igreja_id')
 
   const { data: evento } = await (PADRAO_UUID.test(params.eventoId)
     ? consultaEvento.eq('id', params.eventoId)
@@ -74,9 +63,14 @@ export default async function InscritosList({ params }: { params: { eventoId: st
 
   const eventoId = evento.id
 
+  // Quem enxerga esta página é quem gerencia o evento: a liderança da igreja,
+  // quem o criou e quem recebeu a delegação.
+  const acesso = await acessoAoEvento(eventoId)
+  if (!acesso?.podeVer) redirect('/home')
+
   const [{ data: inscritosRaw }, { data: parcelasData }, resumo] = await Promise.all([
     admin.from('inscricoes_evento')
-      .select('id, nome, telefone, dados, status, criado_em, valor_total')
+      .select('id, nome, telefone, dados, status, criado_em, valor_total, observacao, origem')
       .eq('evento_id', eventoId)
       .order('criado_em', { ascending: true }),
     admin.from('evento_parcelas')
@@ -99,15 +93,24 @@ export default async function InscritosList({ params }: { params: { eventoId: st
   const { data: pagamentosData } = inscricaoIds.length > 0
     ? await admin
         .from('inscricao_pagamentos')
-        .select('id, inscricao_id, valor, pago_em, metodo, observacao')
+        .select('id, inscricao_id, valor, pago_em, metodo, observacao, comprovante_path')
         .in('inscricao_id', inscricaoIds)
         .order('pago_em')
     : { data: [] }
 
-  const pagamentosPorInscricao = new Map<string, PagamentoInscricao[]>()
-  for (const p of (pagamentosData ?? []) as (PagamentoInscricao & { inscricao_id: string })[]) {
+  const pagamentosPorInscricao = new Map<string, PagamentoGestao[]>()
+  for (const p of (pagamentosData ?? []) as unknown as (PagamentoInscricao & {
+    inscricao_id: string; comprovante_path: string | null
+  })[]) {
     const lista = pagamentosPorInscricao.get(p.inscricao_id) ?? []
-    lista.push(p)
+    lista.push({
+      id: p.id,
+      valor: Number(p.valor),
+      pago_em: p.pago_em,
+      metodo: p.metodo,
+      observacao: p.observacao,
+      comprovante: Boolean(p.comprovante_path),
+    })
     pagamentosPorInscricao.set(p.inscricao_id, lista)
   }
 
@@ -117,8 +120,65 @@ export default async function InscritosList({ params }: { params: { eventoId: st
     campos = (form?.campos ?? []) as CampoFormulario[]
   }
 
-  const inscritos = inscritosRaw ?? []
-  const ativos = inscritos.filter((i) => i.status !== 'cancelado')
+  const inscritos = (inscritosRaw ?? []) as unknown as {
+    id: string; nome: string; telefone: string | null; dados: Record<string, string>
+    status: string; criado_em: string; valor_total: number | null
+    observacao: string | null; origem: string | null
+  }[]
+
+  const inscritosGestao: InscritoGestao[] = inscritos.map((i) => ({
+    id: i.id,
+    nome: i.nome,
+    telefone: i.telefone,
+    status: i.status,
+    origem: i.origem ?? 'app',
+    observacao: i.observacao,
+    valorTotal: i.valor_total !== null ? Number(i.valor_total) : null,
+    criadoEm: i.criado_em,
+    dados: (i.dados ?? {}) as Record<string, string>,
+    pagamentos: pagamentosPorInscricao.get(i.id) ?? [],
+  }))
+
+  // Preço único do evento, usado como sugestão ao cadastrar alguém à mão.
+  const { data: valoresData } = await admin
+    .from('evento_valores')
+    .select('valor, campo_id')
+    .eq('evento_id', eventoId)
+    .order('ordem')
+
+  const valorPadrao =
+    ((valoresData ?? []) as { valor: number; campo_id: string | null }[])
+      .find((v) => !v.campo_id)?.valor ?? null
+
+  // Organizadores delegados e candidatos à delegação.
+  const { data: organizadoresData } = await admin
+    .from('evento_organizadores')
+    .select('user_id')
+    .eq('evento_id', eventoId)
+
+  const organizadorIds = ((organizadoresData ?? []) as { user_id: string }[]).map((o) => o.user_id)
+  const idsParaNome = [...new Set([...organizadorIds, evento.created_by].filter(Boolean))] as string[]
+
+  const [{ data: nomesData }, { data: membrosData }] = await Promise.all([
+    idsParaNome.length > 0
+      ? admin.from('profiles').select('id, nome').in('id', idsParaNome)
+      : Promise.resolve({ data: [] }),
+    // A lista de candidatos só é carregada para quem pode delegar.
+    acesso.podeDelegar && evento.igreja_id
+      ? admin.from('profiles').select('id, nome, role').eq('igreja_id', evento.igreja_id).order('nome').limit(500)
+      : Promise.resolve({ data: [] }),
+  ])
+
+  const nomePorId = new Map(((nomesData ?? []) as { id: string; nome: string }[]).map((p) => [p.id, p.nome]))
+
+  const criador = evento.created_by
+    ? { id: evento.created_by as string, nome: nomePorId.get(evento.created_by as string) ?? 'Organizador' }
+    : null
+
+  const organizadores = organizadorIds.map((id) => ({ id, nome: nomePorId.get(id) ?? 'Membro' }))
+
+  const candidatos = ((membrosData ?? []) as { id: string; nome: string; role: string }[])
+    .map((p) => ({ id: p.id, nome: p.nome, detalhe: p.role.replace(/_/g, ' ') }))
 
   // O relatório da planilha traz os próprios totais; o do app usa o resumo já
   // calculado. Uma variável só para a tela não precisar saber a origem.
@@ -154,7 +214,7 @@ export default async function InscritosList({ params }: { params: { eventoId: st
 
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-xl font-bold">Acompanhamento</h1>
+          <h1 className="text-xl font-bold">{acesso.pode ? 'Gerenciar evento' : 'Acompanhamento'}</h1>
           <p className="text-sm text-muted-foreground">{evento.titulo}</p>
           <p className="text-xs text-muted-foreground capitalize">
             {format(new Date(evento.data_hora), "EEE, d 'de' MMM 'às' HH'h'mm", { locale: ptBR })}
@@ -268,84 +328,27 @@ export default async function InscritosList({ params }: { params: { eventoId: st
         </div>
       )}
 
-      {/* Só quando não há relatório nenhum: com planilha, dizer "nenhuma
-          inscrição" seria mentira — elas estão na tabela acima. */}
-      {inscritos.length === 0 && (relatorio?.registros.length ?? 0) === 0 && relatorio !== null && (
-        <Card>
-          <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            Nenhuma inscrição ainda.
-          </CardContent>
-        </Card>
+      {/* Gestão manual: cadastrar inscrito, lançar pagamento, anexar
+          comprovante. É o que substitui a planilha do organizador. */}
+      <GestaoInscritos
+        eventoId={eventoId}
+        eventoTitulo={evento.titulo}
+        inscritos={inscritosGestao}
+        parcelas={parcelas}
+        campos={campos}
+        valorPadrao={valorPadrao}
+        somenteLeitura={!acesso.pode}
+      />
+
+      {acesso.podeDelegar && (
+        <OrganizadoresEvento
+          eventoId={eventoId}
+          criador={criador}
+          organizadores={organizadores}
+          candidatos={candidatos}
+        />
       )}
 
-      {/* Fichas com controle de pagamento — só existem para inscrição pelo
-          app, e ficam fora do PDF por causa dos botões. */}
-      {inscritos.length > 0 && (
-        <div className="space-y-3 nao-imprimir">
-          <h2 className="text-sm font-semibold">Fichas e pagamentos</h2>
-          {inscritos.map((inscrito, i) => {
-            const status = statusConfig[inscrito.status as keyof typeof statusConfig] ?? statusConfig.pendente
-            const dados = inscrito.dados as Record<string, string>
-            return (
-              <Card key={inscrito.id} className="overflow-hidden">
-                <CardContent className="py-3 px-4 space-y-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-muted-foreground w-5">{i + 1}.</span>
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <User className="h-3.5 w-3.5 text-muted-foreground" />
-                          <p className="text-sm font-semibold">{inscrito.nome}</p>
-                        </div>
-                        {inscrito.telefone && (
-                          <a
-                            href={`https://wa.me/${inscrito.telefone.replace(/\D/g, '')}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1 text-xs text-[#25D366] hover:underline mt-0.5"
-                          >
-                            <Phone className="h-3 w-3" />
-                            {inscrito.telefone}
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                    <Badge className={`text-[10px] shrink-0 ${status.className}`}>
-                      {status.label}
-                    </Badge>
-                  </div>
-
-                  {/* Respostas do formulário */}
-                  {campos.filter((c) => c.id !== 'nome' && c.id !== 'telefone').map((campo) => {
-                    const resposta = dados[campo.id]
-                    if (!resposta) return null
-                    return (
-                      <div key={campo.id} className="text-xs">
-                        <span className="text-muted-foreground">{campo.label}: </span>
-                        <span className="font-medium">{resposta}</span>
-                      </div>
-                    )
-                  })}
-
-                  <p className="text-[10px] text-muted-foreground">
-                    {format(new Date(inscrito.criado_em), "d/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                  </p>
-                </CardContent>
-
-                {/* Controle de pagamentos (tesoureiro) */}
-                <PagamentosInscrito
-                  inscricaoId={inscrito.id}
-                  eventoId={eventoId}
-                  nome={inscrito.nome}
-                  valorTotal={inscrito.valor_total as number | null}
-                  parcelas={parcelas}
-                  pagamentos={pagamentosPorInscricao.get(inscrito.id) ?? []}
-                />
-              </Card>
-            )
-          })}
-        </div>
-      )}
     </div>
   )
 }

@@ -706,6 +706,9 @@ export type Database = {
           dados: Record<string, string>
           valor_total: number | null
           status: 'pendente' | 'confirmado' | 'cancelado'
+          observacao: string | null
+          origem: 'app' | 'manual' | 'planilha'
+          criado_por: string | null
           criado_em: string
         }
         Insert: {
@@ -718,6 +721,9 @@ export type Database = {
           dados?: Record<string, string>
           valor_total?: number | null
           status?: 'pendente' | 'confirmado' | 'cancelado'
+          observacao?: string | null
+          origem?: 'app' | 'manual' | 'planilha'
+          criado_por?: string | null
           criado_em?: string
         }
         Update: {
@@ -730,6 +736,9 @@ export type Database = {
           dados?: Record<string, string>
           valor_total?: number | null
           status?: 'pendente' | 'confirmado' | 'cancelado'
+          observacao?: string | null
+          origem?: 'app' | 'manual' | 'planilha'
+          criado_por?: string | null
           criado_em?: string
         }
         Relationships: []
@@ -1196,6 +1205,8 @@ export type Database = {
           pago_em: string
           metodo: string | null
           observacao: string | null
+          comprovante_path: string | null
+          comprovante_nome: string | null
           registrado_por: string | null
           criado_em: string
         }
@@ -1206,6 +1217,8 @@ export type Database = {
           pago_em?: string
           metodo?: string | null
           observacao?: string | null
+          comprovante_path?: string | null
+          comprovante_nome?: string | null
           registrado_por?: string | null
           criado_em?: string
         }
@@ -1216,7 +1229,34 @@ export type Database = {
           pago_em?: string
           metodo?: string | null
           observacao?: string | null
+          comprovante_path?: string | null
+          comprovante_nome?: string | null
           registrado_por?: string | null
+          criado_em?: string
+        }
+        Relationships: []
+      }
+      // Quem, além da liderança, pode gerenciar as inscrições de um evento.
+      evento_organizadores: {
+        Row: {
+          id: string
+          evento_id: string
+          user_id: string
+          criado_por: string | null
+          criado_em: string
+        }
+        Insert: {
+          id?: string
+          evento_id: string
+          user_id: string
+          criado_por?: string | null
+          criado_em?: string
+        }
+        Update: {
+          id?: string
+          evento_id?: string
+          user_id?: string
+          criado_por?: string | null
           criado_em?: string
         }
         Relationships: []

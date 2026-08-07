@@ -423,23 +423,27 @@ export default async function EventoPage({ params }: { params: { id: string } })
       {canEdit && <AdicionarSecao eventoId={evento.id} />}
 
       {/* ── Gestão ── */}
-      {/* Cobrança e lista de inscritos só existem quando o app controla a
-          inscrição (formulário/PIX) — link externo não gera registro aqui. */}
-      {canEdit && ['formulario', 'pix'].includes(evento.tipo_inscricao) && (
+      {/* A tabela de preços e parcelas só faz sentido quando o app controla a
+          inscrição (formulário/PIX). Já o painel de inscritos vale para
+          qualquer evento: com link externo ou inscrição no WhatsApp, é lá que o
+          organizador cadastra quem pagou. */}
+      {canEdit && (
         <section className="space-y-3 border-t border-border pt-4">
           <div className="flex items-center gap-2">
             <Wallet className="h-4 w-4 text-muted-foreground" />
             <h2 className="text-sm font-semibold">Cobrança</h2>
           </div>
 
-          <CobrancaEditor
-            eventoId={evento.id}
-            campos={((formulario as { campos?: CampoFormulario[] } | null)?.campos ?? []) as CampoFormulario[]}
-          />
+          {['formulario', 'pix'].includes(evento.tipo_inscricao) && (
+            <CobrancaEditor
+              eventoId={evento.id}
+              campos={((formulario as { campos?: CampoFormulario[] } | null)?.campos ?? []) as CampoFormulario[]}
+            />
+          )}
 
-          <Button variant="outline" size="sm" render={<Link href={`/inscricoes/${evento.id}`} />} className="gap-1.5">
+          <Button variant="outline" size="sm" render={<Link href={`/inscricoes/${evento.slug ?? evento.id}`} />} className="gap-1.5">
             <ClipboardList className="h-4 w-4" />
-            Ver inscrições e pagamentos
+            Gerenciar inscrições e pagamentos
           </Button>
         </section>
       )}
