@@ -5,6 +5,7 @@ import { Search, Printer, X, BarChart3, TableIcon, Filter, Receipt } from 'lucid
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { VisualizadorComprovante } from '@/components/shared/visualizador-comprovante'
 import {
   distribuicao, paraNumero, type RegistroInscricao, type ParcelaPaga,
 } from '@/lib/inscricoes-relatorio'
@@ -272,6 +273,8 @@ function FichaInscrito({
   colunas: string[]
   onFechar: () => void
 }) {
+  const [comprovanteFicha, setComprovanteFicha] = useState<string | null>(null)
+
   if (!registro) return null
 
   const preenchidos = colunas.filter((c) => (registro.valores[c] ?? '').trim())
@@ -280,6 +283,7 @@ function FichaInscrito({
     'Inscrição'
 
   return (
+    <>
     <Dialog open onOpenChange={(aberto) => { if (!aberto) onFechar() }}>
       {/* Mais larga que o padrão (`sm:max-w-sm`): são 24 campos, e a pergunta
           do formulário costuma ser uma frase inteira.
@@ -351,14 +355,13 @@ function FichaInscrito({
                     </p>
                     <div className="mt-1 flex items-center gap-3 text-xs">
                       {p.comprovanteUrl && (
-                        <a
-                          href={p.comprovanteUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          type="button"
+                          onClick={() => setComprovanteFicha(p.comprovanteUrl!)}
                           className="font-medium text-primary hover:underline"
                         >
                           comprovante
-                        </a>
+                        </button>
                       )}
                       {p.transacao && (
                         <span className="truncate text-muted-foreground/70" title={p.transacao}>
@@ -374,6 +377,16 @@ function FichaInscrito({
         </div>
       </DialogContent>
     </Dialog>
+
+    {comprovanteFicha && (
+      <VisualizadorComprovante
+        url={comprovanteFicha}
+        titulo="Comprovante"
+        aberto
+        aoFechar={() => setComprovanteFicha(null)}
+      />
+    )}
+    </>
   )
 }
 
@@ -396,6 +409,7 @@ function HistoricoPagamentos({
 }) {
   const [busca, setBusca] = useState('')
   const [status, setStatus] = useState('')
+  const [comprovante, setComprovante] = useState<{ url: string; nome: string } | null>(null)
 
   const statusPossiveis = useMemo(
     () => [...new Set(pagamentos.map((p) => p.status).filter(Boolean))],
@@ -483,18 +497,26 @@ function HistoricoPagamentos({
                 {p.status}
               </span>
               {p.comprovanteUrl && (
-                <a
-                  href={p.comprovanteUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  onClick={() => setComprovante({ url: p.comprovanteUrl!, nome: p.nome })}
                   className="shrink-0 text-xs font-medium text-primary hover:underline nao-imprimir"
                 >
                   ver
-                </a>
+                </button>
               )}
             </div>
           ))}
         </div>
+      )}
+
+      {comprovante && (
+        <VisualizadorComprovante
+          url={comprovante.url}
+          titulo={`Comprovante · ${comprovante.nome}`}
+          aberto
+          aoFechar={() => setComprovante(null)}
+        />
       )}
     </section>
   )

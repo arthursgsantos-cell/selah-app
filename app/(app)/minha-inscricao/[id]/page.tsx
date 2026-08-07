@@ -3,7 +3,8 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, CalendarDays, MapPin, Receipt, ExternalLink, HandHeart, BedDouble, Car, Utensils } from 'lucide-react'
+import { ArrowLeft, CalendarDays, MapPin, Receipt, ExternalLink, Eye, HandHeart, BedDouble, Car, Utensils } from 'lucide-react'
+import { BotaoComprovante } from '@/components/shared/visualizador-comprovante'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { EventoContagem } from '@/components/eventos/evento-contagem'
@@ -185,15 +186,14 @@ export default async function MinhaInscricaoPage({ params }: { params: { id: str
                       {p.status}
                     </span>
                     {p.comprovanteUrl && (
-                      <a
-                        href={p.comprovanteUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label="Abrir comprovante"
+                      <BotaoComprovante
+                        url={p.comprovanteUrl}
+                        titulo="Comprovante"
+                        rotulo="Ver comprovante"
                         className="shrink-0 text-muted-foreground hover:text-foreground"
                       >
-                        <ExternalLink className="h-4 w-4" />
-                      </a>
+                        <Eye className="h-4 w-4" />
+                      </BotaoComprovante>
                     )}
                   </div>
                 ))}
