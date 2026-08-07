@@ -183,7 +183,11 @@ export default async function AreaAlunoPage() {
           </p>
           <div className="rounded-2xl border border-border divide-y overflow-hidden">
             {proximas.map((a) => (
-              <div key={a.id} className="flex items-center gap-3 px-3 py-2.5">
+              <Link
+                key={a.id}
+                href={`/ensino/turma/${a.turma_id}/aula/${a.numero}`}
+                className="flex items-center gap-3 px-3 py-2.5 hover:bg-accent transition-colors"
+              >
                 <div className="flex h-9 w-9 shrink-0 flex-col items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <span className="text-[8px] font-bold uppercase leading-none">Aula</span>
                   <span className="text-sm font-bold leading-none">{a.numero}</span>
@@ -200,7 +204,7 @@ export default async function AreaAlunoPage() {
                     {a.local}
                   </span>
                 )}
-              </div>
+              </Link>
             ))}
           </div>
         </section>
@@ -312,7 +316,11 @@ export default async function AreaAlunoPage() {
                   {aulasDaTurma.map((a) => {
                     const valor = minhasPresencas.get(a.id)
                     return (
-                      <div key={a.id} className="flex items-center gap-3 px-3 py-2">
+                      <Link
+                        key={a.id}
+                        href={`/ensino/turma/${turma.id}/aula/${a.numero}`}
+                        className="flex items-center gap-3 px-3 py-2 hover:bg-accent transition-colors"
+                      >
                         <span className="text-xs font-bold text-muted-foreground w-5 shrink-0">
                           {a.numero}
                         </span>
@@ -329,7 +337,7 @@ export default async function AreaAlunoPage() {
                             <span className="text-muted-foreground/60">—</span>
                           )}
                         </span>
-                      </div>
+                      </Link>
                     )
                   })}
                 </div>

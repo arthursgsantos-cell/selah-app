@@ -17,7 +17,7 @@ import { criarCursoAction } from '@/app/actions/ensino/cursos'
 import {
   InscricaoTurmaFields, type InscricaoTurmaValue,
 } from '@/components/ensino/inscricao-turma-fields'
-import type { StatusTurma, TipoInscricaoTurma } from '@/lib/supabase/types'
+import type { ModoTurma, StatusTurma, TipoInscricaoTurma } from '@/lib/supabase/types'
 
 const campoClass =
   'w-full h-9 rounded-lg border border-input bg-background px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50'
@@ -39,6 +39,8 @@ export interface TurmaParaEditar {
   inscricoesAbertas: boolean
   aprovacaoAutomatica: boolean
   status: StatusTurma
+  modo: ModoTurma
+  sequencial: boolean
   whatsappUrl: string | null
   tipoInscricao: TipoInscricaoTurma
   linkInscricaoUrl: string | null
@@ -86,6 +88,8 @@ export function TurmaForm({
   const [inscricoesAbertas, setInscricoesAbertas] = useState(turma?.inscricoesAbertas ?? true)
   const [aprovacaoAutomatica, setAprovacaoAutomatica] = useState(turma?.aprovacaoAutomatica ?? true)
   const [status, setStatus] = useState<StatusTurma>(turma?.status ?? 'aberta')
+  const [modo, setModo] = useState<ModoTurma>(turma?.modo ?? 'presencial')
+  const [sequencial, setSequencial] = useState(turma?.sequencial ?? false)
   const [whatsappUrl, setWhatsappUrl] = useState(turma?.whatsappUrl ?? '')
   const [capaFile, setCapaFile] = useState<File | null>(null)
   const [capaPreview, setCapaPreview] = useState<string | null>(turma?.capaUrl ?? null)
@@ -203,6 +207,8 @@ export function TurmaForm({
           inscricoesAbertas,
           aprovacaoAutomatica,
           status,
+          modo,
+          sequencial,
           whatsappUrl: whatsappUrl.trim() || null,
           tipoInscricao: inscricao.tipo,
           linkInscricaoUrl: inscricao.linkUrl.trim() || null,
@@ -284,6 +290,60 @@ export function TurmaForm({
             rows={3}
           />
         </div>
+
+        {/* Presencial x gravado. É o que decide se a turma tem calendário e
+            chamada ou se é catálogo, com o aluno marcando o que já assistiu. */}
+        <div className="space-y-1.5">
+          <Label>Como acontece</Label>
+          <div className="flex gap-1.5">
+            {([
+              { valor: 'presencial', label: 'Encontros', ajuda: 'Com data, chamada e frequência' },
+              { valor: 'gravado', label: 'Gravado', ajuda: 'O aluno assiste no ritmo dele' },
+            ] as const).map((o) => (
+              <button
+                key={o.valor}
+                type="button"
+                onClick={() => marcar(setModo)(o.valor)}
+                aria-pressed={modo === o.valor}
+                className={`flex-1 rounded-xl border px-3 py-2.5 text-left transition-colors ${
+                  modo === o.valor
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border hover:bg-accent'
+                }`}
+              >
+                <span className="block text-sm font-medium">{o.label}</span>
+                <span className="block text-[11px] text-muted-foreground leading-tight mt-0.5">
+                  {o.ajuda}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {modo === 'gravado' && (
+          <label className="flex items-start gap-2.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={sequencial}
+              onChange={(e) => marcar(setSequencial)(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-input accent-primary"
+            />
+            <span className="min-w-0">
+              <span className="block text-sm font-medium">Liberar as aulas em ordem</span>
+              <span className="block text-xs text-muted-foreground leading-snug">
+                A aula seguinte só abre depois que o aluno concluir a anterior.
+              </span>
+            </span>
+          </label>
+        )}
+
+        {modo === 'gravado' && (
+          <p className="text-xs text-muted-foreground rounded-lg bg-muted px-3 py-2 leading-relaxed">
+            Em turma gravada não há chamada nem data de aula: o aluno marca cada
+            aula como assistida e a turma acompanha o progresso. O vídeo de cada
+            aula é um material do tipo vídeo com o link do YouTube.
+          </p>
+        )}
       </Secao>
 
       <Secao titulo="Quando e onde">

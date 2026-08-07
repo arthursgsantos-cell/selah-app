@@ -6,7 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { loginCom } from '@/lib/destino-login'
 import { acessoEnsino, podeLecionar } from '@/lib/ensino/permissoes'
 import { TurmaForm, type TurmaParaEditar } from '@/components/ensino/turma-form'
-import type { StatusTurma, TipoInscricaoTurma } from '@/lib/supabase/types'
+import type { ModoTurma, StatusTurma, TipoInscricaoTurma } from '@/lib/supabase/types'
 
 export const metadata = { title: 'Editar turma · Ensino IBZS' }
 
@@ -18,7 +18,7 @@ export default async function EditarTurmaPage({ params }: { params: { id: string
   const { data: turmaRaw } = await admin
     .from('ensino_turmas')
     .select(
-      'id, curso_id, nome, descricao, capa_url, local, data_inicio, data_fim, dias_semana, horario_inicio, horario_fim, total_aulas, vagas, inscricoes_abertas, aprovacao_automatica, status, whatsapp_url, tipo_inscricao, link_inscricao_url, whatsapp_inscricao, formulario_id'
+      'id, curso_id, nome, descricao, capa_url, local, data_inicio, data_fim, dias_semana, horario_inicio, horario_fim, total_aulas, vagas, inscricoes_abertas, aprovacao_automatica, status, modo, sequencial, whatsapp_url, tipo_inscricao, link_inscricao_url, whatsapp_inscricao, formulario_id'
     )
     .eq('id', params.id)
     .maybeSingle()
@@ -33,7 +33,8 @@ export default async function EditarTurmaPage({ params }: { params: { id: string
     dias_semana: number[]; horario_inicio: string | null; horario_fim: string | null
     total_aulas: number | null; vagas: number | null
     inscricoes_abertas: boolean; aprovacao_automatica: boolean
-    status: StatusTurma; whatsapp_url: string | null
+    status: StatusTurma; modo: ModoTurma; sequencial: boolean
+    whatsapp_url: string | null
     tipo_inscricao: TipoInscricaoTurma
     link_inscricao_url: string | null; whatsapp_inscricao: string | null
     formulario_id: string | null
@@ -56,6 +57,8 @@ export default async function EditarTurmaPage({ params }: { params: { id: string
     inscricoesAbertas: t.inscricoes_abertas,
     aprovacaoAutomatica: t.aprovacao_automatica,
     status: t.status,
+    modo: t.modo ?? 'presencial',
+    sequencial: t.sequencial ?? false,
     whatsappUrl: t.whatsapp_url,
     tipoInscricao: t.tipo_inscricao ?? 'app',
     linkInscricaoUrl: t.link_inscricao_url,

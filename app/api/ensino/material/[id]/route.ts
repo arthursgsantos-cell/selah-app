@@ -13,9 +13,18 @@ const VALIDADE_SEGUNDOS = 60
  * usuário, então a policy `ensino_materiais_select` é quem decide. Se a pessoa
  * não está inscrita e o material não é público, a linha simplesmente não
  * aparece — e sem a linha não há `arquivo_path` para assinar.
+ *
+ * Dois modos, e a diferença importa:
+ *
+ * - padrão: redireciona para a URL assinada com `download`, que manda o
+ *   navegador salvar o arquivo;
+ * - `?modo=ver`: devolve o próprio conteúdo, com `Content-Disposition: inline`,
+ *   para o visualizador embutido do app. Aqui o arquivo passa pelo servidor em
+ *   vez de redirecionar de propósito — o `<iframe>` do diálogo continua na
+ *   mesma origem, e o PDF abre dentro do app em vez de virar outra aba.
  */
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   const supabase = await createClient()
@@ -50,16 +59,35 @@ export async function GET(
     return NextResponse.json({ erro: 'Arquivo não encontrado.' }, { status: 404 })
   }
 
+  const paraVer = request.nextUrl.searchParams.get('modo') === 'ver'
   const admin = createAdminClient()
+
   const { data: assinado, error } = await admin.storage
     .from(BUCKET_MATERIAIS)
-    .createSignedUrl(material.arquivo_path, VALIDADE_SEGUNDOS, {
-      download: material.arquivo_nome ?? true,
-    })
+    .createSignedUrl(
+      material.arquivo_path,
+      VALIDADE_SEGUNDOS,
+      paraVer ? undefined : { download: material.arquivo_nome ?? true }
+    )
 
   if (error || !assinado) {
     return NextResponse.json({ erro: 'Não foi possível abrir o arquivo.' }, { status: 500 })
   }
 
-  return NextResponse.redirect(assinado.signedUrl)
+  if (!paraVer) return NextResponse.redirect(assinado.signedUrl)
+
+  const arquivo = await fetch(assinado.signedUrl)
+  if (!arquivo.ok || !arquivo.body) {
+    return NextResponse.json({ erro: 'Não foi possível abrir o arquivo.' }, { status: 502 })
+  }
+
+  return new NextResponse(arquivo.body, {
+    headers: {
+      'Content-Type': arquivo.headers.get('content-type') ?? 'application/octet-stream',
+      'Content-Disposition': `inline; filename="${encodeURIComponent(material.arquivo_nome ?? 'material')}"`,
+      // Material de turma não vai para cache compartilhado: a URL é a mesma
+      // para todo mundo, mas o direito de ver não é.
+      'Cache-Control': 'private, no-store',
+    },
+  })
 }

@@ -3,7 +3,7 @@ import { notFound, redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import {
   ArrowLeft, CalendarDays, MapPin, Users, GraduationCap, ClipboardList,
-  BookOpen, FolderOpen, MessageCircle, ChevronRight, Pencil,
+  BookOpen, FolderOpen, MessageCircle, ChevronRight, Pencil, Check,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/server'
@@ -23,7 +23,7 @@ import { TurmaCapa } from '@/components/ensino/turma-capa'
 import { FundoGaleria } from '@/components/shared/fundo-galeria'
 import { MateriaisLista, type MaterialItem } from '@/components/ensino/materiais-lista'
 import type {
-  StatusAula, StatusInscricaoEnsino, StatusTurma, TipoInscricaoTurma,
+  ModoTurma, StatusAula, StatusInscricaoEnsino, StatusTurma, TipoInscricaoTurma,
 } from '@/lib/supabase/types'
 
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
@@ -56,7 +56,7 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
   const { data: turmaRaw } = await supabase
     .from('ensino_turmas')
     .select(
-      'id, curso_id, nome, descricao, capa_url, local, data_inicio, data_fim, dias_semana, horario_inicio, horario_fim, total_aulas, vagas, inscricoes_abertas, aprovacao_automatica, status, destaque, whatsapp_url, tipo_inscricao, link_inscricao_url, whatsapp_inscricao, cor, cor_secundaria, fundo_tipo, fundo_imagem_url, fundo_opacidade, fundo_galeria, fundo_galeria_opacidade, fundo_auto_cor, fundo_auto_cor_origem, ensino_cursos(nome, descricao)'
+      'id, curso_id, nome, descricao, capa_url, local, data_inicio, data_fim, dias_semana, horario_inicio, horario_fim, total_aulas, vagas, inscricoes_abertas, aprovacao_automatica, status, modo, sequencial, destaque, whatsapp_url, tipo_inscricao, link_inscricao_url, whatsapp_inscricao, cor, cor_secundaria, fundo_tipo, fundo_imagem_url, fundo_opacidade, fundo_galeria, fundo_galeria_opacidade, fundo_auto_cor, fundo_auto_cor_origem, ensino_cursos(nome, descricao)'
     )
     .eq('id', params.id)
     .maybeSingle()
@@ -70,7 +70,8 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
     dias_semana: number[]; horario_inicio: string | null; horario_fim: string | null
     total_aulas: number | null; vagas: number | null
     inscricoes_abertas: boolean; aprovacao_automatica: boolean
-    status: StatusTurma; destaque: boolean; whatsapp_url: string | null
+    status: StatusTurma; modo: ModoTurma; sequencial: boolean
+    destaque: boolean; whatsapp_url: string | null
     tipo_inscricao: TipoInscricaoTurma
     link_inscricao_url: string | null; whatsapp_inscricao: string | null
     cor: string | null; cor_secundaria: string | null
@@ -178,9 +179,27 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
         ? 'Esta turma foi cancelada.'
         : 'Todas as vagas desta turma já foram preenchidas.'
 
-  // Próxima aula agendada, para o topo da página de quem já está na turma.
+  const gravado = turma.modo === 'gravado'
+
+  // Progresso do aluno, só onde ele existe: turma gravada.
+  const { data: progressoRaw } = gravado && inscrito
+    ? await supabase
+        .from('ensino_progresso')
+        .select('aula_id')
+        .eq('turma_id', turma.id)
+        .eq('user_id', acesso.userId)
+    : { data: [] }
+
+  const concluidas = new Set(
+    ((progressoRaw ?? []) as { aula_id: string }[]).map((p) => p.aula_id)
+  )
+
+  // Numa turma gravada não há "próxima do calendário": o que continua é a
+  // primeira aula que a pessoa ainda não concluiu.
   const hoje = new Date().toISOString().slice(0, 10)
-  const proximaAula = aulas.find((a) => a.data >= hoje && a.status !== 'cancelada')
+  const proximaAula = gravado
+    ? aulas.find((a) => !concluidas.has(a.id))
+    : aulas.find((a) => a.data >= hoje && a.status !== 'cancelada')
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto pb-6">
@@ -386,27 +405,58 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
       )}
 
       {/* Próxima aula */}
+      {/* Progresso do curso gravado */}
+      {gravado && inscrito && aulas.length > 0 && (
+        <section>
+          <div className="flex items-center justify-between gap-2 mb-1.5">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+              Seu progresso
+            </p>
+            <span className="text-xs font-medium">
+              {concluidas.size} de {aulas.length} {aulas.length === 1 ? 'aula' : 'aulas'}
+            </span>
+          </div>
+          <div className="h-2 rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full rounded-full bg-primary transition-all"
+              style={{ width: `${Math.round((concluidas.size / aulas.length) * 100)}%` }}
+            />
+          </div>
+        </section>
+      )}
+
       {(inscrito || leciona) && proximaAula && (
         <section>
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
-            Próxima aula
+            {gravado ? (concluidas.size > 0 ? 'Continue de onde parou' : 'Comece por aqui') : 'Próxima aula'}
           </p>
           <div className={`${PAINEL} flex items-center gap-3`}>
-            <div className="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <span className="text-[9px] font-bold uppercase leading-none">Aula</span>
-              <span className="text-base font-bold leading-none mt-0.5">{proximaAula.numero}</span>
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium leading-tight">
-                {proximaAula.titulo ?? `Aula ${proximaAula.numero}`}
-              </p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {dataBr(proximaAula.data)}
-                {proximaAula.hora_inicio && ` · ${proximaAula.hora_inicio.slice(0, 5)}`}
-                {proximaAula.local && ` · ${proximaAula.local}`}
-              </p>
-            </div>
-            {leciona && (
+            <Link
+              href={`/ensino/turma/${turma.id}/aula/${proximaAula.numero}`}
+              className="flex items-center gap-3 min-w-0 flex-1 group"
+            >
+              <div className="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <span className="text-[9px] font-bold uppercase leading-none">Aula</span>
+                <span className="text-base font-bold leading-none mt-0.5">{proximaAula.numero}</span>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium leading-tight group-hover:text-primary transition-colors">
+                  {proximaAula.titulo ?? `Aula ${proximaAula.numero}`}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {gravado ? (
+                    `Aula ${proximaAula.numero} de ${aulas.length}`
+                  ) : (
+                    <>
+                      {dataBr(proximaAula.data)}
+                      {proximaAula.hora_inicio && ` · ${proximaAula.hora_inicio.slice(0, 5)}`}
+                      {proximaAula.local && ` · ${proximaAula.local}`}
+                    </>
+                  )}
+                </p>
+              </div>
+            </Link>
+            {leciona && !gravado && (
               <Link
                 href={`/ensino/chamada/${proximaAula.id}`}
                 className="shrink-0 text-xs font-medium px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
@@ -453,21 +503,36 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
           </p>
           <div className="rounded-2xl border border-border divide-y overflow-hidden">
             {aulas.map((a) => (
-              <div key={a.id} className="flex items-center gap-3 px-3 py-2.5">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-xs font-bold text-muted-foreground">
-                  {a.numero}
+              <Link
+                key={a.id}
+                href={`/ensino/turma/${turma.id}/aula/${a.numero}`}
+                className="flex items-center gap-3 px-3 py-2.5 hover:bg-accent transition-colors"
+              >
+                <div
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${
+                    concluidas.has(a.id)
+                      ? 'bg-green-100 text-green-700'
+                      : 'bg-muted text-muted-foreground'
+                  }`}
+                >
+                  {concluidas.has(a.id) ? <Check className="h-4 w-4" /> : a.numero}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm leading-snug truncate">{a.titulo ?? `Aula ${a.numero}`}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {dataBr(a.data)}
-                    {a.hora_inicio && ` · ${a.hora_inicio.slice(0, 5)}`}
-                  </p>
+                  {!gravado && (
+                    <p className="text-xs text-muted-foreground">
+                      {dataBr(a.data)}
+                      {a.hora_inicio && ` · ${a.hora_inicio.slice(0, 5)}`}
+                    </p>
+                  )}
                 </div>
-                <span className={`shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-full ${STATUS_AULA[a.status].classe}`}>
-                  {STATUS_AULA[a.status].label}
-                </span>
-              </div>
+                {!gravado && (
+                  <span className={`shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-full ${STATUS_AULA[a.status].classe}`}>
+                    {STATUS_AULA[a.status].label}
+                  </span>
+                )}
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+              </Link>
             ))}
           </div>
         </section>

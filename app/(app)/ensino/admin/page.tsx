@@ -51,7 +51,7 @@ export default async function AdminEnsinoPage() {
   const [inscricoesRes, presencasRes] = await Promise.all([
     admin
       .from('ensino_inscricoes')
-      .select('turma_id, status')
+      .select('turma_id, user_id, status')
       .in('turma_id', ids.length > 0 ? ids : ['-']),
     admin
       .from('ensino_presencas')
@@ -59,7 +59,9 @@ export default async function AdminEnsinoPage() {
       .in('ensino_aulas.turma_id', ids.length > 0 ? ids : ['-']),
   ])
 
-  const inscricoes = (inscricoesRes.data ?? []) as { turma_id: string; status: string }[]
+  const inscricoes = (inscricoesRes.data ?? []) as {
+    turma_id: string; user_id: string; status: string
+  }[]
   const presencas = (presencasRes.data ?? []) as unknown as {
     presente: boolean
     ensino_aulas: { turma_id: string } | null
@@ -91,6 +93,9 @@ export default async function AdminEnsinoPage() {
     (i) => i.status === 'aprovada' || i.status === 'concluida'
   ).length
   const totalPendentes = inscricoes.filter((i) => i.status === 'pendente').length
+  // Pessoas, não inscrições: quem faz dois cursos conta uma vez no botão da
+  // ficha, que é justamente a tela por pessoa.
+  const totalPessoas = new Set(inscricoes.map((i) => i.user_id)).size
   const totalRegistros = presencas.length
   const totalPresentes = presencas.filter((p) => p.presente).length
   const mediaGeral =
@@ -135,6 +140,25 @@ export default async function AdminEnsinoPage() {
           classe={totalPendentes > 0 ? 'text-amber-600' : undefined}
         />
       </div>
+
+      {/* Ficha dos alunos — a visão por pessoa, que as telas de turma não dão */}
+      <Link
+        href="/ensino/alunos"
+        className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3.5 shadow-sm transition-colors hover:bg-accent"
+      >
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <Users className="h-4 w-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold leading-tight">Ver alunos</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {totalPessoas === 0
+              ? 'Ninguém inscrito ainda'
+              : `${totalPessoas} ${totalPessoas === 1 ? 'pessoa' : 'pessoas'} · cursos, frequência e ficha completa`}
+          </p>
+        </div>
+        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+      </Link>
 
       {/* Cursos */}
       <section>

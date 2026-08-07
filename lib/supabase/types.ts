@@ -34,6 +34,12 @@ export type TipoSecaoEvento = 'inscricao' | 'botoes' | 'cards' | 'video' | 'foto
  */
 export type PapelEnsino = 'professor' | 'coordenador'
 export type StatusTurma = 'aberta' | 'em_andamento' | 'concluida' | 'cancelada'
+/**
+ * Como a turma acontece. `gravado` é o curso de catálogo: sem data de aula,
+ * sem chamada, a pessoa assiste no ritmo dela e marca o que já viu
+ * (`ensino_progresso`). Default `presencial`, que é o comportamento de sempre.
+ */
+export type ModoTurma = 'presencial' | 'gravado'
 export type StatusInscricaoEnsino = 'pendente' | 'aprovada' | 'recusada' | 'cancelada' | 'concluida'
 export type StatusAula = 'agendada' | 'realizada' | 'cancelada'
 export type TipoMaterial = 'arquivo' | 'link' | 'video'
@@ -1489,6 +1495,9 @@ export type Database = {
           inscricoes_abertas: boolean
           aprovacao_automatica: boolean
           status: StatusTurma
+          modo: ModoTurma
+          /** Só em `gravado`: a aula N só abre com a N-1 concluída. */
+          sequencial: boolean
           destaque: boolean
           cor: string | null
           cor_secundaria: string | null
@@ -1526,6 +1535,8 @@ export type Database = {
           inscricoes_abertas?: boolean
           aprovacao_automatica?: boolean
           status?: StatusTurma
+          modo?: ModoTurma
+          sequencial?: boolean
           destaque?: boolean
           cor?: string | null
           cor_secundaria?: string | null
@@ -1563,6 +1574,8 @@ export type Database = {
           inscricoes_abertas?: boolean
           aprovacao_automatica?: boolean
           status?: StatusTurma
+          modo?: ModoTurma
+          sequencial?: boolean
           destaque?: boolean
           cor?: string | null
           cor_secundaria?: string | null
@@ -1727,6 +1740,31 @@ export type Database = {
         }
         Relationships: []
       }
+      ensino_progresso: {
+        // O "assisti" do aluno, que não se confunde com presença: em
+        // `ensino_presencas` quem escreve é o professor, e presença marcada
+        // por si mesmo não seria presença. `turma_id` vem repetido da aula
+        // para as policies filtrarem sem subconsulta.
+        Row: {
+          aula_id: string
+          user_id: string
+          turma_id: string
+          concluida_em: string
+        }
+        Insert: {
+          aula_id: string
+          user_id: string
+          turma_id: string
+          concluida_em?: string
+        }
+        Update: {
+          aula_id?: string
+          user_id?: string
+          turma_id?: string
+          concluida_em?: string
+        }
+        Relationships: []
+      }
       ensino_materiais: {
         // `arquivo_path` aponta para o bucket privado `ensino-materiais`;
         // `url` guarda link externo. Um dos dois é preenchido.
@@ -1838,4 +1876,5 @@ export type EnsinoTurma = Tables<'ensino_turmas'>
 export type EnsinoInscricao = Tables<'ensino_inscricoes'>
 export type EnsinoAula = Tables<'ensino_aulas'>
 export type EnsinoPresenca = Tables<'ensino_presencas'>
+export type EnsinoProgresso = Tables<'ensino_progresso'>
 export type EnsinoMaterial = Tables<'ensino_materiais'>

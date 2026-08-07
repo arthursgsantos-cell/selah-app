@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { acessoEnsino, podeLecionar } from '@/lib/ensino/permissoes'
-import type { StatusTurma, TipoInscricaoTurma } from '@/lib/supabase/types'
+import type { ModoTurma, StatusTurma, TipoInscricaoTurma } from '@/lib/supabase/types'
 import { BUCKET_CAPAS, type ResultadoAcao } from '@/lib/ensino/tipos'
 
 /**
@@ -49,6 +49,9 @@ export interface DadosTurma {
   inscricoesAbertas?: boolean
   aprovacaoAutomatica?: boolean
   status?: StatusTurma
+  modo?: ModoTurma
+  /** Só vale em `gravado`: a aula N só abre com a N-1 concluída. */
+  sequencial?: boolean
   whatsappUrl?: string | null
   tipoInscricao?: TipoInscricaoTurma
   linkInscricaoUrl?: string | null
@@ -91,6 +94,11 @@ export async function criarTurmaAction(dados: DadosTurma): Promise<
       inscricoes_abertas: dados.inscricoesAbertas ?? true,
       aprovacao_automatica: dados.aprovacaoAutomatica ?? true,
       status: dados.status ?? 'aberta',
+      modo: dados.modo ?? 'presencial',
+      // Sequencial só existe dentro de gravado: guardar `true` numa turma
+      // presencial deixaria uma trava adormecida esperando a próxima troca de
+      // modo.
+      sequencial: dados.modo === 'gravado' ? (dados.sequencial ?? false) : false,
       whatsapp_url: limpar(dados.whatsappUrl),
       tipo_inscricao: dados.tipoInscricao ?? 'app',
       link_inscricao_url: limpar(dados.linkInscricaoUrl),
@@ -149,6 +157,8 @@ export async function editarTurmaAction(
       inscricoes_abertas: dados.inscricoesAbertas ?? true,
       aprovacao_automatica: dados.aprovacaoAutomatica ?? true,
       status: dados.status ?? 'aberta',
+      modo: dados.modo ?? 'presencial',
+      sequencial: dados.modo === 'gravado' ? (dados.sequencial ?? false) : false,
       whatsapp_url: limpar(dados.whatsappUrl),
       tipo_inscricao: dados.tipoInscricao ?? 'app',
       link_inscricao_url: limpar(dados.linkInscricaoUrl),

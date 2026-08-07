@@ -112,13 +112,18 @@ export function AulasGestao({
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium leading-snug truncate">
-                    {a.titulo ?? `Aula ${a.numero}`}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {diaSemana?.slice(0, 3)}, {dataBr(a.data)}
-                    {a.horaInicio && ` · ${a.horaInicio.slice(0, 5)}`}
-                  </p>
+                  <Link
+                    href={`/ensino/turma/${turmaId}/aula/${a.numero}`}
+                    className="block min-w-0 group"
+                  >
+                    <p className="text-sm font-medium leading-snug truncate group-hover:text-primary transition-colors">
+                      {a.titulo ?? `Aula ${a.numero}`}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {diaSemana?.slice(0, 3)}, {dataBr(a.data)}
+                      {a.horaInicio && ` · ${a.horaInicio.slice(0, 5)}`}
+                    </p>
+                  </Link>
                   <p className="text-[11px] mt-0.5 flex items-center gap-1.5">
                     <span className={`font-medium px-1.5 py-0.5 rounded-full ${STATUS_AULA[a.status].classe}`}>
                       {STATUS_AULA[a.status].label}

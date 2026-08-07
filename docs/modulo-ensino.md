@@ -39,6 +39,8 @@ Todas com prefixo `ensino_` e RLS ligada desde a criação
 - `ensino_aulas` — `unique (turma_id, numero)`; `data` é `date`, não instante
 - `ensino_presencas` — `unique (aula_id, inscricao_id)`
 - `ensino_materiais` — arquivo no bucket privado ou link externo
+- `ensino_progresso` — o "assisti" do aluno em turma gravada;
+  `primary key (aula_id, user_id)`
 
 ### Datas
 
@@ -69,6 +71,21 @@ na chave `(aula_id, inscricao_id)`:
 O percentual de presença considera só aulas `realizada`. Contar as futuras faria
 todo aluno começar o curso com 0%.
 
+## A página da aula
+
+`/ensino/turma/[id]/aula/[numero]` é a aula vista por quem vai assistir: vídeo
+no topo, descrição, materiais, e o índice do curso no fim.
+
+O endereço usa o **número**, não o UUID da aula. `unique (turma_id, numero)` já
+garante unicidade dentro da turma, o caminho diz de que turma se trata, e o
+link sobrevive a um recadastro da aula.
+
+O vídeo sai de um material de `tipo = 'video'` vinculado àquela aula, resolvido
+por `lib/video-embed.ts`. É a única tela do módulo onde a URL do material
+aparece no HTML — é o preço de tocar dentro da página, e só chega ali quem a
+policy já deixou ver o material. Vídeo que não vira embed (Drive, por exemplo)
+cai na lista de materiais como link.
+
 ## Materiais
 
 Bucket `ensino-materiais` é **privado** e não tem policy para `authenticated`:
@@ -79,6 +96,38 @@ uma URL de 60 segundos com o cliente admin.
 
 Links externos passam pela mesma rota, para que o endereço do Drive não fique no
 HTML de quem não deveria vê-lo.
+
+A mesma rota tem dois modos:
+
+- padrão — redireciona para a URL assinada com `download`, e o navegador salva;
+- `?modo=ver` — devolve o **conteúdo** com `Content-Disposition: inline`. O
+  arquivo passa pelo servidor de propósito: assim o `<iframe>` do visualizador
+  continua na mesma origem e o PDF abre dentro do app, em diálogo, sem
+  sequestrar a aba de quem está acompanhando a aula.
+
+Só formatos que o navegador desenha sozinho ganham o botão "Ver"
+(`components/ensino/materiais-aula.tsx`). `.docx` e `.pptx` abririam um quadro
+em branco — para eles fica só o download. Link externo abre em guia nova: ele
+leva para fora de qualquer jeito, e site de terceiro dentro de iframe costuma
+dar tela branca por `X-Frame-Options`.
+
+## A ficha do aluno
+
+`/ensino/alunos` e `/ensino/alunos/[slug]` respondem a pergunta que as telas de
+turma não respondem: **por onde esta pessoa já passou?** Todas as outras olham
+de dentro de uma turma.
+
+`lib/ensino/alunos.ts` monta as duas com o cliente admin — a RLS de
+`ensino_inscricoes` mostra ao professor só as turmas dele, e a coordenação
+precisa do panorama. Por isso as duas páginas exigem `acesso.coordenador`, e não
+`professor`: a barreira que o banco daria foi trocada pela da página.
+
+O slug (`/ensino/alunos/ary-barros`) é derivado do nome nas duas pontas, sem
+coluna no banco: criar `profiles.slug` — com gatilho e backfill — sairia caro
+para um endereço que só existe aqui, e a lista de alunos do Ensino cabe numa
+consulta. Homônimo ganha sufixo (`-2`), desempatado pelo `id`, que não muda.
+Trocar o nome no perfil troca a URL, e tudo bem: é ficha interna, não link
+divulgado.
 
 `ensino-capas` é público, como as demais capas do app.
 
@@ -102,12 +151,58 @@ Só a contagem sai por ali; nome e telefone, não.
 | `/ensino/aluno` | qualquer autenticado — mostra só os dados dele |
 | `/ensino/professor` | equipe do Ensino |
 | `/ensino/admin` | coordenação |
+| `/ensino/alunos` e `/ensino/alunos/[slug]` | coordenação |
+| `/ensino/turma/[id]/aula/[numero]` | inscrito na turma ou quem leciona |
 | `/ensino/turma/[id]/{alunos,aulas,materiais,presencas}` | quem leciona a turma |
 | `/ensino/chamada/[aulaId]` | quem leciona a turma |
 | `/api/ensino/material/[id]` | conforme a policy do material |
 
+## Curso gravado
+
+`ensino_turmas.modo` decide se a turma é encontro ou catálogo
+(`supabase/migrations/ensino_curso_gravado.sql`):
+
+- **`presencial`** (default) — o que sempre existiu: calendário, chamada,
+  frequência;
+- **`gravado`** — a pessoa assiste no ritmo dela. Somem da tela a data da aula,
+  os dias da semana, a chamada e a "próxima aula" do calendário; entram a barra
+  de progresso, o botão "Marcar como assistida" e o "continue de onde parou",
+  que é a primeira aula ainda não concluída.
+
+O vídeo continua sendo um link do YouTube num material da aula — nada de upload
+de vídeo, nada de player próprio.
+
+### Progresso não é presença
+
+`ensino_progresso` (`aula_id`, `user_id`, `turma_id`, `concluida_em`) existe
+justamente para **não** se confundir com `ensino_presencas`. Em presença, quem
+escreve é o professor — não há policy de insert para o aluno, de propósito.
+Progresso é a pessoa dizendo que viu o vídeo. Misturar os dois faria a
+frequência de uma turma presencial subir sozinha.
+
+Por isso a action `marcarAulaConcluidaAction` usa o **cliente do usuário**, e
+não o admin: quem autoriza é a policy (`user_id = auth.uid() and
+ensino_inscrito(turma_id)`).
+
+### Liberação sequencial
+
+`ensino_turmas.sequencial` tranca a aula N até a N-1 ser concluída. É chave por
+turma, e não regra do módulo: serve a discipulado, atrapalha em curso de
+consulta.
+
+O progresso de uma turma sequencial é sempre um **prefixo** da lista — só fecha
+a aula N quem fechou as anteriores. Então "está liberada?" é comparar a posição
+com a quantidade de concluídas, e não varrer aula por aula. A conta aparece em
+dois lugares (na página, para trancar; na action, antes de gravar) e as duas
+precisam concordar — a da action é a que vale, porque só ela impede alguém de
+pular a fila digitando o endereço da aula seguinte.
+
+Uma costura que ficou: `ensino_aulas.data` continua `not null`. Numa turma
+gravada a data não significa nada e a interface não a mostra, mas ela precisa
+ser preenchida no cadastro. Só vira problema no dia em que incomodar.
+
 ## Não implementado (deixado preparado)
 
-Localização na presença, validação por horário/geocerca, certificados, CREICER
-infantil, exportação para Excel e notificações. Nada disso tem coluna reservada
-— quando entrarem, entram como migração nova.
+Localização na presença, validação por horário/geocerca, emissão de certificado,
+CREICER infantil, exportação para Excel e notificações. Nada disso tem coluna
+reservada — quando entrarem, entram como migração nova.
