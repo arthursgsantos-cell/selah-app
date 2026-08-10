@@ -51,7 +51,7 @@ export default async function AdminEnsinoPage() {
   const [inscricoesRes, presencasRes] = await Promise.all([
     admin
       .from('ensino_inscricoes')
-      .select('turma_id, user_id, status')
+      .select('id, turma_id, user_id, pre_cadastro_id, status')
       .in('turma_id', ids.length > 0 ? ids : ['-']),
     admin
       .from('ensino_presencas')
@@ -60,7 +60,8 @@ export default async function AdminEnsinoPage() {
   ])
 
   const inscricoes = (inscricoesRes.data ?? []) as {
-    turma_id: string; user_id: string; status: string
+    id: string; turma_id: string; user_id: string | null
+    pre_cadastro_id: string | null; status: string
   }[]
   const presencas = (presencasRes.data ?? []) as unknown as {
     presente: boolean
@@ -94,8 +95,12 @@ export default async function AdminEnsinoPage() {
   ).length
   const totalPendentes = inscricoes.filter((i) => i.status === 'pendente').length
   // Pessoas, não inscrições: quem faz dois cursos conta uma vez no botão da
-  // ficha, que é justamente a tela por pessoa.
-  const totalPessoas = new Set(inscricoes.map((i) => i.user_id)).size
+  // ficha, que é justamente a tela por pessoa. Quem não tem conta é
+  // identificado pelo pré-cadastro — agrupar por `user_id` nulo fundiria a
+  // turma manual inteira numa pessoa só.
+  const totalPessoas = new Set(
+    inscricoes.map((i) => i.user_id ?? (i.pre_cadastro_id ? `pre:${i.pre_cadastro_id}` : `insc:${i.id}`))
+  ).size
   const totalRegistros = presencas.length
   const totalPresentes = presencas.filter((p) => p.presente).length
   const mediaGeral =

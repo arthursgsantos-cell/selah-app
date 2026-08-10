@@ -35,7 +35,9 @@ Todas com prefixo `ensino_` e RLS ligada desde a criação
 - `ensino_turmas` — a oferta de um curso num período; `formulario_id` aponta
   para `formularios`, reaproveitando o construtor de campos dos eventos
 - `ensino_equipe` / `ensino_turma_professores` — quem é professor, e de quê
-- `ensino_inscricoes` — `unique (turma_id, user_id)`
+- `ensino_inscricoes` — `unique (turma_id, user_id)`; `user_id` é **nulo** no
+  aluno cadastrado pelo professor (ver abaixo), e nesse caso a pessoa é
+  identificada por `pre_cadastro_id`
 - `ensino_aulas` — `unique (turma_id, numero)`; `data` é `date`, não instante
 - `ensino_presencas` — `unique (aula_id, inscricao_id)`
 - `ensino_materiais` — arquivo no bucket privado ou link externo
@@ -130,6 +132,60 @@ Trocar o nome no perfil troca a URL, e tudo bem: é ficha interna, não link
 divulgado.
 
 `ensino-capas` é público, como as demais capas do app.
+
+## Aluno cadastrado pelo professor
+
+A igreja é mais analógica que o app: boa parte da turma não vai se inscrever
+pelo celular, e o professor chega com a lista no papel. Por isso
+`ensino_inscricoes.user_id` deixou de ser obrigatório
+(`supabase/migrations/ensino_aluno_manual.sql`), e a inscrição passou a ter
+`origem` (`app` | `manual`).
+
+A pessoa sem conta **não** ganhou tabela própria no Ensino: ela é gravada em
+`membros_pre_cadastro`, a mesma fila que a igreja já usa. Assim ela existe para
+o app inteiro — aparece em `/pendencias`, é reconhecida pelo e-mail no
+onboarding e pode entrar em outra turma sem ser digitada de novo. A inscrição
+aponta para ela por `pre_cadastro_id`.
+
+O diálogo (`components/ensino/adicionar-aluno.tsx`) tem **um campo só de nome**,
+que busca e cadastra ao mesmo tempo:
+
+1. achou perfil no app → inscrição normal, com `user_id`;
+2. achou pré-cadastro da igreja → reaproveita, e a pessoa não vira duas;
+3. não achou nada → cria o pré-cadastro e inscreve.
+
+Telefone e e-mail ficam opcionais de propósito: exigir contato de cada um faria
+a digitação parar na primeira pessoa cujo número o professor não sabe. E-mail
+informado que já pertence a alguém desvia para o caminho 1 — e-mail é
+identidade.
+
+O diálogo não fecha a cada aluno: limpa o campo, devolve o foco e lista quem já
+entrou. É uma tela para copiar quinze nomes, não para preencher uma ficha.
+
+Quem entra por aqui nasce `aprovada`: quem cadastrou foi o professor, e um
+pendente criado por ele mesmo só geraria o trabalho de aprovar o próprio ato.
+
+### O reencontro
+
+Quando a pessoa cria a conta, `vincularInscricoesEnsino`
+(`lib/ensino/vinculo-aluno.ts`) transfere inscrições e presenças para o perfil
+novo — a chamada que o professor lançou antes do cadastro não se perde. É
+chamada dos três pontos onde um pré-cadastro ganha `profile_id`: o onboarding
+por e-mail, a confirmação da própria pessoa e o vínculo manual da coordenação
+(`app/actions/onboarding.ts`, `app/actions/pre-cadastro.ts`).
+
+Se houver **duas** linhas para a mesma turma — a pessoa se inscreveu pelo app e
+o professor também a digitou —, sobrevive a do app, que é a que a chave
+`(turma_id, user_id)` reserva, mas com as presenças da linha manual: é lá que a
+chamada foi de fato registrada.
+
+### O que muda nas telas por pessoa
+
+`lib/ensino/alunos.ts` agrupava por `user_id`. Agora agrupa por `chave`
+(`chaveDaPessoa`): o perfil quando existe, `pre:<id>` quando não. Sem isso o
+aluno manual apareceria uma vez por turma — ou sumiria da lista inteira. A ficha
+dele traz curso, frequência e contato; endereço, aniversário e família só
+aparecem depois que ele tiver perfil.
 
 ## Vagas
 

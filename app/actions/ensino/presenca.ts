@@ -136,7 +136,8 @@ export async function marcarTodosAction(params: {
 
 export interface LinhaChamada {
   inscricaoId: string
-  userId: string
+  /** Null no aluno que o professor cadastrou e que ainda não tem conta. */
+  userId: string | null
   nome: string
   avatarUrl: string | null
   presente: boolean | null
@@ -181,7 +182,7 @@ export async function listaDaChamada(aulaId: string): Promise<LinhaChamada[]> {
 
   return ((inscricoesRes.data ?? []) as unknown as {
     id: string
-    user_id: string
+    user_id: string | null
     nome: string
     profiles: { avatar_url: string | null } | null
   }[]).map((i) => {

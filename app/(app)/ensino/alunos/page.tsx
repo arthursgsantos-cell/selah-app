@@ -31,6 +31,7 @@ export default async function AlunosEnsinoPage() {
     slug: a.slug,
     nome: a.nome,
     avatarUrl: a.avatarUrl,
+    temConta: a.temConta,
     celula: a.celulas[0]?.nome ?? null,
     cursos: [...new Set(a.matriculas.map((m) => m.cursoNome))],
     ativas: a.ativas,

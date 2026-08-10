@@ -3,7 +3,7 @@ import { notFound, redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import {
   ArrowLeft, Phone, Mail, MapPin, Cake, Heart, Users, Award, GraduationCap,
-  ClipboardCheck, Check, X, Minus, CalendarDays, Clock,
+  ClipboardCheck, Check, X, Minus, CalendarDays, Clock, UserPlus,
 } from 'lucide-react'
 import { loginCom } from '@/lib/destino-login'
 import { acessoEnsino } from '@/lib/ensino/permissoes'
@@ -84,9 +84,20 @@ export default async function FichaAlunoPage({ params }: { params: { slug: strin
 
         <div className="min-w-0 flex-1">
           <h1 className="text-xl font-bold leading-tight">{resumo.nome}</h1>
+          {/* Sem conta, o cargo seria invenção: a pessoa entrou pela mão do
+              professor e o app não sabe nada além do que ele digitou. */}
           <p className="text-xs text-muted-foreground mt-0.5">
-            {perfil.titulo ? `${perfil.titulo} · ` : ''}
-            {CARGO[resumo.role]}
+            {resumo.temConta ? (
+              <>
+                {perfil.titulo ? `${perfil.titulo} · ` : ''}
+                {CARGO[resumo.role]}
+              </>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-amber-700">
+                <UserPlus className="h-3 w-3" />
+                Cadastrado pelo professor · ainda sem conta no app
+              </span>
+            )}
           </p>
 
           {resumo.celulas.length > 0 && (
@@ -196,6 +207,15 @@ export default async function FichaAlunoPage({ params }: { params: { slug: strin
             </Dado>
           </div>
         </dl>
+
+        {/* A ficha de quem não tem conta é só o que o professor digitou. Dizer
+            isso evita a leitura de que a pessoa não preencheu nada. */}
+        {!resumo.temConta && (
+          <p className="text-xs text-muted-foreground">
+            Endereço, aniversário e família aparecem quando a pessoa criar conta no app e for
+            reconhecida neste cadastro — a matrícula e as presenças já lançadas passam para ela.
+          </p>
+        )}
 
         {dependentes.length > 0 && (
           <div className="border-t pt-3">

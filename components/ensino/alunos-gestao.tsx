@@ -2,13 +2,22 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, X, Loader2, Phone, Mail, Award, Users, Clock } from 'lucide-react'
+import {
+  Check, X, Loader2, Phone, Mail, Award, Users, Clock, Pencil, Trash2, UserPlus,
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { STATUS_INSCRICAO, corFrequencia } from '@/lib/ensino/turma'
 import {
   decidirInscricaoAction,
   concluirInscricaoAction,
 } from '@/app/actions/ensino/inscricoes'
-import type { StatusInscricaoEnsino } from '@/lib/supabase/types'
+import {
+  editarAlunoManualAction,
+  removerAlunoManualAction,
+} from '@/app/actions/ensino/alunos-manuais'
+import { AdicionarAluno } from '@/components/ensino/adicionar-aluno'
+import type { OrigemInscricaoEnsino, StatusInscricaoEnsino } from '@/lib/supabase/types'
 
 export interface AlunoInscrito {
   id: string
@@ -17,6 +26,10 @@ export interface AlunoInscrito {
   email: string | null
   avatarUrl: string | null
   status: StatusInscricaoEnsino
+  /** `manual` = o professor cadastrou pelo painel, não veio de inscrição. */
+  origem: OrigemInscricaoEnsino
+  /** Falso enquanto a pessoa não tem perfil no app. */
+  temConta: boolean
   observacao: string | null
   criadoEm: string
   /** Quem aprovou ou recusou, e quando. Nulos enquanto o pedido está pendente. */
@@ -50,9 +63,11 @@ function rotuloDecisao(status: StatusInscricaoEnsino): string {
 }
 
 export function AlunosGestao({
+  turmaId,
   alunos,
   vagasRestantes,
 }: {
+  turmaId: string
   alunos: AlunoInscrito[]
   /** Null quando a turma não tem limite. */
   vagasRestantes: number | null
@@ -61,6 +76,7 @@ export function AlunosGestao({
   const [isPending, startTransition] = useTransition()
   const [erro, setErro] = useState<string | null>(null)
   const [agindoEm, setAgindoEm] = useState<string | null>(null)
+  const [editando, setEditando] = useState<string | null>(null)
 
   const pendentes = alunos.filter((a) => a.status === 'pendente')
   const ativos = alunos.filter((a) => a.status === 'aprovada' || a.status === 'concluida')
@@ -88,20 +104,45 @@ export function AlunosGestao({
     })
   }
 
+  function remover(aluno: AlunoInscrito) {
+    if (!confirm(`Remover ${aluno.nome} da turma? As presenças dele também serão apagadas.`)) return
+    setErro(null)
+    setAgindoEm(aluno.id)
+    startTransition(async () => {
+      const r = await removerAlunoManualAction(aluno.id)
+      setAgindoEm(null)
+      if (!r.ok) { setErro(r.erro); return }
+      router.refresh()
+    })
+  }
+
   if (alunos.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-border py-12 text-center">
-        <Users className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-        <p className="text-sm text-muted-foreground">Nenhuma inscrição ainda</p>
-        <p className="text-xs text-muted-foreground/70 mt-1">
-          Compartilhe o link da turma para que os alunos se inscrevam.
-        </p>
+      <div className="space-y-3">
+        <div className="rounded-2xl border border-dashed border-border py-12 text-center">
+          <Users className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+          <p className="text-sm text-muted-foreground">Nenhum aluno ainda</p>
+          <p className="text-xs text-muted-foreground/70 mt-1 max-w-xs mx-auto">
+            Compartilhe o link da turma para que se inscrevam pelo app — ou cadastre você mesmo
+            quem já está na sala.
+          </p>
+          <div className="mt-4 flex justify-center">
+            <AdicionarAluno turmaId={turmaId} />
+          </div>
+        </div>
       </div>
     )
   }
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground">
+          {ativos.length} {ativos.length === 1 ? 'aluno na turma' : 'alunos na turma'}
+        </p>
+        <AdicionarAluno turmaId={turmaId} />
+      </div>
+
       {erro && <p className="text-sm text-destructive">{erro}</p>}
 
       {pendentes.length > 0 && (
@@ -157,7 +198,42 @@ export function AlunosGestao({
         ) : (
           <div className="space-y-2">
             {ativos.map((a) => (
-              <Cartao key={a.id} aluno={a} mostrarFrequencia>
+              <Cartao
+                key={a.id}
+                aluno={a}
+                mostrarFrequencia
+                emEdicao={editando === a.id}
+                onFecharEdicao={() => setEditando(null)}
+              >
+                {/* Corrigir e remover só valem para quem o professor digitou:
+                    onde há perfil, o nome é da pessoa, e um pedido feito por
+                    ela vira "recusado", não desaparece. */}
+                {a.origem === 'manual' && !a.temConta && (
+                  <button
+                    type="button"
+                    onClick={() => setEditando(editando === a.id ? null : a.id)}
+                    disabled={isPending}
+                    aria-label={`Corrigir dados de ${a.nome}`}
+                    className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                )}
+                {a.origem === 'manual' && (
+                  <button
+                    type="button"
+                    onClick={() => remover(a)}
+                    disabled={isPending}
+                    aria-label={`Remover ${a.nome} da turma`}
+                    className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-destructive hover:border-destructive/40 transition-colors disabled:opacity-50"
+                  >
+                    {agindoEm === a.id && isPending ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-3.5 w-3.5" />
+                    )}
+                  </button>
+                )}
                 {a.status === 'aprovada' && (
                   <button
                     type="button"
@@ -209,10 +285,14 @@ export function AlunosGestao({
 function Cartao({
   aluno,
   mostrarFrequencia = false,
+  emEdicao = false,
+  onFecharEdicao,
   children,
 }: {
   aluno: AlunoInscrito
   mostrarFrequencia?: boolean
+  emEdicao?: boolean
+  onFecharEdicao?: () => void
   children?: React.ReactNode
 }) {
   const extras = Object.entries(aluno.dados).filter(([, v]) => v)
@@ -236,7 +316,21 @@ function Cartao({
 
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
-            <p className="text-sm font-medium leading-tight">{aluno.nome}</p>
+            <p className="text-sm font-medium leading-tight">
+              {aluno.nome}
+              {/* Sem conta: a chamada funciona igual, mas ninguém vai receber
+                  aviso nem ver a própria frequência. O professor precisa saber
+                  disso ao olhar a lista, não ao estranhar o silêncio depois. */}
+              {!aluno.temConta && (
+                <span
+                  title="Cadastrado pelo professor — ainda não tem conta no app"
+                  className="ml-1.5 align-middle inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground"
+                >
+                  <UserPlus className="h-2.5 w-2.5" />
+                  sem conta
+                </span>
+              )}
+            </p>
             <span
               className={`shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-full ${STATUS_INSCRICAO[aluno.status].classe}`}
             >
@@ -296,19 +390,90 @@ function Cartao({
               questionada depois não tem a quem perguntar. */}
           <p className="text-[11px] text-muted-foreground/70 mt-1.5 flex items-center gap-1 flex-wrap">
             <Clock className="h-3 w-3 shrink-0" />
-            <span>Pedido em {dataHoraBr(aluno.criadoEm)}</span>
-            {aluno.decididoEm && (
+            <span>
+              {aluno.origem === 'manual' ? 'Cadastrado' : 'Pedido'} em{' '}
+              {dataHoraBr(aluno.criadoEm)}
+            </span>
+            {aluno.decididoEm && aluno.origem === 'app' && (
               <span>
                 · {rotuloDecisao(aluno.status)}
                 {aluno.decididoPor ? ` por ${aluno.decididoPor}` : ''} em{' '}
                 {dataHoraBr(aluno.decididoEm)}
               </span>
             )}
+            {aluno.origem === 'manual' && aluno.decididoPor && (
+              <span>· por {aluno.decididoPor}</span>
+            )}
           </p>
         </div>
       </div>
 
+      {emEdicao && <FormEdicao aluno={aluno} onFechar={onFecharEdicao} />}
+
       {children && <div className="flex justify-end gap-2 mt-2.5">{children}</div>}
+    </div>
+  )
+}
+
+/**
+ * Correção do que foi digitado na pressa.
+ *
+ * Aparece dentro do próprio cartão, e não em diálogo: o professor está olhando
+ * a lista para conferir com a folha na mão, e tirar a lista da frente para
+ * arrumar uma letra atrapalharia justamente a conferência.
+ */
+function FormEdicao({
+  aluno,
+  onFechar,
+}: {
+  aluno: AlunoInscrito
+  onFechar?: () => void
+}) {
+  const router = useRouter()
+  const [nome, setNome] = useState(aluno.nome)
+  const [telefone, setTelefone] = useState(aluno.telefone ?? '')
+  const [email, setEmail] = useState(aluno.email ?? '')
+  const [erro, setErro] = useState<string | null>(null)
+  const [salvando, startSalvar] = useTransition()
+
+  function salvar() {
+    setErro(null)
+    startSalvar(async () => {
+      const r = await editarAlunoManualAction({ inscricaoId: aluno.id, nome, telefone, email })
+      if (!r.ok) { setErro(r.erro); return }
+      onFechar?.()
+      router.refresh()
+    })
+  }
+
+  return (
+    <div className="mt-3 border-t pt-3 space-y-2">
+      <Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome" />
+      <div className="grid grid-cols-2 gap-2">
+        <Input
+          value={telefone}
+          onChange={(e) => setTelefone(e.target.value)}
+          placeholder="Telefone"
+          inputMode="tel"
+        />
+        <Input
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="E-mail"
+          inputMode="email"
+          autoCapitalize="none"
+        />
+      </div>
+      {erro && <p className="text-xs text-destructive">{erro}</p>}
+      <div className="flex justify-end gap-2">
+        <Button size="xs" variant="ghost" onClick={onFechar} disabled={salvando}>
+          Cancelar
+        </Button>
+        <Button size="xs" onClick={salvar} disabled={salvando || nome.trim().length < 2}>
+          {salvando && <Loader2 className="h-3 w-3 animate-spin" />}
+          Salvar
+        </Button>
+      </div>
     </div>
   )
 }

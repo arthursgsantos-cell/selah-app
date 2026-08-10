@@ -9,6 +9,8 @@ export interface AlunoLinha {
   slug: string
   nome: string
   avatarUrl: string | null
+  /** Falso no aluno que o professor cadastrou e que ainda não entrou no app. */
+  temConta: boolean
   celula: string | null
   cursos: string[]
   ativas: number
@@ -210,6 +212,7 @@ export function AlunosTabela({ alunos }: { alunos: AlunoLinha[] }) {
                       {[
                         a.celula,
                         `${a.ativas + a.concluidas} ${a.ativas + a.concluidas === 1 ? 'curso' : 'cursos'}`,
+                        a.temConta ? null : 'sem conta',
                       ]
                         .filter(Boolean)
                         .join(' · ')}
@@ -218,7 +221,9 @@ export function AlunosTabela({ alunos }: { alunos: AlunoLinha[] }) {
                 </div>
 
                 <span className="w-36 hidden md:block text-xs text-muted-foreground truncate">
-                  {a.celula ?? '—'}
+                  {/* Sem conta não tem célula para mostrar — o app só sabe o
+                      que o professor digitou. */}
+                  {a.temConta ? (a.celula ?? '—') : <span className="italic">sem conta no app</span>}
                 </span>
 
                 <span className="w-24 text-center hidden sm:block">

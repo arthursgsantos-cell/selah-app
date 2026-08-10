@@ -6,7 +6,7 @@ import { loginCom } from '@/lib/destino-login'
 import { acessoEnsino, podeLecionar } from '@/lib/ensino/permissoes'
 import { vagasRestantes } from '@/lib/ensino/turma'
 import { AlunosGestao, type AlunoInscrito } from '@/components/ensino/alunos-gestao'
-import type { StatusInscricaoEnsino } from '@/lib/supabase/types'
+import type { OrigemInscricaoEnsino, StatusInscricaoEnsino } from '@/lib/supabase/types'
 
 export const metadata = { title: 'Alunos da turma · Ensino IBZS' }
 
@@ -40,7 +40,7 @@ export default async function AlunosTurmaPage({ params }: { params: { id: string
       // Dois embeds para a mesma tabela, cada um com a FK nomeada e um apelido:
       // `aluno` é quem se inscreveu, `decisor` é quem aprovou ou recusou.
       .select(
-        'id, nome, telefone, email, status, observacao, dados, criado_em, decidido_em, aluno:profiles!ensino_inscricoes_user_id_fkey(avatar_url), decisor:profiles!ensino_inscricoes_decidido_por_fkey(nome)'
+        'id, user_id, nome, telefone, email, status, origem, observacao, dados, criado_em, decidido_em, aluno:profiles!ensino_inscricoes_user_id_fkey(avatar_url), decisor:profiles!ensino_inscricoes_decidido_por_fkey(nome)'
       )
       .eq('turma_id', turma.id)
       .order('criado_em'),
@@ -52,8 +52,10 @@ export default async function AlunosTurmaPage({ params }: { params: { id: string
   ])
 
   const inscricoes = (inscricoesRes.data ?? []) as unknown as {
-    id: string; nome: string; telefone: string | null; email: string | null
-    status: StatusInscricaoEnsino; observacao: string | null
+    id: string; user_id: string | null; nome: string
+    telefone: string | null; email: string | null
+    status: StatusInscricaoEnsino; origem: OrigemInscricaoEnsino
+    observacao: string | null
     dados: Record<string, string>; criado_em: string; decidido_em: string | null
     aluno: { avatar_url: string | null } | null
     decisor: { nome: string } | null
@@ -83,6 +85,8 @@ export default async function AlunosTurmaPage({ params }: { params: { id: string
       email: i.email,
       avatarUrl: i.aluno?.avatar_url ?? null,
       status: i.status,
+      origem: i.origem ?? 'app',
+      temConta: i.user_id !== null,
       observacao: i.observacao,
       criadoEm: i.criado_em,
       decididoPor: i.decisor?.nome ?? null,
@@ -113,7 +117,11 @@ export default async function AlunosTurmaPage({ params }: { params: { id: string
         </p>
       </div>
 
-      <AlunosGestao alunos={alunos} vagasRestantes={vagasRestantes(turma.vagas, aprovados)} />
+      <AlunosGestao
+        turmaId={turma.id}
+        alunos={alunos}
+        vagasRestantes={vagasRestantes(turma.vagas, aprovados)}
+      />
     </div>
   )
 }

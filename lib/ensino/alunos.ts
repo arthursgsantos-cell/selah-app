@@ -42,7 +42,16 @@ export interface Matricula {
 }
 
 export interface AlunoResumo {
-  userId: string
+  /**
+   * Identidade da pessoa dentro desta visão: o `user_id` quando ela tem conta,
+   * `pre:<id>` quando é aluno que o professor cadastrou à mão. É o que junta
+   * duas turmas numa ficha só.
+   */
+  chave: string
+  /** Null enquanto a pessoa não criou conta no app. */
+  userId: string | null
+  /** Falso no aluno cadastrado pelo professor que ainda não entrou no app. */
+  temConta: boolean
   slug: string
   nome: string
   avatarUrl: string | null
@@ -135,6 +144,20 @@ function percentual(presentes: number, registros: number): number | null {
 }
 
 /**
+ * Quem é a pessoa por trás da inscrição.
+ *
+ * O perfil manda quando existe. Sem ele, vale o pré-cadastro — é o registro que
+ * o professor criou ao digitar o aluno, e é o mesmo em todas as turmas em que
+ * ele o puser, o que faz a ficha continuar sendo uma por pessoa. O último caso
+ * é defensivo: pré-cadastro apagado deixaria a inscrição órfã, e é melhor ela
+ * aparecer sozinha do que sumir da lista.
+ */
+function chaveDaPessoa(i: { id: string; user_id: string | null; pre_cadastro_id: string | null }): string {
+  if (i.user_id) return i.user_id
+  return i.pre_cadastro_id ? `pre:${i.pre_cadastro_id}` : `insc:${i.id}`
+}
+
+/**
  * Todo mundo que já se inscreveu em alguma turma da igreja, com frequência e
  * célula. É a fonte da tabela e também de onde a ficha resolve o slug.
  */
@@ -157,7 +180,9 @@ export async function listarAlunos(igrejaId: string): Promise<AlunoResumo[]> {
   const [inscricoesRes, aulasRes] = await Promise.all([
     admin
       .from('ensino_inscricoes')
-      .select('id, user_id, turma_id, nome, telefone, email, status, criado_em, decidido_em')
+      .select(
+        'id, user_id, pre_cadastro_id, turma_id, nome, telefone, email, status, criado_em, decidido_em'
+      )
       .in('turma_id', turmaIds)
       .order('criado_em', { ascending: false }),
     // Só as realizadas entram na frequência: contar as futuras faria todo
@@ -166,14 +191,22 @@ export async function listarAlunos(igrejaId: string): Promise<AlunoResumo[]> {
   ])
 
   const inscricoes = (inscricoesRes.data ?? []) as {
-    id: string; user_id: string; turma_id: string; nome: string
+    id: string; user_id: string | null; pre_cadastro_id: string | null
+    turma_id: string; nome: string
     telefone: string | null; email: string | null
     status: StatusInscricaoEnsino; criado_em: string; decidido_em: string | null
   }[]
   if (inscricoes.length === 0) return []
 
   const aulaIds = (aulasRes.data ?? []).map((a) => a.id)
-  const userIds = [...new Set(inscricoes.map((i) => i.user_id))]
+
+  // Nem todo aluno tem perfil: o que o professor cadastra à mão é identificado
+  // pelo pré-cadastro. Sem essa chave, ele apareceria uma vez por turma em vez
+  // de uma vez por pessoa — e sumiria da lista quando `user_id` fosse nulo.
+  const chaves = [...new Set(inscricoes.map(chaveDaPessoa))]
+  const userIds = [
+    ...new Set(inscricoes.map((i) => i.user_id).filter((id): id is string => id !== null)),
+  ]
 
   const [perfisRes, membrosRes, presencasRes] = await Promise.all([
     admin
@@ -216,19 +249,30 @@ export async function listarAlunos(igrejaId: string): Promise<AlunoResumo[]> {
     frequencia.set(p.inscricao_id, atual)
   }
 
+  // As inscrições de cada pessoa, já em ordem decrescente de data — a primeira
+  // é a mais recente, e é dela que saem nome e contato de quem não tem perfil.
+  const porChave = new Map<string, typeof inscricoes>()
+  for (const i of inscricoes) {
+    const chave = chaveDaPessoa(i)
+    porChave.set(chave, [...(porChave.get(chave) ?? []), i])
+  }
+
   // O nome vem do perfil, não da inscrição: a cópia guardada na inscrição é a
-  // lista da turma como ela estava, mas a ficha é da pessoa de hoje.
+  // lista da turma como ela estava, mas a ficha é da pessoa de hoje. Quem não
+  // tem perfil só tem a inscrição mesmo.
   const slugs = slugsDosAlunos(
-    userIds.map((id) => ({
-      id,
-      nome: perfis.get(id)?.nome ?? inscricoes.find((i) => i.user_id === id)!.nome,
-    }))
+    chaves.map((chave) => {
+      const primeira = porChave.get(chave)![0]
+      const doPerfil = primeira.user_id ? perfis.get(primeira.user_id)?.nome : null
+      return { id: chave, nome: doPerfil ?? primeira.nome }
+    })
   )
 
-  const alunos = userIds.map((userId) => {
-    const perfil = perfis.get(userId)
-    const minhas = inscricoes.filter((i) => i.user_id === userId)
+  const alunos = chaves.map((chave) => {
+    const minhas = porChave.get(chave)!
     const maisRecente = minhas[0]
+    const userId = maisRecente.user_id
+    const perfil = userId ? perfis.get(userId) : undefined
 
     const matriculas: Matricula[] = minhas.map((i) => {
       const f = frequencia.get(i.id) ?? { presentes: 0, registros: 0 }
@@ -252,14 +296,16 @@ export async function listarAlunos(igrejaId: string): Promise<AlunoResumo[]> {
     const registros = matriculas.reduce((s, m) => s + m.registros, 0)
 
     return {
+      chave,
       userId,
-      slug: slugs.get(userId)!,
+      temConta: userId !== null,
+      slug: slugs.get(chave)!,
       nome: perfil?.nome ?? maisRecente.nome,
       avatarUrl: perfil?.avatar_url ?? null,
       email: perfil?.email ?? maisRecente.email,
       telefone: perfil?.telefone ?? maisRecente.telefone,
       role: perfil?.role ?? 'membro',
-      celulas: celulasPorUser.get(userId) ?? [],
+      celulas: userId ? celulasPorUser.get(userId) ?? [] : [],
       matriculas,
       ativas: matriculas.filter((m) => m.status === 'aprovada').length,
       concluidas: matriculas.filter((m) => m.status === 'concluida').length,
@@ -287,20 +333,28 @@ export async function fichaDoAluno(igrejaId: string, slug: string): Promise<Fich
 
   const admin = createAdminClient()
   const turmaIds = [...new Set(resumo.matriculas.map((m) => m.turmaId))]
+  // As inscrições da pessoa já estão resolvidas no resumo, inclusive as sem
+  // `user_id`. Filtrar por elas — e não pelo dono — é o que faz a ficha do
+  // aluno cadastrado à mão trazer o mesmo conteúdo da de quem tem conta.
+  const inscricaoIds = resumo.matriculas.map((m) => m.inscricaoId)
 
   const [perfilRes, dependentesRes, inscricoesRes, aulasRes, presencasRes, progressoRes] = await Promise.all([
-    admin
-      .from('profiles')
-      .select(
-        'titulo, conjuge_id, data_nascimento_1, data_nascimento_2, data_casamento, endereco, endereco_complemento, endereco_maps, created_at'
-      )
-      .eq('id', resumo.userId)
-      .maybeSingle(),
-    admin
-      .from('dependentes')
-      .select('nome, tipo, data_nascimento')
-      .eq('profile_id', resumo.userId)
-      .order('data_nascimento'),
+    resumo.userId
+      ? admin
+          .from('profiles')
+          .select(
+            'titulo, conjuge_id, data_nascimento_1, data_nascimento_2, data_casamento, endereco, endereco_complemento, endereco_maps, created_at'
+          )
+          .eq('id', resumo.userId)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    resumo.userId
+      ? admin
+          .from('dependentes')
+          .select('nome, tipo, data_nascimento')
+          .eq('profile_id', resumo.userId)
+          .order('data_nascimento')
+      : Promise.resolve({ data: [] }),
     admin
       .from('ensino_inscricoes')
       // `decisor` precisa da FK nomeada: a tabela tem dois caminhos para
@@ -309,8 +363,7 @@ export async function fichaDoAluno(igrejaId: string, slug: string): Promise<Fich
       .select(
         'id, turma_id, status, observacao, dados, criado_em, decidido_em, decisor:profiles!ensino_inscricoes_decidido_por_fkey(nome), ensino_turmas(nome, status, modo, local, data_inicio, data_fim, dias_semana, horario_inicio, horario_fim, ensino_cursos(nome))'
       )
-      .eq('user_id', resumo.userId)
-      .in('turma_id', turmaIds)
+      .in('id', inscricaoIds)
       .order('criado_em', { ascending: false }),
     admin
       .from('ensino_aulas')
@@ -320,14 +373,16 @@ export async function fichaDoAluno(igrejaId: string, slug: string): Promise<Fich
     admin
       .from('ensino_presencas')
       .select('aula_id, presente')
-      .eq('user_id', resumo.userId),
-    // Progresso do "assisti" — só existe em turma gravada, mas custa pouco
-    // buscar sempre e deixar o cruzamento decidir onde importa.
-    admin
-      .from('ensino_progresso')
-      .select('aula_id')
-      .eq('user_id', resumo.userId)
-      .in('turma_id', turmaIds),
+      .in('inscricao_id', inscricaoIds),
+    // Progresso do "assisti" — só existe em turma gravada, e só para quem tem
+    // conta: é a própria pessoa que marca.
+    resumo.userId
+      ? admin
+          .from('ensino_progresso')
+          .select('aula_id')
+          .eq('user_id', resumo.userId)
+          .in('turma_id', turmaIds)
+      : Promise.resolve({ data: [] }),
   ])
 
   const perfil = perfilRes.data as {

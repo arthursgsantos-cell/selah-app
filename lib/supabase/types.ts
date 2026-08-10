@@ -41,6 +41,11 @@ export type StatusTurma = 'aberta' | 'em_andamento' | 'concluida' | 'cancelada'
  */
 export type ModoTurma = 'presencial' | 'gravado'
 export type StatusInscricaoEnsino = 'pendente' | 'aprovada' | 'recusada' | 'cancelada' | 'concluida'
+/**
+ * Quem criou a inscrição. `manual` é a que o professor digitou pelo painel —
+ * pode nem ter `user_id`, porque a pessoa ainda não usa o app.
+ */
+export type OrigemInscricaoEnsino = 'app' | 'manual'
 export type StatusAula = 'agendada' | 'realizada' | 'cancelada'
 export type TipoMaterial = 'arquivo' | 'link' | 'video'
 /**
@@ -1662,15 +1667,20 @@ export type Database = {
         // `nome`, `telefone` e `email` são cópia do perfil no momento da
         // inscrição: a lista do professor não pode mudar sozinha quando o
         // aluno troca o telefone.
+        // `user_id` é nulo no aluno que o professor cadastrou à mão: ele ainda
+        // não tem conta. Nesse caso a identidade da pessoa mora em
+        // `pre_cadastro_id`, e o vínculo preenche o `user_id` depois.
         Row: {
           id: string
           turma_id: string
-          user_id: string
+          user_id: string | null
           nome: string
           telefone: string | null
           email: string | null
           dados: Record<string, string>
           status: StatusInscricaoEnsino
+          origem: OrigemInscricaoEnsino
+          pre_cadastro_id: string | null
           observacao: string | null
           decidido_por: string | null
           decidido_em: string | null
@@ -1679,12 +1689,14 @@ export type Database = {
         Insert: {
           id?: string
           turma_id: string
-          user_id: string
+          user_id?: string | null
           nome: string
           telefone?: string | null
           email?: string | null
           dados?: Record<string, string>
           status?: StatusInscricaoEnsino
+          origem?: OrigemInscricaoEnsino
+          pre_cadastro_id?: string | null
           observacao?: string | null
           decidido_por?: string | null
           decidido_em?: string | null
@@ -1693,12 +1705,14 @@ export type Database = {
         Update: {
           id?: string
           turma_id?: string
-          user_id?: string
+          user_id?: string | null
           nome?: string
           telefone?: string | null
           email?: string | null
           dados?: Record<string, string>
           status?: StatusInscricaoEnsino
+          origem?: OrigemInscricaoEnsino
+          pre_cadastro_id?: string | null
           observacao?: string | null
           decidido_por?: string | null
           decidido_em?: string | null
@@ -1748,11 +1762,13 @@ export type Database = {
         Relationships: []
       }
       ensino_presencas: {
+        // `user_id` acompanha o da inscrição: nulo enquanto o aluno cadastrado
+        // pela mão do professor não tiver conta.
         Row: {
           id: string
           aula_id: string
           inscricao_id: string
-          user_id: string
+          user_id: string | null
           presente: boolean
           observacao: string | null
           registrado_por: string | null
@@ -1762,7 +1778,7 @@ export type Database = {
           id?: string
           aula_id: string
           inscricao_id: string
-          user_id: string
+          user_id?: string | null
           presente?: boolean
           observacao?: string | null
           registrado_por?: string | null
@@ -1772,7 +1788,7 @@ export type Database = {
           id?: string
           aula_id?: string
           inscricao_id?: string
-          user_id?: string
+          user_id?: string | null
           presente?: boolean
           observacao?: string | null
           registrado_por?: string | null
