@@ -3,38 +3,37 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
-import { acessoEnsino, podeLecionar } from '@/lib/ensino/permissoes'
+import { acessoEnsino, podeLecionar, type AcessoEnsino } from '@/lib/ensino/permissoes'
 import type { StatusInscricaoEnsino } from '@/lib/supabase/types'
 import type { ResultadoAcao } from '@/lib/ensino/tipos'
 
+interface TurmaParaInscricao {
+  id: string
+  nome: string
+  vagas: number | null
+  status: string
+  inscricoes_abertas: boolean
+  aprovacao_automatica: boolean
+}
+
 /**
- * Inscreve o usuário autenticado.
+ * O núcleo da inscrição: confere duplicidade e vaga, grava e avisa quem
+ * administra a turma.
  *
- * Nome, telefone e e-mail saem do perfil, não do formulário: o pedido do
- * módulo é que o aluno não redigite o que a igreja já sabe. `dados` guarda só
- * as respostas dos campos extras que o professor tenha configurado.
+ * Vive à parte porque hoje há dois botões que registram — o do app e o do
+ * WhatsApp —, e a única diferença entre eles é para onde a pessoa vai depois.
+ * "Já inscrito" volta como resultado, e não como erro: para o app é impedimento
+ * ("você já tem inscrição"), para o WhatsApp é só motivo de não gravar de novo
+ * antes de abrir a conversa.
  */
-export async function inscreverAction(params: {
-  turmaId: string
-  dados?: Record<string, string>
-}): Promise<{ ok: true; status: StatusInscricaoEnsino } | { ok: false; erro: string }> {
-  const acesso = await acessoEnsino()
-  if (!acesso) return { ok: false, erro: 'Faça login para se inscrever.' }
-
-  const supabase = await createClient()
-
-  const { data: turma } = await supabase
-    .from('ensino_turmas')
-    .select('id, nome, vagas, status, inscricoes_abertas, aprovacao_automatica')
-    .eq('id', params.turmaId)
-    .single()
-
-  if (!turma) return { ok: false, erro: 'Turma não encontrada.' }
-  if (!turma.inscricoes_abertas) return { ok: false, erro: 'As inscrições desta turma estão fechadas.' }
-  if (turma.status === 'concluida' || turma.status === 'cancelada') {
-    return { ok: false, erro: 'Esta turma não está recebendo inscrições.' }
-  }
-
+async function gravarInscricao(
+  acesso: AcessoEnsino,
+  turma: TurmaParaInscricao,
+  dados: Record<string, string>
+): Promise<
+  | { ok: true; status: StatusInscricaoEnsino; jaInscrito: boolean }
+  | { ok: false; erro: string }
+> {
   const admin = createAdminClient()
 
   // Já inscrito? Uma inscrição recusada ou cancelada pode ser retomada; uma
@@ -42,12 +41,12 @@ export async function inscreverAction(params: {
   const { data: existente } = await admin
     .from('ensino_inscricoes')
     .select('id, status')
-    .eq('turma_id', params.turmaId)
+    .eq('turma_id', turma.id)
     .eq('user_id', acesso.userId)
     .maybeSingle()
 
   if (existente && ['pendente', 'aprovada', 'concluida'].includes(existente.status)) {
-    return { ok: false, erro: 'Você já tem inscrição nesta turma.' }
+    return { ok: true, status: existente.status as StatusInscricaoEnsino, jaInscrito: true }
   }
 
   // Vaga é ocupada por aprovado, não por pendente: um pedido esquecido não
@@ -56,7 +55,7 @@ export async function inscreverAction(params: {
     const { count } = await admin
       .from('ensino_inscricoes')
       .select('id', { count: 'exact', head: true })
-      .eq('turma_id', params.turmaId)
+      .eq('turma_id', turma.id)
       .in('status', ['aprovada', 'concluida'])
 
     if ((count ?? 0) >= turma.vagas) {
@@ -67,13 +66,14 @@ export async function inscreverAction(params: {
   const status: StatusInscricaoEnsino = turma.aprovacao_automatica ? 'aprovada' : 'pendente'
 
   const linha = {
-    turma_id: params.turmaId,
+    turma_id: turma.id,
     user_id: acesso.userId,
     nome: acesso.nome,
     telefone: acesso.telefone,
     email: acesso.email,
-    dados: params.dados ?? {},
+    dados,
     status,
+    origem: 'app' as const,
     decidido_por: turma.aprovacao_automatica ? acesso.userId : null,
     decidido_em: turma.aprovacao_automatica ? new Date().toISOString() : null,
     observacao: null,
@@ -92,7 +92,7 @@ export async function inscreverAction(params: {
   // nada do professor, e avisar de tudo faria o sino virar ruído ignorado.
   if (status === 'pendente') {
     await notificarProfessores({
-      turmaId: params.turmaId,
+      turmaId: turma.id,
       turmaNome: turma.nome,
       alunoNome: acesso.nome,
       igrejaId: acesso.igrejaId,
@@ -100,10 +100,129 @@ export async function inscreverAction(params: {
   }
 
   revalidatePath('/ensino')
-  revalidatePath(`/ensino/turma/${params.turmaId}`)
+  revalidatePath(`/ensino/turma/${turma.id}`)
+  revalidatePath(`/ensino/turma/${turma.id}/alunos`)
   revalidatePath('/ensino/aluno')
   revalidatePath('/', 'layout')
-  return { ok: true, status }
+  return { ok: true, status, jaInscrito: false }
+}
+
+/** Carrega a turma pela visão do próprio aluno e recusa a que não recebe mais. */
+async function turmaAberta(
+  turmaId: string
+): Promise<{ ok: true; turma: TurmaParaInscricao } | { ok: false; erro: string }> {
+  const supabase = await createClient()
+
+  const { data: turma } = await supabase
+    .from('ensino_turmas')
+    .select('id, nome, vagas, status, inscricoes_abertas, aprovacao_automatica')
+    .eq('id', turmaId)
+    .single()
+
+  if (!turma) return { ok: false, erro: 'Turma não encontrada.' }
+  if (!turma.inscricoes_abertas) {
+    return { ok: false, erro: 'As inscrições desta turma estão fechadas.' }
+  }
+  if (turma.status === 'concluida' || turma.status === 'cancelada') {
+    return { ok: false, erro: 'Esta turma não está recebendo inscrições.' }
+  }
+
+  return { ok: true, turma: turma as TurmaParaInscricao }
+}
+
+/**
+ * Inscreve o usuário autenticado.
+ *
+ * Nome, telefone e e-mail saem do perfil, não do formulário: o pedido do
+ * módulo é que o aluno não redigite o que a igreja já sabe. `dados` guarda só
+ * as respostas dos campos extras que o professor tenha configurado.
+ */
+export async function inscreverAction(params: {
+  turmaId: string
+  dados?: Record<string, string>
+}): Promise<{ ok: true; status: StatusInscricaoEnsino } | { ok: false; erro: string }> {
+  const acesso = await acessoEnsino()
+  if (!acesso) return { ok: false, erro: 'Faça login para se inscrever.' }
+
+  const aberta = await turmaAberta(params.turmaId)
+  if (!aberta.ok) return aberta
+
+  const r = await gravarInscricao(acesso, aberta.turma, params.dados ?? {})
+  if (!r.ok) return r
+  if (r.jaInscrito) return { ok: false, erro: 'Você já tem inscrição nesta turma.' }
+
+  return { ok: true, status: r.status }
+}
+
+/**
+ * Inscrição pelo WhatsApp — que agora **também** registra no app.
+ *
+ * Antes este botão só abria a conversa, e a turma inteira ficava fora do
+ * sistema: sem lista de chamada, sem frequência, sem saber quem pediu. Agora a
+ * ordem é outra — grava a inscrição igual ao botão do app e só depois manda a
+ * pessoa para o WhatsApp, com a mensagem já escrita. A conversa deixa de ser o
+ * cadastro e passa a ser a confirmação dele.
+ *
+ * A pessoa que já está inscrita não vira uma segunda linha: o WhatsApp abre do
+ * mesmo jeito, porque falar com o professor continua valendo.
+ */
+export async function inscreverPeloWhatsappAction(turmaId: string): Promise<
+  | { ok: true; url: string; status: StatusInscricaoEnsino; jaInscrito: boolean }
+  | { ok: false; erro: string }
+> {
+  const acesso = await acessoEnsino()
+  if (!acesso) return { ok: false, erro: 'Faça login para se inscrever.' }
+
+  const supabase = await createClient()
+  const { data: dadosTurma } = await supabase
+    .from('ensino_turmas')
+    .select('id, nome, tipo_inscricao, whatsapp_inscricao')
+    .eq('id', turmaId)
+    .single()
+
+  if (!dadosTurma) return { ok: false, erro: 'Turma não encontrada.' }
+
+  const numero = (dadosTurma.whatsapp_inscricao ?? '').replace(/\D/g, '')
+  if (dadosTurma.tipo_inscricao !== 'whatsapp' || !numero) {
+    return { ok: false, erro: 'Esta turma não usa inscrição por WhatsApp.' }
+  }
+
+  // Quem já está na turma pula a checagem de "recebe inscrição": para ele o
+  // botão é só "abrir conversa", e uma turma encerrada não é motivo para
+  // recusar falar com o professor.
+  const { data: existente } = await createAdminClient()
+    .from('ensino_inscricoes')
+    .select('status')
+    .eq('turma_id', turmaId)
+    .eq('user_id', acesso.userId)
+    .maybeSingle()
+
+  const jaInscrito =
+    existente !== null && ['pendente', 'aprovada', 'concluida'].includes(existente.status)
+
+  let status = (existente?.status ?? 'pendente') as StatusInscricaoEnsino
+
+  if (!jaInscrito) {
+    const aberta = await turmaAberta(turmaId)
+    if (!aberta.ok) return aberta
+
+    const r = await gravarInscricao(acesso, aberta.turma, {})
+    if (!r.ok) return r
+    status = r.status
+  }
+
+  // A mensagem já vai escrita: o professor recebe nome e turma sem ter de
+  // perguntar, e a conversa começa no assunto.
+  const texto = jaInscrito
+    ? `Olá! Sou ${acesso.nome}. Já estou inscrito(a) na turma ${dadosTurma.nome} e queria falar sobre ela.`
+    : `Olá! Sou ${acesso.nome}. Acabei de me inscrever na turma ${dadosTurma.nome} pelo app.`
+
+  return {
+    ok: true,
+    url: `https://wa.me/${numero}?text=${encodeURIComponent(texto)}`,
+    status,
+    jaInscrito,
+  }
 }
 
 /**

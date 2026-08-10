@@ -82,7 +82,7 @@ export function InscricaoTurmaFields({
           <option value="app">Pelo app — usa os dados do perfil</option>
           <option value="formulario">Pelo app, com perguntas extras</option>
           <option value="link">Link externo (Google Forms, etc.)</option>
-          <option value="whatsapp">Pelo WhatsApp</option>
+          <option value="whatsapp">Pelo WhatsApp — registra e abre a conversa</option>
         </select>
       </div>
 
@@ -120,8 +120,10 @@ export function InscricaoTurmaFields({
             value={value.whatsapp}
             onChange={(e) => set({ whatsapp: e.target.value.replace(/\D/g, '') })}
           />
-          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-2">
-            O botão abre a conversa. Como no link externo, o app não acompanha as inscrições.
+          <p className="text-xs text-green-800 bg-green-50 border border-green-200 rounded-lg px-2.5 py-2">
+            O aluno entra na lista da turma <strong>e</strong> a conversa abre em seguida, com a
+            mensagem já escrita. Diferente do link externo: aqui você continua com a chamada e a
+            frequência, e o WhatsApp serve de confirmação.
           </p>
         </div>
       )}

@@ -49,8 +49,10 @@ export type OrigemInscricaoEnsino = 'app' | 'manual'
 export type StatusAula = 'agendada' | 'realizada' | 'cancelada'
 export type TipoMaterial = 'arquivo' | 'link' | 'video'
 /**
- * Como a pessoa se inscreve numa turma. `link` e `whatsapp` mandam para fora —
- * nesses dois o app não registra inscrição nem monta lista de chamada.
+ * Como a pessoa se inscreve numa turma. Só `link` manda para fora sem deixar
+ * rastro: nele o app não registra inscrição nem monta lista de chamada.
+ * `whatsapp` grava a inscrição como o caminho do app e depois abre a conversa —
+ * a conversa é confirmação, não substituto do cadastro.
  */
 export type TipoInscricaoTurma = 'app' | 'formulario' | 'link' | 'whatsapp'
 export type CampoFormulario = {

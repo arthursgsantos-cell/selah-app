@@ -5,7 +5,10 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { CheckCircle2, Clock, XCircle, Loader2, Ban, ExternalLink, MessageCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { cancelarMinhaInscricaoAction } from '@/app/actions/ensino/inscricoes'
+import {
+  cancelarMinhaInscricaoAction,
+  inscreverPeloWhatsappAction,
+} from '@/app/actions/ensino/inscricoes'
 import type { StatusInscricaoEnsino, TipoInscricaoTurma } from '@/lib/supabase/types'
 
 interface Props {
@@ -79,6 +82,26 @@ export function InscricaoTurma({
     })
   }
 
+  /**
+   * Registra a inscrição e só então abre a conversa.
+   *
+   * A aba nasce **antes** do `await`, ainda dentro do clique: aberta depois da
+   * resposta do servidor, o navegador a trataria como pop-up e bloquearia.
+   * Quando nem assim ela vem (bloqueador mais rígido), a própria página vai
+   * para o WhatsApp — sair do app é o que a pessoa pediu ao clicar.
+   */
+  function inscreverPeloZap() {
+    setErro(null)
+    const janela = window.open('', '_blank')
+    startTransition(async () => {
+      const r = await inscreverPeloWhatsappAction(turmaId)
+      if (!r.ok) { janela?.close(); setErro(r.erro); return }
+      if (janela) janela.location.href = r.url
+      else window.location.href = r.url
+      router.refresh()
+    })
+  }
+
   return (
     <div className="space-y-3">
       {inscricao && (
@@ -98,9 +121,8 @@ export function InscricaoTurma({
         </div>
       )}
 
-      {/* Link externo e WhatsApp levam para fora, e o app não guarda inscrição
-          nenhuma — por isso continuam disponíveis mesmo para quem já tem um
-          registro antigo aqui dentro. */}
+      {/* Link externo leva para fora e o app não guarda inscrição nenhuma — por
+          isso continua disponível mesmo para quem já tem registro aqui dentro. */}
       {disponivel && tipo === 'link' && linkUrl && (
         <Button
           size="lg"
@@ -112,21 +134,31 @@ export function InscricaoTurma({
         </Button>
       )}
 
-      {disponivel && tipo === 'whatsapp' && whatsapp && (
+      {/* WhatsApp registra antes de abrir a conversa: o clique aqui vale o
+          mesmo que o "quero me inscrever" do app, e a conversa é a confirmação.
+          Quem já está inscrito continua com o botão, só que sem virar segunda
+          linha — falar com o professor não deixou de valer. */}
+      {tipo === 'whatsapp' && whatsapp && (disponivel || ativa) && (
         <Button
           size="lg"
           className="w-full"
-          render={
-            <a
-              href={`https://wa.me/${whatsapp.replace(/\D/g, '')}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            />
-          }
+          variant={ativa ? 'outline' : 'default'}
+          onClick={inscreverPeloZap}
+          disabled={isPending}
         >
-          <MessageCircle className="h-4 w-4" />
-          Inscrever pelo WhatsApp
+          {isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <MessageCircle className="h-4 w-4" />
+          )}
+          {ativa ? 'Abrir conversa no WhatsApp' : 'Inscrever pelo WhatsApp'}
         </Button>
+      )}
+
+      {tipo === 'whatsapp' && whatsapp && !ativa && disponivel && (
+        <p className="text-xs text-muted-foreground text-center -mt-1">
+          Sua inscrição fica registrada aqui e a conversa abre em seguida.
+        </p>
       )}
 
       {!ativa && disponivel && (tipo === 'app' || tipo === 'formulario') && (

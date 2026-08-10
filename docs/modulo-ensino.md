@@ -187,6 +187,35 @@ aluno manual apareceria uma vez por turma — ou sumiria da lista inteira. A fic
 dele traz curso, frequência e contato; endereço, aniversário e família só
 aparecem depois que ele tiver perfil.
 
+## Como o aluno se inscreve
+
+`ensino_turmas.tipo_inscricao` tem quatro valores, e **três deles registram**:
+
+| valor | o que acontece | entra na chamada? |
+|---|---|---|
+| `app` | confirma os dados do perfil | sim |
+| `formulario` | idem, mais os campos de `formulario_id` | sim |
+| `whatsapp` | grava a inscrição **e** abre a conversa | sim |
+| `link` | manda para fora (Google Forms, etc.) | não |
+
+`whatsapp` já foi como o `link`: só abria a conversa, e a turma inteira ficava
+fora do sistema — sem chamada, sem frequência, sem saber quem tinha pedido. Hoje
+`inscreverPeloWhatsappAction` chama o mesmo núcleo do botão do app
+(`gravarInscricao`) e só então devolve a URL do `wa.me`, com a mensagem já
+escrita. **A conversa virou a confirmação do cadastro, não o cadastro.**
+
+Quem já está inscrito continua com o botão — falar com o professor não deixou de
+valer —, mas não vira segunda linha: `gravarInscricao` devolve `jaInscrito` em
+vez de erro, e cada chamador decide o que fazer com isso (para o botão do app é
+impedimento; para o do WhatsApp, só motivo de não regravar).
+
+No cliente, a aba do WhatsApp é aberta **antes** do `await`, ainda dentro do
+clique (`components/ensino/inscricao-turma.tsx`): aberta depois da resposta do
+servidor, o navegador a trataria como pop-up e bloquearia.
+
+Sobra `link` como único caminho sem rastro — e o aviso amarelo no formulário do
+professor diz isso com todas as letras.
+
 ## Vagas
 
 Vaga é ocupada por inscrição **aprovada**, não por pendente — senão um pedido
