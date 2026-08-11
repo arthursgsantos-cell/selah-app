@@ -40,6 +40,8 @@ export interface DadosTurma {
   nome: string
   descricao?: string | null
   capaUrl?: string | null
+  /** A capa larga: topo da página da turma e faixa de destaques da home. */
+  capaPaginaUrl?: string | null
   local?: string | null
   dataInicio?: string | null
   dataFim?: string | null
@@ -157,6 +159,7 @@ export async function criarTurmaAction(dados: DadosTurma): Promise<
       nome: dados.nome.trim(),
       descricao: limpar(dados.descricao),
       capa_url: limpar(dados.capaUrl),
+      capa_pagina_url: limpar(dados.capaPaginaUrl),
       local: limpar(dados.local),
       data_inicio: limpar(dados.dataInicio),
       data_fim: limpar(dados.dataFim),
@@ -239,6 +242,7 @@ export async function editarTurmaAction(
       nome: dados.nome.trim(),
       descricao: limpar(dados.descricao),
       capa_url: limpar(dados.capaUrl),
+      capa_pagina_url: limpar(dados.capaPaginaUrl),
       local: limpar(dados.local),
       data_inicio: limpar(dados.dataInicio),
       data_fim: limpar(dados.dataFim),

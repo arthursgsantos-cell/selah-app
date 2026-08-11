@@ -29,7 +29,7 @@ export const ITENS_COPIA: {
   ajuda: string
 }[] = [
   { chave: 'descricao',     label: 'Descrição da turma',   ajuda: 'O texto que abre a página' },
-  { chave: 'capa',          label: 'Capas',                ajuda: 'A do card e a do topo da página' },
+  { chave: 'capa',          label: 'Capas',                ajuda: 'A do card, em pé, e a 16:9 do destaque' },
   { chave: 'fundo',         label: 'Fundo da página',      ajuda: 'Cor, estilo e imagem de fundo' },
   { chave: 'configuracoes', label: 'Horários e formato',   ajuda: 'Dias, horário, local, vagas, videochamada' },
   { chave: 'inscricao',     label: 'Forma de inscrição',   ajuda: 'Pelo app, formulário, link ou WhatsApp' },
@@ -49,7 +49,12 @@ export const COPIA_PADRAO: OpcoesCopia = {
   materiais: true,
 }
 
-/** Os itens que a página da turma nova copia depois de criada. */
+/**
+ * Os itens que só podem ser copiados depois da turma criada.
+ *
+ * As capas ficam de fora: elas passam pelo formulário, onde continuam
+ * trocáveis antes de salvar.
+ */
 export function copiaTemConteudo(opcoes: OpcoesCopia): boolean {
-  return opcoes.capa || opcoes.fundo || opcoes.aulas || opcoes.materiais
+  return opcoes.fundo || opcoes.aulas || opcoes.materiais
 }

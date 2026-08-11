@@ -201,7 +201,7 @@ export default async function HomePage() {
   const { data: turmasDestaque } = igrejaId
     ? await admin
         .from('ensino_turmas')
-        .select('id, nome, capa_url, local, dias_semana, horario_inicio, horario_fim, ensino_cursos(nome)')
+        .select('id, nome, capa_url, capa_pagina_url, local, dias_semana, horario_inicio, horario_fim, ensino_cursos(nome)')
         .eq('igreja_id', igrejaId)
         .eq('destaque', true)
         .in('status', ['aberta', 'em_andamento'])
@@ -209,7 +209,8 @@ export default async function HomePage() {
     : { data: [] }
 
   for (const t of (turmasDestaque ?? []) as unknown as {
-    id: string; nome: string; capa_url: string | null; local: string | null
+    id: string; nome: string; capa_url: string | null; capa_pagina_url: string | null
+    local: string | null
     dias_semana: number[]; horario_inicio: string | null; horario_fim: string | null
     ensino_cursos: { nome: string } | null
   }[]) {
@@ -220,7 +221,9 @@ export default async function HomePage() {
       data_hora: null,
       subtitulo: encontrosTexto(t.dias_semana, t.horario_inicio, t.horario_fim) || null,
       local: t.local,
-      capa: t.capa_url,
+      // Mesma regra dos eventos: a arte larga tem prioridade, e o card só
+      // entra quando ela não existe. Sem isso a faixa 16:9 esticava um retrato.
+      capa: t.capa_pagina_url ?? t.capa_url,
       href: `/ensino/turma/${t.id}`,
       selo: t.ensino_cursos?.nome ?? 'Ensino',
     })

@@ -25,7 +25,7 @@ export default async function EditarTurmaPage({ params }: { params: { id: string
     admin
       .from('ensino_turmas')
       .select(
-        'id, curso_id, nome, descricao, capa_url, local, data_inicio, data_fim, dias_semana, horario_inicio, horario_fim, total_aulas, vagas, inscricoes_abertas, aprovacao_automatica, status, modo, sequencial, whatsapp_url, tipo_inscricao, link_inscricao_url, formulario_id, video_chamada_modo, video_chamada_url'
+        'id, curso_id, nome, descricao, capa_url, capa_pagina_url, local, data_inicio, data_fim, dias_semana, horario_inicio, horario_fim, total_aulas, vagas, inscricoes_abertas, aprovacao_automatica, status, modo, sequencial, whatsapp_url, tipo_inscricao, link_inscricao_url, formulario_id, video_chamada_modo, video_chamada_url'
       ),
     params.id
   ).maybeSingle()
@@ -37,7 +37,7 @@ export default async function EditarTurmaPage({ params }: { params: { id: string
 
   const t = turmaRaw as unknown as {
     id: string; curso_id: string; nome: string; descricao: string | null
-    capa_url: string | null; local: string | null
+    capa_url: string | null; capa_pagina_url: string | null; local: string | null
     data_inicio: string | null; data_fim: string | null
     dias_semana: number[]; horario_inicio: string | null; horario_fim: string | null
     total_aulas: number | null; vagas: number | null
@@ -56,6 +56,7 @@ export default async function EditarTurmaPage({ params }: { params: { id: string
     nome: t.nome,
     descricao: t.descricao,
     capaUrl: t.capa_url,
+    capaPaginaUrl: t.capa_pagina_url,
     local: t.local,
     dataInicio: t.data_inicio,
     dataFim: t.data_fim,

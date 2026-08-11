@@ -44,6 +44,7 @@ export interface TurmaParaEditar {
   nome: string
   descricao: string | null
   capaUrl: string | null
+  capaPaginaUrl: string | null
   local: string | null
   dataInicio: string | null
   dataFim: string | null
@@ -165,6 +166,17 @@ export function TurmaForm({
   // cópia aparecia na prévia e não era salva.
   const [capaUrlBase, setCapaUrlBase] = useState<string | null>(turma?.capaUrl ?? null)
 
+  // A capa larga, em 16:9. É outra imagem, e não um recorte da primeira: o
+  // retrato do card, esticado numa faixa, corta cabeça e título da arte.
+  const capaPaginaRef = useRef<HTMLInputElement>(null)
+  const [capaPaginaFile, setCapaPaginaFile] = useState<File | null>(null)
+  const [capaPaginaPreview, setCapaPaginaPreview] = useState<string | null>(
+    turma?.capaPaginaUrl ?? null
+  )
+  const [capaPaginaUrlBase, setCapaPaginaUrlBase] = useState<string | null>(
+    turma?.capaPaginaUrl ?? null
+  )
+
   // A turma que serve de modelo. Fundo, aulas e materiais não cabem no
   // formulário: ficam anotados aqui e são copiados assim que a turma existir.
   const [copia, setCopia] = useState<
@@ -270,6 +282,22 @@ export function TurmaForm({
     if (fileRef.current) fileRef.current.value = ''
   }
 
+  function trocarCapaPagina(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setSujo(true)
+    setCapaPaginaFile(file)
+    setCapaPaginaPreview(URL.createObjectURL(file))
+  }
+
+  function removerCapaPagina() {
+    setSujo(true)
+    setCapaPaginaFile(null)
+    setCapaPaginaPreview(null)
+    setCapaPaginaUrlBase(null)
+    if (capaPaginaRef.current) capaPaginaRef.current.value = ''
+  }
+
   /**
    * Traz para o formulário o que a turma anterior tinha.
    *
@@ -289,6 +317,9 @@ export function TurmaForm({
       setCapaFile(null)
       setCapaUrlBase(modelo.capaUrl)
       setCapaPreview(modelo.capaUrl)
+      setCapaPaginaFile(null)
+      setCapaPaginaUrlBase(modelo.capaPaginaUrl)
+      setCapaPaginaPreview(modelo.capaPaginaUrl)
     }
 
     if (opcoes.configuracoes) {
@@ -398,11 +429,26 @@ export function TurmaForm({
           capaUrl = null
         }
 
+        let capaPaginaUrl = capaPaginaUrlBase
+        if (capaPaginaFile) {
+          const fd = new FormData()
+          fd.append('file', await comprimirImagem(capaPaginaFile))
+          capaPaginaUrl = await uploadCapaEnsinoAction(fd)
+
+          if (!capaPaginaUrl) {
+            setErro('Não consegui enviar a capa 16:9. Tente de novo com outra imagem.')
+            return
+          }
+        } else if (capaPaginaPreview === null) {
+          capaPaginaUrl = null
+        }
+
         const dados = {
           cursoId: curso,
           nome: nome.trim(),
           descricao: descricao.trim() || null,
           capaUrl,
+          capaPaginaUrl,
           local: local.trim() || null,
           dataInicio: dataInicio || null,
           dataFim: dataFim || null,
@@ -901,76 +947,125 @@ export function TurmaForm({
 
       <Secao titulo="Aparência">
         <div className="space-y-1.5">
-          {/* O nome diz qual das duas capas é: a grande, do topo da página da
-              turma, é trocada na própria página e não passa por aqui. */}
-          <Label>Capa do card (opcional)</Label>
-          <p className="text-xs text-muted-foreground">
-            É a imagem que aparece na lista de turmas e no destaque da home.
+          {/* As duas capas vêm para cá. A 16:9 continua trocável direto no topo
+              da página da turma, para quem já está lá olhando o resultado. */}
+          <Label>Capas (opcionais)</Label>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            São duas artes, e cada moldura abaixo é o recorte de verdade de cada
+            uma. Sem a 16:9, o destaque e o topo da página caem no card e cortam
+            a arte em pé pelas beiradas.
           </p>
 
-          {/* A prévia mostra o recorte de verdade, e não uma moldura genérica:
-              a mesma arte é cortada em retrato na lista de turmas e em 16:9 no
-              destaque da home, e sem ver os dois a pessoa só descobre o corte
-              depois de publicar. */}
           <div className="flex items-start gap-3">
-            <label
-              htmlFor="capa-turma"
-              className="group relative flex w-32 shrink-0 flex-col items-center justify-center aspect-[3/4] border-2 border-dashed border-input rounded-xl cursor-pointer overflow-hidden hover:bg-accent/30 transition-colors sm:w-36"
-            >
-              {capaPreview ? (
-                <>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={capaPreview}
-                    alt="Prévia da capa na lista de turmas"
-                    className="absolute inset-0 w-full h-full object-cover"
-                  />
-                  <button
-                    type="button"
-                    onClick={(e) => { e.preventDefault(); removerCapa() }}
-                    aria-label="Remover capa"
-                    className="absolute top-1.5 right-1.5 bg-black/60 rounded-full p-1 text-white hover:bg-black/80"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </>
-              ) : (
-                <div className="flex flex-col items-center gap-1 px-2 text-center text-muted-foreground pointer-events-none">
-                  <ImagePlus className="h-6 w-6" />
-                  <span className="text-xs leading-snug">Clique para importar</span>
-                </div>
-              )}
-              <input
-                ref={fileRef}
-                id="capa-turma"
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="hidden"
-                onChange={trocarCapa}
-              />
-            </label>
+            {/* A prévia é o próprio card, e não uma moldura genérica: quem
+                escolhia a arte numa moldura larga só descobria o corte em pé
+                depois de publicar. */}
+            <div className="w-28 shrink-0 space-y-1.5 sm:w-32">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Card · 3:4
+              </p>
+              <label
+                htmlFor="capa-turma"
+                className="relative flex aspect-[3/4] w-full flex-col items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-input cursor-pointer transition-colors hover:bg-accent/30"
+              >
+                {capaPreview ? (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={capaPreview}
+                      alt="Prévia da capa na lista de turmas"
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); removerCapa() }}
+                      aria-label="Remover a capa do card"
+                      className="absolute top-1.5 right-1.5 rounded-full bg-black/60 p-1 text-white hover:bg-black/80"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </>
+                ) : (
+                  <div className="pointer-events-none flex flex-col items-center gap-1 px-2 text-center text-muted-foreground">
+                    <ImagePlus className="h-6 w-6" />
+                    <span className="text-xs leading-snug">Importar</span>
+                  </div>
+                )}
+                <input
+                  ref={fileRef}
+                  id="capa-turma"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={trocarCapa}
+                />
+              </label>
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                Na lista de turmas
+              </p>
+            </div>
 
             <div className="min-w-0 flex-1 space-y-1.5">
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                No destaque da home
+                Destaque · 16:9
               </p>
-              <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-border bg-muted">
-                {capaPreview ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={capaPreview}
-                    alt="Prévia da capa no destaque da home"
-                    className="absolute inset-0 h-full w-full object-cover"
-                  />
+              <label
+                htmlFor="capa-pagina-turma"
+                className="relative flex aspect-video w-full flex-col items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-input cursor-pointer transition-colors hover:bg-accent/30"
+              >
+                {capaPaginaPreview ? (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={capaPaginaPreview}
+                      alt="Prévia da capa 16:9"
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); removerCapaPagina() }}
+                      aria-label="Remover a capa 16:9"
+                      className="absolute top-1.5 right-1.5 rounded-full bg-black/60 p-1 text-white hover:bg-black/80"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </>
+                ) : capaPreview ? (
+                  <>
+                    {/* Sem a 16:9 é o card que aparece esticado — mostrar isso
+                        apagado é mais honesto que uma moldura vazia. */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={capaPreview}
+                      alt=""
+                      aria-hidden
+                      className="absolute inset-0 h-full w-full object-cover opacity-30"
+                    />
+                    <div className="pointer-events-none relative flex flex-col items-center gap-1 px-3 text-center text-muted-foreground">
+                      <ImagePlus className="h-6 w-6" />
+                      <span className="text-xs leading-snug">
+                        Importar a arte 16:9
+                      </span>
+                    </div>
+                  </>
                 ) : (
-                  <div className="flex h-full items-center justify-center px-2 text-center text-[11px] text-muted-foreground/70">
-                    sem capa
+                  <div className="pointer-events-none flex flex-col items-center gap-1 px-3 text-center text-muted-foreground">
+                    <ImagePlus className="h-6 w-6" />
+                    <span className="text-xs leading-snug">Importar a arte 16:9</span>
                   </div>
                 )}
-              </div>
-              <p className="text-xs text-muted-foreground leading-snug">
-                À esquerda, o recorte em pé da lista de turmas; aqui, o deitado da
-                home. JPG, PNG ou WebP, até 5 MB.
+                <input
+                  ref={capaPaginaRef}
+                  id="capa-pagina-turma"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={trocarCapaPagina}
+                />
+              </label>
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                No destaque da home e no topo da página da turma. JPG, PNG ou
+                WebP, até 5 MB cada.
               </p>
             </div>
           </div>

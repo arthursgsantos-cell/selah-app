@@ -27,6 +27,7 @@ export interface TurmaModelo {
   cursoId: string
   descricao: string | null
   capaUrl: string | null
+  capaPaginaUrl: string | null
   local: string | null
   diasSemana: number[]
   horarioInicio: string | null
@@ -51,7 +52,7 @@ export interface TurmaModelo {
 }
 
 const CAMPOS_MODELO =
-  'id, igreja_id, nome, curso_id, descricao, capa_url, local, dias_semana, horario_inicio, ' +
+  'id, igreja_id, nome, curso_id, descricao, capa_url, capa_pagina_url, local, dias_semana, horario_inicio, ' +
   'horario_fim, total_aulas, vagas, modo, sequencial, inscricoes_abertas, aprovacao_automatica, ' +
   'tipo_inscricao, link_inscricao_url, formulario_id, whatsapp_url, video_chamada_modo, video_chamada_url'
 
@@ -96,6 +97,7 @@ export async function carregarTurmaModeloAction(
       cursoId: linha.curso_id as string,
       descricao: (linha.descricao as string | null) ?? null,
       capaUrl: (linha.capa_url as string | null) ?? null,
+      capaPaginaUrl: (linha.capa_pagina_url as string | null) ?? null,
       local: (linha.local as string | null) ?? null,
       diasSemana: (linha.dias_semana as number[] | null) ?? [],
       horarioInicio: (linha.horario_inicio as string | null) ?? null,
@@ -188,7 +190,7 @@ export async function copiarConteudoTurmaAction(params: {
     admin
       .from('ensino_turmas')
       .select(
-        'id, igreja_id, capa_pagina_url, cor, cor_secundaria, fundo_tipo, fundo_imagem_url, ' +
+        'id, igreja_id, cor, cor_secundaria, fundo_tipo, fundo_imagem_url, ' +
         'fundo_opacidade, fundo_galeria, fundo_galeria_opacidade, fundo_auto_cor, fundo_auto_cor_origem'
       )
       .eq('id', origemId)
@@ -208,10 +210,9 @@ export async function copiarConteudoTurmaAction(params: {
     return { ok: false, erro: 'Turma de outra igreja.' }
   }
 
-  // Aparência: a capa do topo e o fundo da página não passam pelo formulário,
-  // então é aqui que eles atravessam.
+  // Aparência: o fundo da página não passa pelo formulário, então é aqui que
+  // ele atravessa. As duas capas passam, e são copiadas lá.
   const aparencia: {
-    capa_pagina_url?: string | null
     cor?: string | null
     cor_secundaria?: string | null
     fundo_tipo?: string | null
@@ -224,7 +225,6 @@ export async function copiarConteudoTurmaAction(params: {
   } = {}
   const texto = (v: unknown): string | null => (typeof v === 'string' ? v : null)
 
-  if (opcoes.capa) aparencia.capa_pagina_url = texto(origem.capa_pagina_url)
   if (opcoes.fundo) {
     aparencia.cor = texto(origem.cor)
     aparencia.cor_secundaria = texto(origem.cor_secundaria)
