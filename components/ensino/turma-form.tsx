@@ -14,6 +14,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog'
 import { DIAS_SEMANA } from '@/lib/dia-semana'
+import { comprimirImagem } from '@/lib/comprimir-imagem'
 import { contarAulasNoPeriodo } from '@/lib/ensino/turma'
 import {
   criarTurmaAction, editarTurmaAction, uploadCapaEnsinoAction,
@@ -293,9 +294,20 @@ export function TurmaForm({
 
         let capaUrl = turma?.capaUrl ?? null
         if (capaFile) {
+          // Comprimir não é economia de banda: o corpo de uma Server Action tem
+          // teto de 1 MB e foto de celular passa disso com folga. Sem isto o
+          // envio falhava calado e a turma era salva sem capa — o resto do app
+          // já subia imagem assim, só este formulário mandava o arquivo cru.
           const fd = new FormData()
-          fd.append('file', capaFile)
+          fd.append('file', await comprimirImagem(capaFile))
           capaUrl = await uploadCapaEnsinoAction(fd)
+
+          // Arquivo escolhido e nenhuma URL de volta: gravar null aqui apagaria
+          // a capa que já existia sem ninguém ter pedido.
+          if (!capaUrl) {
+            setErro('Não consegui enviar a capa. Tente de novo com outra imagem.')
+            return
+          }
         } else if (capaPreview === null) {
           capaUrl = null
         }
@@ -771,7 +783,12 @@ export function TurmaForm({
 
       <Secao titulo="Aparência">
         <div className="space-y-1.5">
-          <Label>Capa (opcional)</Label>
+          {/* O nome diz qual das duas capas é: a grande, do topo da página da
+              turma, é trocada na própria página e não passa por aqui. */}
+          <Label>Capa do card (opcional)</Label>
+          <p className="text-xs text-muted-foreground">
+            É a imagem que aparece na lista de turmas e no destaque da home.
+          </p>
           <label
             htmlFor="capa-turma"
             className="relative flex flex-col items-center justify-center w-full aspect-[16/9] max-h-56 border-2 border-dashed border-input rounded-xl cursor-pointer overflow-hidden hover:bg-accent/30 transition-colors"
