@@ -27,6 +27,9 @@ import {
   buscarPessoasParaProfessor, cadastrarProfessorSemContaAction,
   type CandidatoProfessor,
 } from '@/app/actions/ensino/equipe'
+import { copiarConteudoTurmaAction, type TurmaModelo } from '@/app/actions/ensino/copiar-turma'
+import { CopiarTurma, type TurmaModeloResumo } from '@/components/ensino/copiar-turma'
+import { copiaTemConteudo, type OpcoesCopia } from '@/lib/ensino/copia'
 import type { ProfessorDaTurma } from '@/lib/ensino/tipos'
 import type {
   ModoTurma, ModoVideoChamada, StatusTurma, TipoInscricaoTurma,
@@ -112,6 +115,7 @@ export function TurmaForm({
   turma,
   candidatos,
   professoresIniciais = [],
+  modelos = [],
 }: {
   cursos: { id: string; nome: string }[]
   turma?: TurmaParaEditar
@@ -123,6 +127,8 @@ export function TurmaForm({
   candidatos?: CandidatoProfessor[]
   /** Equipe atual da turma, ou quem está criando. O primeiro é o principal. */
   professoresIniciais?: ProfessorDaTurma[]
+  /** Turmas que podem servir de modelo. Só na criação. */
+  modelos?: TurmaModeloResumo[]
 }) {
   const editando = turma !== undefined
   const router = useRouter()
@@ -154,6 +160,19 @@ export function TurmaForm({
   const [listaProfessores, setListaProfessores] = useState<CandidatoProfessor[]>(candidatos ?? [])
   const [capaFile, setCapaFile] = useState<File | null>(null)
   const [capaPreview, setCapaPreview] = useState<string | null>(turma?.capaUrl ?? null)
+  // A capa que já está no bucket, sem arquivo novo escolhido: é a da turma que
+  // se edita, ou a herdada da turma copiada. Sem este estado, a capa vinda da
+  // cópia aparecia na prévia e não era salva.
+  const [capaUrlBase, setCapaUrlBase] = useState<string | null>(turma?.capaUrl ?? null)
+
+  // A turma que serve de modelo. Fundo, aulas e materiais não cabem no
+  // formulário: ficam anotados aqui e são copiados assim que a turma existir.
+  const [copia, setCopia] = useState<
+    { origemId: string; nome: string; opcoes: OpcoesCopia } | null
+  >(null)
+  // Quando a turma é criada mas a cópia falha, é por aqui que a pessoa chega
+  // nela — em vez de ficar presa num formulário que já gravou.
+  const [turmaCriadaId, setTurmaCriadaId] = useState<string | null>(null)
 
   const [videoModo, setVideoModo] = useState<ModoVideoChamada>(
     turma?.videoChamadaModo ?? 'nenhum'
@@ -247,7 +266,74 @@ export function TurmaForm({
     setSujo(true)
     setCapaFile(null)
     setCapaPreview(null)
+    setCapaUrlBase(null)
     if (fileRef.current) fileRef.current.value = ''
+  }
+
+  /**
+   * Traz para o formulário o que a turma anterior tinha.
+   *
+   * Só o que a tela mostra entra aqui — o resto (capa do topo, fundo, aulas e
+   * materiais) fica anotado em `copia` e é copiado no servidor depois que a
+   * turma nova é criada. O nome não vem: turma nova tem nome novo, e repeti-lo
+   * deixaria duas "2026.1" na listagem.
+   */
+  function aplicarCopia(modelo: TurmaModelo, opcoes: OpcoesCopia) {
+    setSujo(true)
+    setCopia({ origemId: modelo.id, nome: modelo.nome, opcoes })
+    setCursoId(modelo.cursoId)
+
+    if (opcoes.descricao) setDescricao(modelo.descricao ?? '')
+
+    if (opcoes.capa) {
+      setCapaFile(null)
+      setCapaUrlBase(modelo.capaUrl)
+      setCapaPreview(modelo.capaUrl)
+    }
+
+    if (opcoes.configuracoes) {
+      setModo(modelo.modo)
+      setSequencial(modelo.sequencial)
+      setLocal(modelo.local ?? '')
+      setDias(modelo.diasSemana)
+      setHorarioInicio(hhmm(modelo.horarioInicio))
+      setHorarioFim(hhmm(modelo.horarioFim))
+      setVagas(modelo.vagas?.toString() ?? '')
+      setVideoModo(modelo.videoChamadaModo)
+      setVideoUrl(modelo.videoChamadaUrl ?? '')
+    }
+
+    // O número de aulas acompanha as aulas quando elas vêm; sozinho, é parte do
+    // formato da turma. Marcado à mão para o cálculo por período não o
+    // sobrescrever assim que a pessoa escolher as datas.
+    const totalDoModelo = modelo.totalAulas ?? modelo.totalDeAulas
+    if ((opcoes.aulas || opcoes.configuracoes) && totalDoModelo > 0) {
+      setAulasManual(true)
+      setTotalAulas(String(totalDoModelo))
+    }
+
+    if (opcoes.inscricao) {
+      setInscricoesAbertas(modelo.inscricoesAbertas)
+      setAprovacaoAutomatica(modelo.aprovacaoAutomatica)
+      setInscricao({
+        tipo: modelo.tipoInscricao,
+        formularioId: modelo.formularioId ?? '',
+        linkUrl: modelo.linkInscricaoUrl ?? '',
+        grupoUrl: modelo.whatsappUrl ?? '',
+      })
+    }
+
+    // Só a coordenação recebe `candidatos` e mexe na equipe; sem a seção na
+    // tela, escolher professores aqui seria decidir por baixo do pano. A equipe
+    // é substituída, não somada: "a mesma equipe da turma anterior" com quem
+    // está criando pendurado no fim não é a mesma equipe.
+    if (opcoes.professores && candidatos && modelo.professores.length > 0) {
+      setListaProfessores((atual) => {
+        const chaves = new Set(atual.map(chaveDe))
+        return [...atual, ...modelo.professores.filter((p) => !chaves.has(chaveDe(p)))]
+      })
+      setProfessores(modelo.professores.map((p) => ({ tipo: p.tipo, id: p.id })))
+    }
   }
 
   const semCursos = cursos.length === 0
@@ -292,7 +378,7 @@ export function TurmaForm({
         }
         if (!curso) { setErro('Escolha ou crie um curso.'); return }
 
-        let capaUrl = turma?.capaUrl ?? null
+        let capaUrl = capaUrlBase
         if (capaFile) {
           // Comprimir não é economia de banda: o corpo de uma Server Action tem
           // teto de 1 MB e foto de celular passa disso com folga. Sem isto o
@@ -356,6 +442,24 @@ export function TurmaForm({
           destino = r.id
         }
 
+        // Fundo, capa do topo, aulas e materiais só podem ser copiados agora:
+        // até aqui a turma nova não existia para receber nada.
+        if (copia && !turma && copiaTemConteudo(copia.opcoes)) {
+          const r = await copiarConteudoTurmaAction({
+            origemId: copia.origemId,
+            destinoId: destino,
+            opcoes: copia.opcoes,
+          })
+          if (!r.ok) {
+            // A turma já foi gravada — voltar para o formulário sem dizer isso
+            // faria a pessoa criá-la de novo.
+            setSujo(false)
+            setTurmaCriadaId(destino)
+            setErro(`A turma foi criada, mas o conteúdo não veio junto: ${r.erro}`)
+            return
+          }
+        }
+
         setSujo(false)
         router.push(`/ensino/turma/${destino}`)
         router.refresh()
@@ -367,6 +471,20 @@ export function TurmaForm({
 
   return (
     <form onSubmit={submeter} className="space-y-6">
+      {/* Abrir a edição seguinte de um curso é repetir a anterior. Vem antes de
+          tudo porque preenche o formulário inteiro: escolher depois de digitar
+          sobrescreveria o que já foi escrito. */}
+      {!editando && modelos.length > 0 && (
+        <Secao titulo="Copiar de outra turma">
+          <CopiarTurma
+            modelos={modelos}
+            aplicado={copia ? { nome: copia.nome, opcoes: copia.opcoes } : null}
+            onAplicar={aplicarCopia}
+            onLimpar={() => setCopia(null)}
+          />
+        </Secao>
+      )}
+
       <Secao titulo="Curso e turma">
         <div className="space-y-1.5">
           <Label htmlFor="curso">Curso</Label>
@@ -847,9 +965,17 @@ export function TurmaForm({
       </Secao>
 
       {erro && (
-        <p className="rounded-lg bg-destructive/10 border border-destructive/30 px-3 py-2 text-sm text-destructive">
-          {erro}
-        </p>
+        <div className="rounded-lg bg-destructive/10 border border-destructive/30 px-3 py-2 text-sm text-destructive">
+          <p>{erro}</p>
+          {turmaCriadaId && (
+            <Link
+              href={`/ensino/turma/${turmaCriadaId}`}
+              className="mt-1 inline-block font-medium underline"
+            >
+              Abrir a turma criada
+            </Link>
+          )}
+        </div>
       )}
 
       {/* Barra de ação fixa: no celular o formulário é longo, e procurar o botão

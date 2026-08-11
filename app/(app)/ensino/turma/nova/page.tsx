@@ -15,7 +15,7 @@ export default async function NovaTurmaPage() {
   if (!acesso.professor) redirect('/ensino')
 
   const supabase = await createClient()
-  const [cursosRes, candidatos] = await Promise.all([
+  const [cursosRes, candidatos, modelosRes] = await Promise.all([
     supabase
       .from('ensino_cursos')
       .select('id, nome')
@@ -26,8 +26,24 @@ export default async function NovaTurmaPage() {
     // A coordenação já decide na criação quem vai dar aula; o professor comum
     // continua entrando como professor da turma que cria.
     acesso.coordenador ? listarCandidatosProfessor() : Promise.resolve(undefined),
+    // Turmas que podem servir de modelo. Inclusive as concluídas: copiar a
+    // edição do semestre passado é justamente o caso mais comum.
+    supabase
+      .from('ensino_turmas')
+      .select('id, nome, ensino_cursos(nome)')
+      .eq('igreja_id', acesso.igrejaId)
+      .order('criado_em', { ascending: false })
+      .limit(60),
   ])
   const cursos = cursosRes.data
+
+  const modelos = ((modelosRes.data ?? []) as unknown as {
+    id: string; nome: string; ensino_cursos: { nome: string } | null
+  }[]).map((t) => ({
+    id: t.id,
+    nome: t.nome,
+    cursoNome: t.ensino_cursos?.nome ?? 'Sem curso',
+  }))
 
   return (
     <div className="space-y-5 max-w-2xl mx-auto pb-6">
@@ -57,6 +73,7 @@ export default async function NovaTurmaPage() {
         cursos={(cursos ?? []) as { id: string; nome: string }[]}
         candidatos={candidatos}
         professoresIniciais={[{ tipo: 'profile', id: acesso.userId }]}
+        modelos={modelos}
       />
     </div>
   )

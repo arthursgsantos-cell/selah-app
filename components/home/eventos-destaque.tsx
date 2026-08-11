@@ -104,15 +104,18 @@ export function EventosDestaque({ eventos }: Props) {
             href={evento.href ?? `/evento/${evento.slug ?? evento.id}`}
             className="relative w-full shrink-0 snap-center overflow-hidden rounded-2xl shadow-md"
           >
+            {/* 16:9 e não altura fixa: a arte de capa é feita nessa proporção,
+                e uma faixa de 208px cortava as laterais no celular e sobrava
+                no desktop. Com `aspect-video` o banner acompanha a largura. */}
             {evento.capa ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={evento.capa}
                 alt={evento.titulo}
-                className="h-52 w-full object-cover transition-transform duration-500 hover:scale-105"
+                className="aspect-video w-full object-cover transition-transform duration-500 hover:scale-105"
               />
             ) : (
-              <div className="h-52 w-full bg-gradient-to-br from-primary to-primary/60" />
+              <div className="aspect-video w-full bg-gradient-to-br from-primary to-primary/60" />
             )}
 
             {/* Véu escuro: o texto precisa sobreviver a qualquer capa. */}
