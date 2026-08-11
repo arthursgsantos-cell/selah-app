@@ -907,43 +907,73 @@ export function TurmaForm({
           <p className="text-xs text-muted-foreground">
             É a imagem que aparece na lista de turmas e no destaque da home.
           </p>
-          <label
-            htmlFor="capa-turma"
-            className="relative flex flex-col items-center justify-center w-full aspect-[16/9] max-h-56 border-2 border-dashed border-input rounded-xl cursor-pointer overflow-hidden hover:bg-accent/30 transition-colors"
-          >
-            {capaPreview ? (
-              <>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={capaPreview}
-                  alt="Prévia da capa"
-                  className="absolute inset-0 w-full h-full object-cover"
-                />
-                <button
-                  type="button"
-                  onClick={(e) => { e.preventDefault(); removerCapa() }}
-                  aria-label="Remover capa"
-                  className="absolute top-2 right-2 bg-black/60 rounded-full p-1 text-white hover:bg-black/80"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </>
-            ) : (
-              <div className="flex flex-col items-center gap-1 text-muted-foreground pointer-events-none">
-                <ImagePlus className="h-7 w-7" />
-                <span className="text-sm">Clique para importar a capa</span>
-                <span className="text-xs opacity-60">JPG, PNG, WebP · até 5 MB</span>
+
+          {/* A prévia mostra o recorte de verdade, e não uma moldura genérica:
+              a mesma arte é cortada em retrato na lista de turmas e em 16:9 no
+              destaque da home, e sem ver os dois a pessoa só descobre o corte
+              depois de publicar. */}
+          <div className="flex items-start gap-3">
+            <label
+              htmlFor="capa-turma"
+              className="group relative flex w-32 shrink-0 flex-col items-center justify-center aspect-[3/4] border-2 border-dashed border-input rounded-xl cursor-pointer overflow-hidden hover:bg-accent/30 transition-colors sm:w-36"
+            >
+              {capaPreview ? (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={capaPreview}
+                    alt="Prévia da capa na lista de turmas"
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); removerCapa() }}
+                    aria-label="Remover capa"
+                    className="absolute top-1.5 right-1.5 bg-black/60 rounded-full p-1 text-white hover:bg-black/80"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </>
+              ) : (
+                <div className="flex flex-col items-center gap-1 px-2 text-center text-muted-foreground pointer-events-none">
+                  <ImagePlus className="h-6 w-6" />
+                  <span className="text-xs leading-snug">Clique para importar</span>
+                </div>
+              )}
+              <input
+                ref={fileRef}
+                id="capa-turma"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={trocarCapa}
+              />
+            </label>
+
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                No destaque da home
+              </p>
+              <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-border bg-muted">
+                {capaPreview ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={capaPreview}
+                    alt="Prévia da capa no destaque da home"
+                    className="absolute inset-0 h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center px-2 text-center text-[11px] text-muted-foreground/70">
+                    sem capa
+                  </div>
+                )}
               </div>
-            )}
-            <input
-              ref={fileRef}
-              id="capa-turma"
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className="hidden"
-              onChange={trocarCapa}
-            />
-          </label>
+              <p className="text-xs text-muted-foreground leading-snug">
+                À esquerda, o recorte em pé da lista de turmas; aqui, o deitado da
+                home. JPG, PNG ou WebP, até 5 MB.
+              </p>
+            </div>
+          </div>
         </div>
 
         {editando && (
