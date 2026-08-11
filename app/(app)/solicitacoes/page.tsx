@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { Bell, CheckCheck, Inbox, ArrowLeft } from 'lucide-react'
 import { SolicitacaoNotificacaoCard } from '@/components/home/solicitacao-notificacao-card'
 import { SolicitacoesPanel } from '@/components/pastor/solicitacoes-panel'
+import { SolicitacoesGeralPanel, type SolicitacaoGeral } from '@/components/pastor/solicitacoes-geral-panel'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 
@@ -31,7 +32,7 @@ export default async function SolicitacoesPage() {
     const adminClient = createAdminClient()
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const [{ data: todasSolicitacoes }, { data: lideresData }] = await Promise.all([
+    const [{ data: todasSolicitacoes }, { data: lideresData }, { data: pedidosData }] = await Promise.all([
       (adminClient as any)
         .from('solicitacoes_celula')
         .select('id, nome, telefone, email, idade, estado_civil, tem_filhos, filhos_detalhes, bairro, tipo_membro, melhor_dia, status, criado_em, lider_encaminhado_id')
@@ -44,11 +45,19 @@ export default async function SolicitacoesPage() {
         .eq('igreja_id', profile.igreja_id)
         .in('role', ['lider', 'lider_treinamento'])
         .order('nome'),
+      adminClient
+        .from('solicitacoes')
+        .select('id, tipo, nome, telefone, email, dados, mensagem, status, criado_em, responsavel_id')
+        .eq('igreja_id', profile.igreja_id)
+        .in('status', ['pendente', 'em_andamento'])
+        .order('criado_em', { ascending: false }),
     ])
 
     const solicitacoes = (todasSolicitacoes ?? []) as Parameters<typeof SolicitacoesPanel>[0]['solicitacoes']
     const lideres = (lideresData ?? []) as { id: string; nome: string }[]
     const pendentes = solicitacoes.filter((s) => s.status === 'pendente').length
+    const pedidos = (pedidosData ?? []) as unknown as SolicitacaoGeral[]
+    const pedidosNovos = pedidos.filter((p) => p.status === 'pendente').length
 
     return (
       <div className="space-y-6 max-w-2xl mx-auto pb-8">
@@ -64,18 +73,31 @@ export default async function SolicitacoesPage() {
             )}
           </div>
           <div>
-            <h1 className="text-lg font-bold">Solicitações de célula</h1>
+            <h1 className="text-lg font-bold">Solicitações</h1>
             <p className="text-xs text-muted-foreground">
               Todas as solicitações da igreja
-              {pendentes > 0 && (
+              {pendentes + pedidosNovos > 0 && (
                 <span className="ml-1.5 bg-yellow-100 text-yellow-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                  {pendentes} novas
+                  {pendentes + pedidosNovos} novas
                 </span>
               )}
             </p>
           </div>
         </div>
-        <SolicitacoesPanel solicitacoes={solicitacoes} lideres={lideres} />
+
+        <section>
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3">
+            Célula · {solicitacoes.length}
+          </p>
+          <SolicitacoesPanel solicitacoes={solicitacoes} lideres={lideres} />
+        </section>
+
+        <section>
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3">
+            Voluntariado e membresia · {pedidos.length}
+          </p>
+          <SolicitacoesGeralPanel solicitacoes={pedidos} />
+        </section>
       </div>
     )
   }

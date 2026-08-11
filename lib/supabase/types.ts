@@ -25,6 +25,26 @@ export type TipoImportacao =
   | 'lanche'
 export type StatusImportacao = 'importado' | 'ignorado' | 'pendente' | 'erro'
 export type TipoSecaoEvento = 'inscricao' | 'botoes' | 'cards' | 'video' | 'fotos'
+/** Pedidos que chegam pela home pública, na tabela `solicitacoes`. */
+export type TipoSolicitacao = 'voluntario' | 'membresia'
+export type StatusSolicitacao = 'pendente' | 'em_andamento' | 'atendido' | 'arquivado'
+
+// --- Consolidação ---------------------------------------------------------
+/**
+ * Etapa da pessoa acolhida. A ordem importa: o funil da página
+ * `/consolidacao` é desenhado nesta sequência, e `afastado` fica de fora dela
+ * de propósito — é saída, não etapa seguinte.
+ */
+export type EtapaConsolidacao =
+  | 'acolhido'
+  | 'atribuido'
+  | 'em_acompanhamento'
+  | 'integrado'
+  | 'afastado'
+export type OrigemConsolidacao = 'culto' | 'celula' | 'evento' | 'indicacao' | 'outro'
+export type DecisaoConsolidacao = 'aceitou_jesus' | 'reconciliacao' | 'visitante'
+export type CanalContato = 'whatsapp' | 'ligacao' | 'presencial' | 'outro'
+export type ResultadoContato = 'falou' | 'sem_resposta' | 'remarcado'
 
 // --- Ensino ---------------------------------------------------------------
 /**
@@ -107,6 +127,18 @@ export type Database = {
           youtube_url: string | null
           pastor_nome: string | null
           pastor_titulo: string | null
+          spotify_url: string | null
+          // Contribuição — o QR de dízimo é montado a partir da chave.
+          pix_chave: string | null
+          pix_tipo: TipoChavePix | null
+          pix_nome: string | null
+          pix_cidade: string | null
+          contribuicao_texto: string | null
+          dados_bancarios: string | null
+          contribuicao_ativa: boolean
+          // Transmissão do culto. `ao_vivo_ativo` é chave de mão da liderança.
+          ao_vivo_url: string | null
+          ao_vivo_ativo: boolean
           // Aparência da página inicial. `fundo_tipo` nulo = fundo padrão do app.
           cor: string | null
           cor_secundaria: string | null
@@ -134,6 +166,16 @@ export type Database = {
           youtube_url?: string | null
           pastor_nome?: string | null
           pastor_titulo?: string | null
+          spotify_url?: string | null
+          pix_chave?: string | null
+          pix_tipo?: TipoChavePix | null
+          pix_nome?: string | null
+          pix_cidade?: string | null
+          contribuicao_texto?: string | null
+          dados_bancarios?: string | null
+          contribuicao_ativa?: boolean
+          ao_vivo_url?: string | null
+          ao_vivo_ativo?: boolean
           cor?: string | null
           cor_secundaria?: string | null
           fundo_tipo?: string | null
@@ -160,6 +202,16 @@ export type Database = {
           youtube_url?: string | null
           pastor_nome?: string | null
           pastor_titulo?: string | null
+          spotify_url?: string | null
+          pix_chave?: string | null
+          pix_tipo?: TipoChavePix | null
+          pix_nome?: string | null
+          pix_cidade?: string | null
+          contribuicao_texto?: string | null
+          dados_bancarios?: string | null
+          contribuicao_ativa?: boolean
+          ao_vivo_url?: string | null
+          ao_vivo_ativo?: boolean
           cor?: string | null
           cor_secundaria?: string | null
           fundo_tipo?: string | null
@@ -394,6 +446,8 @@ export type Database = {
           local_padrao: string | null
           lider_nome: string | null
           ativa: boolean
+          celula_mae_id: string | null
+          multiplicacao_prevista: string | null
           created_at: string
         }
         Insert: {
@@ -419,6 +473,8 @@ export type Database = {
           local_padrao?: string | null
           lider_nome?: string | null
           ativa?: boolean
+          celula_mae_id?: string | null
+          multiplicacao_prevista?: string | null
           created_at?: string
         }
         Update: {
@@ -444,6 +500,8 @@ export type Database = {
           local_padrao?: string | null
           lider_nome?: string | null
           ativa?: boolean
+          celula_mae_id?: string | null
+          multiplicacao_prevista?: string | null
           created_at?: string
         }
         Relationships: [
@@ -951,6 +1009,57 @@ export type Database = {
           evento_id?: string
           user_id?: string
           resposta?: 'vou' | 'nao_vou'
+        }
+        Relationships: []
+      }
+      solicitacoes: {
+        Row: {
+          id: string
+          igreja_id: string
+          user_id: string | null
+          tipo: TipoSolicitacao
+          nome: string
+          telefone: string
+          email: string
+          dados: Record<string, unknown>
+          mensagem: string | null
+          status: StatusSolicitacao
+          responsavel_id: string | null
+          observacao: string | null
+          criado_em: string
+          atualizado_em: string
+        }
+        Insert: {
+          id?: string
+          igreja_id: string
+          user_id?: string | null
+          tipo: TipoSolicitacao
+          nome: string
+          telefone: string
+          email: string
+          dados?: Record<string, unknown>
+          mensagem?: string | null
+          status?: StatusSolicitacao
+          responsavel_id?: string | null
+          observacao?: string | null
+          criado_em?: string
+          atualizado_em?: string
+        }
+        Update: {
+          id?: string
+          igreja_id?: string
+          user_id?: string | null
+          tipo?: TipoSolicitacao
+          nome?: string
+          telefone?: string
+          email?: string
+          dados?: Record<string, unknown>
+          mensagem?: string | null
+          status?: StatusSolicitacao
+          responsavel_id?: string | null
+          observacao?: string | null
+          criado_em?: string
+          atualizado_em?: string
         }
         Relationships: []
       }
@@ -1915,6 +2024,150 @@ export type Database = {
         }
         Relationships: []
       }
+      consolidacao: {
+        Row: {
+          id: string
+          igreja_id: string
+          nome: string
+          telefone: string | null
+          origem: OrigemConsolidacao
+          encontro_id: string | null
+          decisao: DecisaoConsolidacao | null
+          celula_id: string | null
+          responsavel_id: string | null
+          profile_id: string | null
+          etapa: EtapaConsolidacao
+          observacao: string | null
+          data_acolhimento: string
+          criado_por: string | null
+          criado_em: string
+          atualizado_em: string
+        }
+        Insert: {
+          id?: string
+          igreja_id: string
+          nome: string
+          telefone?: string | null
+          origem?: OrigemConsolidacao
+          encontro_id?: string | null
+          decisao?: DecisaoConsolidacao | null
+          celula_id?: string | null
+          responsavel_id?: string | null
+          profile_id?: string | null
+          etapa?: EtapaConsolidacao
+          observacao?: string | null
+          data_acolhimento?: string
+          criado_por?: string | null
+          criado_em?: string
+          atualizado_em?: string
+        }
+        Update: {
+          id?: string
+          igreja_id?: string
+          nome?: string
+          telefone?: string | null
+          origem?: OrigemConsolidacao
+          encontro_id?: string | null
+          decisao?: DecisaoConsolidacao | null
+          celula_id?: string | null
+          responsavel_id?: string | null
+          profile_id?: string | null
+          etapa?: EtapaConsolidacao
+          observacao?: string | null
+          data_acolhimento?: string
+          criado_por?: string | null
+          criado_em?: string
+          atualizado_em?: string
+        }
+        Relationships: []
+      }
+      consolidacao_contatos: {
+        Row: {
+          id: string
+          consolidacao_id: string
+          autor_id: string | null
+          canal: CanalContato
+          resultado: ResultadoContato
+          nota: string | null
+          data: string
+          criado_em: string
+        }
+        Insert: {
+          id?: string
+          consolidacao_id: string
+          autor_id?: string | null
+          canal?: CanalContato
+          resultado?: ResultadoContato
+          nota?: string | null
+          data?: string
+          criado_em?: string
+        }
+        Update: {
+          id?: string
+          consolidacao_id?: string
+          autor_id?: string | null
+          canal?: CanalContato
+          resultado?: ResultadoContato
+          nota?: string | null
+          data?: string
+          criado_em?: string
+        }
+        Relationships: []
+      }
+      supervisoes: {
+        Row: {
+          id: string
+          rede_id: string
+          celula_id: string | null
+          supervisor_id: string | null
+          data: string
+          pauta: string | null
+          encaminhamentos: string | null
+          criado_por: string | null
+          criado_em: string
+        }
+        Insert: {
+          id?: string
+          rede_id: string
+          celula_id?: string | null
+          supervisor_id?: string | null
+          data?: string
+          pauta?: string | null
+          encaminhamentos?: string | null
+          criado_por?: string | null
+          criado_em?: string
+        }
+        Update: {
+          id?: string
+          rede_id?: string
+          celula_id?: string | null
+          supervisor_id?: string | null
+          data?: string
+          pauta?: string | null
+          encaminhamentos?: string | null
+          criado_por?: string | null
+          criado_em?: string
+        }
+        Relationships: []
+      }
+      supervisao_participantes: {
+        Row: {
+          supervisao_id: string
+          user_id: string
+          presente: boolean
+        }
+        Insert: {
+          supervisao_id: string
+          user_id: string
+          presente?: boolean
+        }
+        Update: {
+          supervisao_id?: string
+          user_id?: string
+          presente?: boolean
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -1943,6 +2196,38 @@ export type Database = {
       ensino_inscrito: {
         Args: { p_turma_id: string }
         Returns: boolean
+      }
+      consolidacao_pode: {
+        Args: { p_celula_id: string; p_responsavel_id: string }
+        Returns: boolean
+      }
+      supervisiona_rede: {
+        Args: { p_rede_id: string }
+        Returns: boolean
+      }
+      saude_celulas: {
+        Args: { p_celula_ids: string[] }
+        Returns: {
+          celula_id: string
+          ultimo_encontro: string | null
+          encontros_90d: number
+          media_presenca: number | null
+          ultima_supervisao: string | null
+        }[]
+      }
+      presenca_serie: {
+        Args: {
+          p_celula_ids: string[]
+          p_granularidade?: string
+          p_periodos?: number
+        }
+        Returns: {
+          inicio: string
+          encontros: number
+          membros: number
+          conjuges: number
+          visitantes: number
+        }[]
       }
     }
     Enums: {
@@ -1975,3 +2260,6 @@ export type EnsinoAula = Tables<'ensino_aulas'>
 export type EnsinoPresenca = Tables<'ensino_presencas'>
 export type EnsinoProgresso = Tables<'ensino_progresso'>
 export type EnsinoMaterial = Tables<'ensino_materiais'>
+export type Consolidacao = Tables<'consolidacao'>
+export type ConsolidacaoContato = Tables<'consolidacao_contatos'>
+export type Supervisao = Tables<'supervisoes'>

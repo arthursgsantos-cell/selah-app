@@ -13,9 +13,19 @@ import { ImportacaoSection, type RegistroImportacao } from '@/components/pastor/
 import { IgrejaLogoUpload } from '@/components/pastor/igreja-logo-upload'
 import { IgrejaInfoForm } from '@/components/pastor/igreja-info-form'
 import { SolicitacoesPanel } from '@/components/pastor/solicitacoes-panel'
+import { SolicitacoesGeralPanel, type SolicitacaoGeral } from '@/components/pastor/solicitacoes-geral-panel'
 import { GaleriaComunidadeSection } from '@/components/pastor/galeria-comunidade-section'
+import { carregarSaudeRede, type Granularidade } from '@/lib/saude-rede'
+import { SaudeAlertas } from '@/components/rede/saude-alertas'
+import { PresencaHistorico } from '@/components/rede/presenca-historico'
 
-export default async function PastorPage() {
+const GRANULARIDADES: Granularidade[] = ['semana', 'mes', 'ano']
+
+export default async function PastorPage({
+  searchParams,
+}: {
+  searchParams: { periodo?: string }
+}) {
   const supabase = await createClient()
 
   const {
@@ -59,8 +69,9 @@ export default async function PastorPage() {
     { data: fotosData },
     { data: encontroFotosData },
     { data: importacoesData },
+    { data: pedidosData },
   ] = await Promise.all([
-    supabase.from('igrejas').select('nome, logo_url, descricao, horario_culto, endereco, fundada_em, instagram_url, facebook_url, youtube_url, pastor_nome, pastor_titulo').eq('id', profile.igreja_id).single(),
+    supabase.from('igrejas').select('nome, logo_url, descricao, horario_culto, endereco, fundada_em, instagram_url, facebook_url, youtube_url, spotify_url, pastor_nome, pastor_titulo, pix_chave, pix_tipo, pix_nome, pix_cidade, contribuicao_texto, dados_bancarios, contribuicao_ativa, ao_vivo_url, ao_vivo_ativo').eq('id', profile.igreja_id).single(),
     supabase.from('redes').select('id, nome, descricao, cor').eq('igreja_id', profile.igreja_id).order('nome'),
     supabase
       .from('profiles')
@@ -104,7 +115,19 @@ export default async function PastorPage() {
       .eq('igreja_id', profile.igreja_id)
       .order('importado_em', { ascending: false })
       .limit(100),
+    // Voluntariado e membresia. Atendido e arquivado ficam de fora: o painel
+    // é fila de trabalho, não arquivo morto.
+    admin
+      .from('solicitacoes')
+      .select('id, tipo, nome, telefone, email, dados, mensagem, status, criado_em, responsavel_id')
+      .eq('igreja_id', profile.igreja_id)
+      .in('status', ['pendente', 'em_andamento'])
+      .order('criado_em', { ascending: false })
+      .limit(50),
   ])
+
+  const pedidos = (pedidosData ?? []) as unknown as SolicitacaoGeral[]
+  const pedidosNovos = pedidos.filter((p) => p.status === 'pendente').length
 
   // Quem publicou cada resumo: os importados da planilha trazem o nome escrito
   // lá (`publicado_por`); os publicados pelo app guardam só o uuid de quem
@@ -141,6 +164,13 @@ export default async function PastorPage() {
   const celulas = (celulasData ?? []) as CelulaBasic[]
   const totalRedes = (redes ?? []).length
   const totalCelulas = celulas.filter((c) => c.ativa).length
+
+  const periodo = GRANULARIDADES.includes(searchParams.periodo as Granularidade)
+    ? (searchParams.periodo as Granularidade)
+    : 'semana'
+
+  // Pastor enxerga a igreja inteira: todas as redes de uma vez.
+  const saude = await carregarSaudeRede(redeIds, periodo)
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
@@ -189,6 +219,26 @@ export default async function PastorPage() {
         </Card>
       </div>
 
+      {/* Saúde da rede — a igreja inteira, não uma rede só */}
+      <section>
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
+          Precisam de atenção
+        </p>
+        <SaudeAlertas
+          inatingiveis={saude.inatingiveis}
+          semSupervisao={saude.semSupervisao}
+          multiplicandoEmBreve={saude.multiplicandoEmBreve}
+          totalCelulas={saude.celulas.length}
+        />
+      </section>
+
+      <section>
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
+          Histórico
+        </p>
+        <PresencaHistorico serie={saude.serie} granularidade={periodo} basePath="/pastor" />
+      </section>
+
       {/* Informações da igreja */}
       <IgrejaInfoForm
         igrejaId={profile.igreja_id}
@@ -201,8 +251,18 @@ export default async function PastorPage() {
           instagram_url: (igreja as any)?.instagram_url ?? null,
           facebook_url: (igreja as any)?.facebook_url ?? null,
           youtube_url: (igreja as any)?.youtube_url ?? null,
+          spotify_url: (igreja as any)?.spotify_url ?? null,
           pastor_nome: (igreja as any)?.pastor_nome ?? null,
           pastor_titulo: (igreja as any)?.pastor_titulo ?? null,
+          pix_chave: (igreja as any)?.pix_chave ?? null,
+          pix_tipo: (igreja as any)?.pix_tipo ?? null,
+          pix_nome: (igreja as any)?.pix_nome ?? null,
+          pix_cidade: (igreja as any)?.pix_cidade ?? null,
+          contribuicao_texto: (igreja as any)?.contribuicao_texto ?? null,
+          dados_bancarios: (igreja as any)?.dados_bancarios ?? null,
+          contribuicao_ativa: (igreja as any)?.contribuicao_ativa ?? false,
+          ao_vivo_url: (igreja as any)?.ao_vivo_url ?? null,
+          ao_vivo_ativo: (igreja as any)?.ao_vivo_ativo ?? false,
         }}
       />
 
@@ -241,6 +301,19 @@ export default async function PastorPage() {
             Ver mais {(solicitacoesData ?? []).length - 3} solicitações
           </Link>
         )}
+      </section>
+
+      {/* Voluntariado e membresia */}
+      <section>
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
+          Voluntariado e membresia
+          {pedidosNovos > 0 && (
+            <span className="ml-2 bg-yellow-100 text-yellow-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+              {pedidosNovos} {pedidosNovos === 1 ? 'novo' : 'novos'}
+            </span>
+          )}
+        </p>
+        <SolicitacoesGeralPanel solicitacoes={pedidos} />
       </section>
 
       {/* Galeria da comunidade */}

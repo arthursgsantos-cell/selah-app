@@ -30,9 +30,11 @@ export async function middleware(request: NextRequest) {
   const isCallback = path.startsWith('/auth/')
   const isStatic = path.startsWith('/_next') || path === '/favicon.ico' || path.includes('.')
   const isLanding = path === '/'
-  // /home, a galeria e as páginas de rede e evento têm view de visitante
+  // /home, a galeria, a contribuição e as páginas de rede e evento têm view de
+  // visitante. /contribuir é o caso mais forte: é o link que vai no telão e na
+  // bio, e ninguém vai criar conta para entregar o dízimo.
   const isPublicPage =
-    path === '/home' || path === '/galeria' ||
+    path === '/home' || path === '/galeria' || path === '/contribuir' ||
     path.startsWith('/rede/') || path.startsWith('/evento/')
 
   if (isStatic || isCallback) return supabaseResponse

@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 
+import type { TipoChavePix } from '@/lib/supabase/types'
+
 type InfoIgrejaData = {
   nome?: string
   descricao?: string
@@ -13,8 +15,21 @@ type InfoIgrejaData = {
   instagram_url?: string
   facebook_url?: string
   youtube_url?: string
+  spotify_url?: string
   pastor_nome?: string
   pastor_titulo?: string
+  // Contribuição e transmissão. Campos de texto usam `null` para apagar: o
+  // formulário manda string vazia quando a liderança limpa o campo, e
+  // `undefined` deixaria o valor antigo no banco.
+  pix_chave?: string | null
+  pix_tipo?: TipoChavePix | null
+  pix_nome?: string | null
+  pix_cidade?: string | null
+  contribuicao_texto?: string | null
+  dados_bancarios?: string | null
+  contribuicao_ativa?: boolean
+  ao_vivo_url?: string | null
+  ao_vivo_ativo?: boolean
 }
 
 export async function atualizarInfoIgrejaAction(
@@ -35,6 +50,12 @@ export async function atualizarInfoIgrejaAction(
   if (!['pastor', 'admin'].includes(profile.role)) return { sucesso: false, erro: 'Sem permissão' }
   if (profile.igreja_id !== igrejaId) return { sucesso: false, erro: 'Sem permissão' }
 
+  // Chave sem tipo (ou tipo sem chave) gera um QR que o banco recusa. Barra
+  // aqui em vez de deixar a página de contribuição publicar um código quebrado.
+  if (data.contribuicao_ativa && (!data.pix_chave?.trim() || !data.pix_tipo)) {
+    return { sucesso: false, erro: 'Para ativar a contribuição, informe a chave PIX e o tipo dela.' }
+  }
+
   const admin = createAdminClient()
   const { error } = await admin.from('igrejas').update(data).eq('id', igrejaId)
   if (error) return { sucesso: false, erro: error.message }
@@ -42,6 +63,7 @@ export async function atualizarInfoIgrejaAction(
   revalidatePath('/pastor')
   revalidatePath('/')
   revalidatePath('/home')
+  revalidatePath('/contribuir')
 
   return { sucesso: true }
 }

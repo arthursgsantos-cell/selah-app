@@ -8,6 +8,7 @@ import {
   History,
   ClipboardList,
   GraduationCap,
+  HandCoins,
   type LucideIcon,
 } from 'lucide-react'
 import type { Role } from '@/lib/supabase/types'
@@ -30,6 +31,7 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: '/home',   label: 'Início',       icon: Home,  minRole: null },
       { href: '/celula', label: 'Minha célula',  icon: Users, minRole: null },
+      { href: '/contribuir', label: 'Dízimos e ofertas', icon: HandCoins, minRole: null },
     ],
   },
   {
