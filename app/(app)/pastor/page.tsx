@@ -15,7 +15,9 @@ import { IgrejaInfoForm } from '@/components/pastor/igreja-info-form'
 import { SolicitacoesPanel } from '@/components/pastor/solicitacoes-panel'
 import { SolicitacoesGeralPanel, type SolicitacaoGeral } from '@/components/pastor/solicitacoes-geral-panel'
 import { GaleriaComunidadeSection } from '@/components/pastor/galeria-comunidade-section'
-import { carregarSaudeRede, type Granularidade } from '@/lib/saude-rede'
+import { carregarSaudeRede, carregarSupervisoes, type Granularidade } from '@/lib/saude-rede'
+import { RegistrarSupervisao } from '@/components/rede/registrar-supervisao'
+import { SupervisoesHistorico } from '@/components/rede/supervisoes-historico'
 import { SaudeAlertas } from '@/components/rede/saude-alertas'
 import { PresencaHistorico } from '@/components/rede/presenca-historico'
 
@@ -156,10 +158,10 @@ export default async function PastorPage({
   const redeIds = (redes ?? []).map((r) => r.id)
 
   const { data: celulasData } = redeIds.length > 0
-    ? await supabase.from('celulas').select('id, rede_id, ativa').in('rede_id', redeIds)
+    ? await supabase.from('celulas').select('id, rede_id, nome, ativa').in('rede_id', redeIds)
     : { data: [] }
 
-  type CelulaBasic = { id: string; rede_id: string; ativa: boolean }
+  type CelulaBasic = { id: string; rede_id: string; nome: string; ativa: boolean }
 
   const celulas = (celulasData ?? []) as CelulaBasic[]
   const totalRedes = (redes ?? []).length
@@ -170,7 +172,10 @@ export default async function PastorPage({
     : 'semana'
 
   // Pastor enxerga a igreja inteira: todas as redes de uma vez.
-  const saude = await carregarSaudeRede(redeIds, periodo)
+  const [saude, supervisoes] = await Promise.all([
+    carregarSaudeRede(redeIds, periodo),
+    carregarSupervisoes(redeIds),
+  ])
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
@@ -237,6 +242,22 @@ export default async function PastorPage({
           Histórico
         </p>
         <PresencaHistorico serie={saude.serie} granularidade={periodo} basePath="/pastor" />
+      </section>
+
+      {/* Reuniões de supervisão de toda a igreja */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+            Supervisões
+          </p>
+          <RegistrarSupervisao
+            redes={(redes ?? []).map((r) => ({ id: r.id, nome: r.nome }))}
+            celulas={celulas
+              .filter((c) => c.ativa)
+              .map((c) => ({ id: c.id, nome: c.nome, redeId: c.rede_id }))}
+          />
+        </div>
+        <SupervisoesHistorico supervisoes={supervisoes} podeExcluir />
       </section>
 
       {/* Informações da igreja */}

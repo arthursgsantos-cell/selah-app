@@ -1,7 +1,12 @@
+'use client'
+
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { WhatsAppIcon } from '@/components/ui/whatsapp-icon'
-import { AlertTriangle, CheckCircle2, ChevronRight, GitBranch, UserCheck } from 'lucide-react'
+import {
+  AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, GitBranch, UserCheck,
+} from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import type { CelulaSaude } from '@/lib/saude-rede'
@@ -14,6 +19,17 @@ interface Props {
   totalCelulas: number
 }
 
+/**
+ * Linhas por página.
+ *
+ * Numa igreja que começou a registrar agora, "sem registro" pega quase todas
+ * as células — e quarenta e cinco linhas seguidas não dizem por onde começar.
+ * A lista mostra um punhado por vez, na ordem do mais silencioso para o menos.
+ */
+const POR_PAGINA = 8
+
+type ChaveAba = 'registro' | 'supervisao' | 'multiplicacao'
+
 function whatsappLink(telefone: string, nome: string | null) {
   const num = telefone.replace(/\D/g, '')
   const full = num.startsWith('55') ? num : `55${num}`
@@ -24,7 +40,7 @@ function whatsappLink(telefone: string, nome: string | null) {
   return `https://wa.me/${full}?text=${msg}`
 }
 
-/** "3 semanas sem registro", "nunca registrou". */
+/** "3 semanas sem registro", "nunca registrou encontro". */
 function silencio(c: CelulaSaude): string {
   if (c.semanasSemRegistro === null) return 'nunca registrou encontro'
   if (c.semanasSemRegistro === 0) return 'registrou esta semana'
@@ -42,7 +58,7 @@ function LinhaCelula({
 }) {
   return (
     <div className="flex items-center gap-3 py-2.5 border-b border-border last:border-0">
-      <div
+      <span
         className="h-1.5 w-1.5 rounded-full shrink-0"
         style={{ backgroundColor: urgente ? '#ef4444' : celula.redeCor }}
       />
@@ -69,34 +85,13 @@ function LinhaCelula({
   )
 }
 
-function Bloco({
-  titulo,
-  icone,
-  children,
-}: {
-  titulo: React.ReactNode
-  icone: React.ReactNode
-  children: React.ReactNode
-}) {
-  return (
-    <Card>
-      <CardContent className="py-3 px-4">
-        <div className="flex items-center gap-2 mb-1">
-          {icone}
-          <p className="text-sm font-semibold">{titulo}</p>
-        </div>
-        {children}
-      </CardContent>
-    </Card>
-  )
-}
-
 /**
  * Onde o supervisor olha primeiro.
  *
- * As três listas respondem perguntas diferentes e por isso não viram uma só:
- * quem parou de dar sinal, quem está há tempo demais sem ser visitado, e quem
- * tem multiplicação chegando. Uma célula pode aparecer em mais de uma.
+ * As três listas respondem perguntas diferentes e por isso são abas, e não uma
+ * lista só: quem parou de dar sinal, quem está há tempo demais sem ser
+ * visitado, e quem tem multiplicação chegando. Uma célula pode aparecer em
+ * mais de uma.
  */
 export function SaudeAlertas({
   inatingiveis,
@@ -104,96 +99,184 @@ export function SaudeAlertas({
   multiplicandoEmBreve,
   totalCelulas,
 }: Props) {
-  const tudoEmDia =
-    inatingiveis.length === 0 && semSupervisao.length === 0 && multiplicandoEmBreve.length === 0
+  const hoje = new Date().toISOString().slice(0, 10)
 
-  if (tudoEmDia) {
+  const abas = useMemo(
+    () => [
+      {
+        chave: 'registro' as const,
+        rotulo: 'Sem registro',
+        icone: <AlertTriangle className="h-4 w-4 text-red-500" />,
+        celulas: inatingiveis,
+        urgente: true,
+        ajuda: 'Não quer dizer que a célula parou — quer dizer que ninguém sabe.',
+        vazio: `As ${totalCelulas} células registraram encontro recente.`,
+        detalhe: silencio,
+      },
+      {
+        chave: 'supervisao' as const,
+        rotulo: 'Sem supervisão',
+        icone: <UserCheck className="h-4 w-4 text-amber-500" />,
+        celulas: semSupervisao,
+        urgente: false,
+        ajuda: 'Faz tempo demais que ninguém senta com estes líderes.',
+        vazio: 'Nenhuma célula esperando supervisão.',
+        detalhe: (c: CelulaSaude) =>
+          c.diasSemSupervisao === null
+            ? 'nenhuma reunião registrada'
+            : `há ${c.diasSemSupervisao} dias`,
+      },
+      {
+        chave: 'multiplicacao' as const,
+        rotulo: 'Multiplicação',
+        icone: <GitBranch className="h-4 w-4 text-primary" />,
+        celulas: multiplicandoEmBreve,
+        urgente: false,
+        ajuda: 'Data-alvo combinada chegando ou já vencida.',
+        vazio: 'Nenhuma multiplicação prevista para os próximos 90 dias.',
+        detalhe: (c: CelulaSaude) => {
+          const data = c.multiplicacaoPrevista!
+          const vencida = data < hoje
+          const quando = format(new Date(`${data}T12:00:00`), "d 'de' MMMM", { locale: ptBR })
+          return `${vencida ? `prevista para ${quando} — já passou` : `prevista ${quando}`}`
+        },
+      },
+    ],
+    [inatingiveis, semSupervisao, multiplicandoEmBreve, totalCelulas, hoje]
+  )
+
+  // Abre na primeira aba que tem o que mostrar: cair numa aba vazia esconderia
+  // justamente o que precisa de atenção.
+  const primeiraComItem = abas.find((a) => a.celulas.length > 0)?.chave ?? 'registro'
+  const [ativa, setAtiva] = useState<ChaveAba>(primeiraComItem)
+  const [pagina, setPagina] = useState(0)
+
+  const aba = abas.find((a) => a.chave === ativa) ?? abas[0]
+  const totalPaginas = Math.max(1, Math.ceil(aba.celulas.length / POR_PAGINA))
+  // A página pode ficar fora do intervalo quando os dados mudam sob os pés
+  // (revalidação depois de registrar uma supervisão, por exemplo).
+  const paginaAtual = Math.min(pagina, totalPaginas - 1)
+  const visiveis = aba.celulas.slice(paginaAtual * POR_PAGINA, (paginaAtual + 1) * POR_PAGINA)
+
+  function trocarAba(chave: ChaveAba) {
+    setAtiva(chave)
+    setPagina(0)
+  }
+
+  if (abas.every((a) => a.celulas.length === 0)) {
     return (
       <Card>
         <CardContent className="py-6 text-center">
           <CheckCircle2 className="h-8 w-8 text-green-500/60 mx-auto mb-2" />
           <p className="text-sm font-medium">Rede em dia</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Todas as {totalCelulas} células registraram encontro recente
+            Nada pedindo atenção entre as {totalCelulas} células
           </p>
         </CardContent>
       </Card>
     )
   }
 
-  const hoje = new Date().toISOString().slice(0, 10)
-
   return (
-    <div className="space-y-3">
-      {inatingiveis.length > 0 && (
-        <Bloco
-          icone={<AlertTriangle className="h-4 w-4 text-red-500" />}
-          titulo={
-            <>
-              Sem registro de encontro
-              <span className="ml-2 bg-red-100 text-red-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                {inatingiveis.length} de {totalCelulas}
+    <Card>
+      <CardContent className="px-0 py-0">
+        {/* Abas. Rolam na horizontal no celular em vez de quebrar linha. */}
+        <div
+          role="tablist"
+          className="flex gap-1 overflow-x-auto border-b border-border px-2 pt-2"
+        >
+          {abas.map((a) => (
+            <button
+              key={a.chave}
+              type="button"
+              role="tab"
+              aria-selected={a.chave === ativa}
+              onClick={() => trocarAba(a.chave)}
+              className={`flex shrink-0 items-center gap-1.5 rounded-t-lg px-3 py-2 text-sm transition-colors ${
+                a.chave === ativa
+                  ? 'border-b-2 border-primary font-semibold text-foreground'
+                  : 'border-b-2 border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {a.rotulo}
+              <span
+                className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                  a.celulas.length === 0
+                    ? 'bg-muted text-muted-foreground'
+                    : a.urgente
+                      ? 'bg-red-100 text-red-700'
+                      : 'bg-amber-100 text-amber-700'
+                }`}
+              >
+                {a.celulas.length}
               </span>
-            </>
-          }
-        >
-          <p className="text-xs text-muted-foreground mb-1">
-            Não quer dizer que a célula parou — quer dizer que ninguém sabe.
-          </p>
-          {inatingiveis.map((c) => (
-            <LinhaCelula key={c.id} celula={c} detalhe={silencio(c)} urgente />
+            </button>
           ))}
-        </Bloco>
-      )}
+        </div>
 
-      {semSupervisao.length > 0 && (
-        <Bloco
-          icone={<UserCheck className="h-4 w-4 text-amber-500" />}
-          titulo={
+        <div className="px-4 py-3">
+          {aba.celulas.length === 0 ? (
+            <div className="py-6 text-center">
+              <CheckCircle2 className="h-7 w-7 text-green-500/50 mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">{aba.vazio}</p>
+            </div>
+          ) : (
             <>
-              Sem supervisão registrada
-              <span className="ml-2 bg-amber-100 text-amber-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                {semSupervisao.length}
-              </span>
-            </>
-          }
-        >
-          {semSupervisao.map((c) => (
-            <LinhaCelula
-              key={c.id}
-              celula={c}
-              detalhe={
-                c.diasSemSupervisao === null
-                  ? 'nenhuma reunião registrada'
-                  : `há ${c.diasSemSupervisao} dias`
-              }
-            />
-          ))}
-        </Bloco>
-      )}
+              <p className="mb-1 flex items-start gap-1.5 text-xs text-muted-foreground">
+                <span className="mt-0.5 shrink-0">{aba.icone}</span>
+                <span>
+                  {aba.ajuda}
+                  {aba.chave === 'registro' && (
+                    <> <strong>{aba.celulas.length} de {totalCelulas}</strong> células.</>
+                  )}
+                </span>
+              </p>
 
-      {multiplicandoEmBreve.length > 0 && (
-        <Bloco
-          icone={<GitBranch className="h-4 w-4 text-primary" />}
-          titulo="Multiplicação chegando"
-        >
-          {multiplicandoEmBreve.map((c) => {
-            const data = c.multiplicacaoPrevista!
-            const vencida = data < hoje
-            return (
-              <LinhaCelula
-                key={c.id}
-                celula={c}
-                detalhe={`${vencida ? 'prevista para' : 'prevista'} ${format(
-                  new Date(`${data}T12:00:00`),
-                  "d 'de' MMMM",
-                  { locale: ptBR },
-                )}${vencida ? ' — já passou' : ''}`}
-              />
-            )
-          })}
-        </Bloco>
-      )}
-    </div>
+              {visiveis.map((c) => (
+                <LinhaCelula
+                  key={c.id}
+                  celula={c}
+                  detalhe={aba.detalhe(c)}
+                  urgente={aba.urgente}
+                />
+              ))}
+
+              {totalPaginas > 1 && (
+                <div className="flex items-center justify-between pt-3">
+                  <p className="text-xs text-muted-foreground">
+                    {paginaAtual * POR_PAGINA + 1}–
+                    {Math.min((paginaAtual + 1) * POR_PAGINA, aba.celulas.length)} de{' '}
+                    {aba.celulas.length}
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setPagina(paginaAtual - 1)}
+                      disabled={paginaAtual === 0}
+                      aria-label="Página anterior"
+                      className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted disabled:opacity-30 disabled:hover:bg-transparent"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <span className="text-xs tabular-nums text-muted-foreground">
+                      {paginaAtual + 1}/{totalPaginas}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setPagina(paginaAtual + 1)}
+                      disabled={paginaAtual >= totalPaginas - 1}
+                      aria-label="Próxima página"
+                      className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted disabled:opacity-30 disabled:hover:bg-transparent"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   )
 }

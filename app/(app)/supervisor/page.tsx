@@ -19,9 +19,11 @@ import {
   type EscalaRowBanco,
 } from '@/lib/calendario-celula'
 import type { Frequencia } from '@/lib/supabase/types'
-import { carregarSaudeRede, type Granularidade } from '@/lib/saude-rede'
+import { carregarSaudeRede, carregarSupervisoes, type Granularidade } from '@/lib/saude-rede'
 import { SaudeAlertas } from '@/components/rede/saude-alertas'
 import { PresencaHistorico } from '@/components/rede/presenca-historico'
+import { RegistrarSupervisao } from '@/components/rede/registrar-supervisao'
+import { SupervisoesHistorico } from '@/components/rede/supervisoes-historico'
 
 type RedeRow = { id: string; nome: string; descricao: string | null; cor: string }
 
@@ -220,7 +222,10 @@ export default async function SupervisorPage({
     ? (searchParams.periodo as Granularidade)
     : 'semana'
 
-  const saude = await carregarSaudeRede(redeIds, periodo)
+  const [saude, supervisoes] = await Promise.all([
+    carregarSaudeRede(redeIds, periodo),
+    carregarSupervisoes(redeIds),
+  ])
 
   const q = (searchParams.q ?? '').toLowerCase().trim()
   const redesFiltradas = q ? redes.filter((r) => r.nome.toLowerCase().includes(q)) : redes
@@ -277,6 +282,20 @@ export default async function SupervisorPage({
           Histórico
         </p>
         <PresencaHistorico serie={saude.serie} granularidade={periodo} basePath="/supervisor" />
+      </section>
+
+      {/* Reuniões de supervisão */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+            Supervisões
+          </p>
+          <RegistrarSupervisao
+            redes={redes.map((r) => ({ id: r.id, nome: r.nome }))}
+            celulas={celulas.map((c) => ({ id: c.id, nome: c.nome, redeId: c.rede_id }))}
+          />
+        </div>
+        <SupervisoesHistorico supervisoes={supervisoes} podeExcluir />
       </section>
 
       {/* Calendário da rede */}

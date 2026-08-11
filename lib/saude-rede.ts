@@ -230,9 +230,18 @@ export async function carregarSaudeRede(
     .filter((c) => c.inatingivel)
     .sort((a, b) => (b.semanasSemRegistro ?? 9999) - (a.semanasSemRegistro ?? 9999))
 
-  const semSupervisao = lista
-    .filter((c) => c.diasSemSupervisao === null || c.diasSemSupervisao >= DIAS_SEM_SUPERVISAO_ALERTA)
-    .sort((a, b) => (b.diasSemSupervisao ?? 9999) - (a.diasSemSupervisao ?? 9999))
+  // Enquanto a igreja nunca tiver registrado uma supervisão sequer, o alerta
+  // acusaria todas as células de uma vez — 46 de 46 — e isso não é sinal, é
+  // ruído: não diz onde olhar, diz que a prática ainda não começou. A lista só
+  // passa a valer depois da primeira reunião registrada, quando "há dois meses
+  // ninguém senta com este líder" volta a significar alguma coisa.
+  const jaHouveSupervisao = lista.some((c) => c.ultimaSupervisao !== null)
+
+  const semSupervisao = jaHouveSupervisao
+    ? lista
+        .filter((c) => c.diasSemSupervisao === null || c.diasSemSupervisao >= DIAS_SEM_SUPERVISAO_ALERTA)
+        .sort((a, b) => (b.diasSemSupervisao ?? 9999) - (a.diasSemSupervisao ?? 9999))
+    : []
 
   const limite = new Date(agora + 90 * MS_POR_DIA).toISOString().slice(0, 10)
   const multiplicandoEmBreve = lista
@@ -240,6 +249,98 @@ export async function carregarSaudeRede(
     .sort((a, b) => (a.multiplicacaoPrevista ?? '').localeCompare(b.multiplicacaoPrevista ?? ''))
 
   return { celulas: lista, serie, inatingiveis, semSupervisao, multiplicandoEmBreve }
+}
+
+export interface SupervisaoRegistrada {
+  id: string
+  data: string
+  redeNome: string
+  celulaNome: string | null
+  supervisorNome: string | null
+  pauta: string | null
+  encaminhamentos: string | null
+  presentes: string[]
+  ausentes: string[]
+}
+
+/**
+ * As reuniões de supervisão já registradas, da mais recente para a mais antiga.
+ *
+ * Quem chama já resolveu quais redes a pessoa enxerga.
+ */
+export async function carregarSupervisoes(
+  redeIds: string[],
+  limite = 30,
+): Promise<SupervisaoRegistrada[]> {
+  if (redeIds.length === 0) return []
+
+  const admin = createAdminClient()
+
+  const { data } = await admin
+    .from('supervisoes')
+    .select('id, data, pauta, encaminhamentos, supervisor_id, redes(nome), celulas(nome)')
+    .in('rede_id', redeIds)
+    .order('data', { ascending: false })
+    .limit(limite)
+
+  const linhas = (data ?? []) as unknown as {
+    id: string
+    data: string
+    pauta: string | null
+    encaminhamentos: string | null
+    supervisor_id: string | null
+    redes: { nome: string } | null
+    celulas: { nome: string } | null
+  }[]
+
+  if (linhas.length === 0) return []
+
+  // Participantes e nomes vêm em duas consultas, e não num join aninhado: o
+  // PostgREST não sabe atravessar de `supervisao_participantes` para
+  // `profiles` sem uma chave estrangeira declarada entre elas.
+  const [{ data: participantesData }, { data: supervisoresData }] = await Promise.all([
+    admin
+      .from('supervisao_participantes')
+      .select('supervisao_id, user_id, presente')
+      .in('supervisao_id', linhas.map((s) => s.id)),
+    (async () => {
+      const ids = [...new Set(linhas.map((s) => s.supervisor_id).filter(Boolean))] as string[]
+      return ids.length > 0
+        ? admin.from('profiles').select('id, nome').in('id', ids)
+        : { data: [] }
+    })(),
+  ])
+
+  const participantes = (participantesData ?? []) as {
+    supervisao_id: string; user_id: string; presente: boolean
+  }[]
+
+  const nomesFaltando = [...new Set(participantes.map((p) => p.user_id))]
+  const { data: nomesData } = nomesFaltando.length > 0
+    ? await admin.from('profiles').select('id, nome').in('id', nomesFaltando)
+    : { data: [] }
+
+  const nomePorId = new Map([
+    ...((supervisoresData ?? []) as { id: string; nome: string }[]),
+    ...((nomesData ?? []) as { id: string; nome: string }[]),
+  ].map((p) => [p.id, p.nome]))
+
+  return linhas.map((s) => {
+    const daReuniao = participantes.filter((p) => p.supervisao_id === s.id)
+    return {
+      id: s.id,
+      data: s.data,
+      redeNome: s.redes?.nome ?? '',
+      celulaNome: s.celulas?.nome ?? null,
+      supervisorNome: s.supervisor_id ? nomePorId.get(s.supervisor_id) ?? null : null,
+      pauta: s.pauta,
+      encaminhamentos: s.encaminhamentos,
+      presentes: daReuniao.filter((p) => p.presente)
+        .map((p) => nomePorId.get(p.user_id) ?? '—'),
+      ausentes: daReuniao.filter((p) => !p.presente)
+        .map((p) => nomePorId.get(p.user_id) ?? '—'),
+    }
+  })
 }
 
 /**
