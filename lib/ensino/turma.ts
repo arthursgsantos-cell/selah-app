@@ -102,6 +102,75 @@ export function contarAulasNoPeriodo(
   return total
 }
 
+/**
+ * A data da última aula, dado o começo, os dias da semana e quantas aulas são.
+ *
+ * É o inverso de `contarAulasNoPeriodo`, e é este o sentido que o formulário
+ * usa: quem monta a turma sabe que o curso tem 11 aulas, não que ele acaba em
+ * 26 de maio — a data de término é consequência, e descobri-la no calendário
+ * era trabalho manual.
+ *
+ * A data de início conta como aula quando cai num dia da turma.
+ *
+ * `null` quando falta informação, quando o total não é um inteiro positivo, ou
+ * quando as aulas não cabem em dois anos — sinal de ano digitado errado.
+ */
+export function dataFimPorAulas(
+  inicio: string | null | undefined,
+  dias: number[] | null | undefined,
+  totalAulas: number | null | undefined
+): string | null {
+  if (!inicio || !dias?.length) return null
+  if (!totalAulas || !Number.isInteger(totalAulas) || totalAulas < 1) return null
+
+  const [ano, mes, dia] = inicio.split('-').map(Number)
+  if ([ano, mes, dia].some((n) => !n || Number.isNaN(n))) return null
+
+  // Data local, e não `new Date(iso)`: a string seria lida como meia-noite UTC,
+  // que em Natal ainda é o dia anterior.
+  const cursor = new Date(ano, mes - 1, dia)
+  const doCurso = new Set(dias)
+  let contadas = 0
+
+  for (let i = 0; i <= 730; i++) {
+    if (doCurso.has(cursor.getDay())) {
+      contadas += 1
+      if (contadas === totalAulas) {
+        const p = (n: number) => String(n).padStart(2, '0')
+        return `${cursor.getFullYear()}-${p(cursor.getMonth() + 1)}-${p(cursor.getDate())}`
+      }
+    }
+    cursor.setDate(cursor.getDate() + 1)
+  }
+  return null
+}
+
+/**
+ * Locais já usados, sem repetir e do mais recente para o mais antigo.
+ *
+ * A comparação ignora caixa e espaço nas pontas para "Sala 2" e "sala 2 " não
+ * virarem duas linhas na lista; o texto que fica é o da turma mais recente,
+ * que é a grafia que a igreja está usando agora.
+ */
+export function locaisUnicos(
+  turmas: { local: string | null }[],
+  limite = 20
+): string[] {
+  const vistos = new Set<string>()
+  const lista: string[] = []
+
+  for (const t of turmas) {
+    const local = t.local?.trim()
+    if (!local) continue
+    const chave = local.toLowerCase()
+    if (vistos.has(chave)) continue
+    vistos.add(chave)
+    lista.push(local)
+    if (lista.length >= limite) break
+  }
+  return lista
+}
+
 /** "AAAA-MM-DD" → "10/03/2026". */
 export function dataBr(iso: string): string {
   const [ano, mes, dia] = iso.split('-')

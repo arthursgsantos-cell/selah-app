@@ -19,13 +19,18 @@ import {
   type EscalaRowBanco,
 } from '@/lib/calendario-celula'
 import type { Frequencia } from '@/lib/supabase/types'
+import { carregarSaudeRede, type Granularidade } from '@/lib/saude-rede'
+import { SaudeAlertas } from '@/components/rede/saude-alertas'
+import { PresencaHistorico } from '@/components/rede/presenca-historico'
 
 type RedeRow = { id: string; nome: string; descricao: string | null; cor: string }
+
+const GRANULARIDADES: Granularidade[] = ['semana', 'mes', 'ano']
 
 export default async function SupervisorPage({
   searchParams,
 }: {
-  searchParams: { q?: string }
+  searchParams: { q?: string; periodo?: string }
 }) {
   const supabase = await createClient()
 
@@ -211,6 +216,12 @@ export default async function SupervisorPage({
       .order('nome'),
   ])
 
+  const periodo = GRANULARIDADES.includes(searchParams.periodo as Granularidade)
+    ? (searchParams.periodo as Granularidade)
+    : 'semana'
+
+  const saude = await carregarSaudeRede(redeIds, periodo)
+
   const q = (searchParams.q ?? '').toLowerCase().trim()
   const redesFiltradas = q ? redes.filter((r) => r.nome.toLowerCase().includes(q)) : redes
 
@@ -246,6 +257,27 @@ export default async function SupervisorPage({
           </CardContent>
         </Card>
       </div>
+
+      {/* Saúde da rede: onde olhar primeiro */}
+      <section>
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
+          Precisam de atenção
+        </p>
+        <SaudeAlertas
+          inatingiveis={saude.inatingiveis}
+          semSupervisao={saude.semSupervisao}
+          multiplicandoEmBreve={saude.multiplicandoEmBreve}
+          totalCelulas={saude.celulas.length}
+        />
+      </section>
+
+      {/* Para onde a rede está indo */}
+      <section>
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
+          Histórico
+        </p>
+        <PresencaHistorico serie={saude.serie} granularidade={periodo} basePath="/supervisor" />
+      </section>
 
       {/* Calendário da rede */}
       <section>

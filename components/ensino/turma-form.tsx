@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dialog'
 import { DIAS_SEMANA } from '@/lib/dia-semana'
 import { comprimirImagem } from '@/lib/comprimir-imagem'
-import { contarAulasNoPeriodo } from '@/lib/ensino/turma'
+import { contarAulasNoPeriodo, dataFimPorAulas } from '@/lib/ensino/turma'
 import {
   criarTurmaAction, editarTurmaAction, uploadCapaEnsinoAction,
 } from '@/app/actions/ensino/turmas'
@@ -29,6 +29,7 @@ import {
 } from '@/app/actions/ensino/equipe'
 import { copiarConteudoTurmaAction, type TurmaModelo } from '@/app/actions/ensino/copiar-turma'
 import { CopiarTurma, type TurmaModeloResumo } from '@/components/ensino/copiar-turma'
+import { CampoLocal } from '@/components/ensino/campo-local'
 import { copiaTemConteudo, type OpcoesCopia } from '@/lib/ensino/copia'
 import type { ProfessorDaTurma } from '@/lib/ensino/tipos'
 import type {
@@ -117,6 +118,7 @@ export function TurmaForm({
   candidatos,
   professoresIniciais = [],
   modelos = [],
+  locais = [],
 }: {
   cursos: { id: string; nome: string }[]
   turma?: TurmaParaEditar
@@ -130,6 +132,8 @@ export function TurmaForm({
   professoresIniciais?: ProfessorDaTurma[]
   /** Turmas que podem servir de modelo. Só na criação. */
   modelos?: TurmaModeloResumo[]
+  /** Locais já usados por outras turmas, sem repetir, do mais recente ao mais antigo. */
+  locais?: string[]
 }) {
   const editando = turma !== undefined
   const router = useRouter()
@@ -198,21 +202,31 @@ export function TurmaForm({
     grupoUrl: turma?.whatsappUrl ?? '',
   })
 
-  // Numa turma nova o campo ainda não foi tocado, então acompanha o cálculo.
-  // Numa turma existente o número já foi decidido: respeitá-lo desde o início
-  // evita sobrescrever um ajuste manual feito por causa de feriado.
-  const [aulasManual, setAulasManual] = useState(editando && turma?.totalAulas !== null)
+  // Quem monta a turma sabe quantas aulas o curso tem, não em que dia ele
+  // acaba: o número de aulas é o que se digita, e o término é consequência dele
+  // com os dias da semana e a data de início.
+  //
+  // Numa turma existente o término já foi decidido — respeitá-lo desde o início
+  // evita mexer numa data ajustada à mão por causa de feriado.
+  const [fimManual, setFimManual] = useState(editando && !!turma?.dataFim)
 
-  const aulasCalculadas = useMemo(
-    () => contarAulasNoPeriodo(dataInicio, dataFim, dias),
-    [dataInicio, dataFim, dias]
+  const fimCalculado = useMemo(
+    () => dataFimPorAulas(dataInicio, dias, totalAulas ? Number(totalAulas) : null),
+    [dataInicio, dias, totalAulas]
   )
 
   useEffect(() => {
-    if (!aulasManual && aulasCalculadas !== null) {
-      setTotalAulas(String(aulasCalculadas))
+    if (!fimManual && fimCalculado !== null) {
+      setDataFim(fimCalculado)
     }
-  }, [aulasCalculadas, aulasManual])
+  }, [fimCalculado, fimManual])
+
+  // Só serve ao término escolhido à mão: dizer quantas aulas aquele período
+  // comporta é o que deixa a divergência visível em vez de silenciosa.
+  const aulasNoPeriodo = useMemo(
+    () => (fimManual ? contarAulasNoPeriodo(dataInicio, dataFim, dias) : null),
+    [fimManual, dataInicio, dataFim, dias]
+  )
 
   // Aviso do navegador ao fechar a aba com alteração pendente.
   useEffect(() => {
@@ -335,12 +349,12 @@ export function TurmaForm({
     }
 
     // O número de aulas acompanha as aulas quando elas vêm; sozinho, é parte do
-    // formato da turma. Marcado à mão para o cálculo por período não o
-    // sobrescrever assim que a pessoa escolher as datas.
+    // formato da turma. O término não vem junto: a turma nova acontece noutro
+    // período, e é do início dela que a data sai.
     const totalDoModelo = modelo.totalAulas ?? modelo.totalDeAulas
     if ((opcoes.aulas || opcoes.configuracoes) && totalDoModelo > 0) {
-      setAulasManual(true)
       setTotalAulas(String(totalDoModelo))
+      setFimManual(false)
     }
 
     if (opcoes.inscricao) {
@@ -368,7 +382,8 @@ export function TurmaForm({
   }
 
   const semCursos = cursos.length === 0
-  const divergiu = aulasManual && aulasCalculadas !== null && totalAulas !== String(aulasCalculadas)
+  const divergiu =
+    fimManual && fimCalculado !== null && dataFim !== '' && dataFim !== fimCalculado
 
   function submeter(e: React.FormEvent) {
     e.preventDefault()
@@ -704,6 +719,57 @@ export function TurmaForm({
         </Secao>
       )}
 
+      {/* Vem antes do calendário porque é a entrada, não a saída: o término é
+          calculado a partir daqui. */}
+      <Secao titulo="Aulas e vagas">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="aulas">Nº de aulas</Label>
+            <Input
+              id="aulas"
+              type="number"
+              min={1}
+              placeholder="12"
+              value={totalAulas}
+              onChange={(e) => {
+                setSujo(true)
+                setTotalAulas(e.target.value)
+                // Mexer no número volta a mandar no término: o valor antigo
+                // deixou de valer no instante em que o curso mudou de tamanho.
+                setFimManual(false)
+              }}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="vagas">Vagas</Label>
+            <Input
+              id="vagas"
+              type="number"
+              min={1}
+              placeholder="sem limite"
+              value={vagas}
+              onChange={(e) => marcar(setVagas)(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {modo === 'gravado' ? (
+          <p className="text-xs text-muted-foreground">
+            É o número que a turma vai usar em &quot;Gerar aulas&quot; para criar
+            todas de uma vez, já numeradas — depois é só pôr o vídeo e o texto de
+            cada uma.
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground flex items-start gap-1.5">
+            <Calculator className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+            <span>
+              Escolha abaixo os dias da semana e a data de início — o término é
+              calculado a partir deste número.
+            </span>
+          </p>
+        )}
+      </Secao>
+
       {/* Turma gravada não tem calendário: não há dia da semana, horário nem
           sala. O que resta de "quando" é a data em que cada aula foi publicada,
           e essa o próprio cadastro da aula guarda. */}
@@ -763,19 +829,69 @@ export function TurmaForm({
             <input
               id="df" type="date" value={dataFim}
               min={dataInicio || undefined}
-              onChange={(e) => marcar(setDataFim)(e.target.value)}
+              onChange={(e) => {
+                setSujo(true)
+                setFimManual(true)
+                setDataFim(e.target.value)
+              }}
               className={campoClass}
             />
           </div>
         </div>
 
+        {/* O término é calculado, mas continua editável: turma com feriado no
+            meio ou semana de recesso foge da conta. Quando foge, o formulário
+            diz de quanto — e oferece o caminho de volta. */}
+        {fimCalculado !== null && !fimManual && (
+          <p className="text-xs text-muted-foreground flex items-start gap-1.5">
+            <Calculator className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+            <span>
+              Término calculado a partir de{' '}
+              <strong>{totalAulas} {Number(totalAulas) === 1 ? 'aula' : 'aulas'}</strong>{' '}
+              nos dias escolhidos. Dá para ajustar se houver feriado ou recesso.
+            </span>
+          </p>
+        )}
+
+        {divergiu && (
+          <p className="text-xs text-muted-foreground flex items-start gap-1.5">
+            <Calculator className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+            <span>
+              {aulasNoPeriodo !== null ? (
+                <>
+                  Este período dá{' '}
+                  <strong>
+                    {aulasNoPeriodo} {aulasNoPeriodo === 1 ? 'aula' : 'aulas'}
+                  </strong>
+                  , e você definiu {totalAulas}.{' '}
+                </>
+              ) : (
+                <>Você ajustou o término à mão. </>
+              )}
+              <button
+                type="button"
+                onClick={() => { setFimManual(false); setDataFim(fimCalculado!) }}
+                className="text-primary hover:underline font-medium"
+              >
+                voltar ao calculado
+              </button>
+            </span>
+          </p>
+        )}
+
+        {fimCalculado === null && totalAulas !== '' && (
+          <p className="text-xs text-muted-foreground">
+            Escolha os dias das aulas e a data de início para o término ser
+            calculado sozinho.
+          </p>
+        )}
+
         <div className="space-y-1.5">
           <Label htmlFor="local">Local</Label>
-          <Input
-            id="local"
-            placeholder="Ex: Sala 2 — Templo"
-            value={local}
-            onChange={(e) => marcar(setLocal)(e.target.value)}
+          <CampoLocal
+            valor={local}
+            onChange={marcar(setLocal)}
+            historico={locais}
           />
         </div>
 
@@ -842,74 +958,6 @@ export function TurmaForm({
         )}
       </Secao>
       )}
-
-      <Secao titulo="Aulas e vagas">
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="aulas">Nº de aulas</Label>
-            <Input
-              id="aulas"
-              type="number"
-              min={1}
-              placeholder={aulasCalculadas !== null ? String(aulasCalculadas) : '12'}
-              value={totalAulas}
-              onChange={(e) => {
-                setSujo(true)
-                setAulasManual(true)
-                setTotalAulas(e.target.value)
-              }}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="vagas">Vagas</Label>
-            <Input
-              id="vagas"
-              type="number"
-              min={1}
-              placeholder="sem limite"
-              value={vagas}
-              onChange={(e) => marcar(setVagas)(e.target.value)}
-            />
-          </div>
-        </div>
-
-        {modo === 'gravado' && (
-          <p className="text-xs text-muted-foreground">
-            É o número que a turma vai usar em &quot;Gerar aulas&quot; para criar
-            todas de uma vez, já numeradas — depois é só pôr o vídeo e o texto de
-            cada uma.
-          </p>
-        )}
-
-        {modo !== 'gravado' && aulasCalculadas !== null && (
-          <p className="text-xs text-muted-foreground flex items-start gap-1.5">
-            <Calculator className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-            <span>
-              O período informado dá{' '}
-              <strong>{aulasCalculadas} {aulasCalculadas === 1 ? 'aula' : 'aulas'}</strong>.
-              {divergiu ? (
-                <>
-                  {' '}Você definiu {totalAulas || '—'}.{' '}
-                  <button
-                    type="button"
-                    onClick={() => { setAulasManual(false); setTotalAulas(String(aulasCalculadas)) }}
-                    className="text-primary hover:underline font-medium"
-                  >
-                    usar {aulasCalculadas}
-                  </button>
-                </>
-              ) : (
-                ' Dá para alterar se houver feriado ou aula extra.'
-              )}
-            </span>
-          </p>
-        )}
-        {modo !== 'gravado' && aulasCalculadas === null && (
-          <p className="text-xs text-muted-foreground">
-            Preencha os dias das aulas e o período para o número ser calculado sozinho.
-          </p>
-        )}
-      </Secao>
 
       <Secao titulo="Inscrições">
         <InscricaoTurmaFields value={inscricao} onChange={(v) => { setSujo(true); setInscricao(v) }} />

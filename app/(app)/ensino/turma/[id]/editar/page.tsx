@@ -9,6 +9,7 @@ import { TurmaForm, type TurmaParaEditar } from '@/components/ensino/turma-form'
 import { ExcluirTurmaBtn } from '@/components/ensino/excluir-turma-btn'
 import { listarCandidatosProfessor } from '@/app/actions/ensino/equipe'
 import { porSlugOuId } from '@/lib/slug-ou-id'
+import { locaisUnicos } from '@/lib/ensino/turma'
 import type { ProfessorDaTurma } from '@/lib/ensino/tipos'
 import type {
   ModoTurma, ModoVideoChamada, StatusTurma, TipoInscricaoTurma,
@@ -79,12 +80,23 @@ export default async function EditarTurmaPage({ params }: { params: { id: string
   }
 
   const supabase = await createClient()
-  const { data: cursos } = await supabase
-    .from('ensino_cursos')
-    .select('id, nome')
-    .eq('igreja_id', acesso.igrejaId)
-    .eq('ativo', true)
-    .order('nome')
+  const [{ data: cursos }, { data: turmasAnteriores }] = await Promise.all([
+    supabase
+      .from('ensino_cursos')
+      .select('id, nome')
+      .eq('igreja_id', acesso.igrejaId)
+      .eq('ativo', true)
+      .order('nome'),
+    // Histórico de salas para o campo de local, da turma mais recente para a
+    // mais antiga.
+    supabase
+      .from('ensino_turmas')
+      .select('local')
+      .eq('igreja_id', acesso.igrejaId)
+      .not('local', 'is', null)
+      .order('criado_em', { ascending: false })
+      .limit(60),
+  ])
 
   // A equipe da turma só é editável pela coordenação — para os demais o
   // formulário nem recebe a lista, e a seção não existe.
@@ -136,6 +148,7 @@ export default async function EditarTurmaPage({ params }: { params: { id: string
         turma={turma}
         candidatos={candidatos}
         professoresIniciais={professoresIniciais}
+        locais={locaisUnicos((turmasAnteriores ?? []) as { local: string | null }[])}
       />
 
       {acesso.coordenador && (

@@ -6,6 +6,7 @@ import { loginCom } from '@/lib/destino-login'
 import { acessoEnsino } from '@/lib/ensino/permissoes'
 import { TurmaForm } from '@/components/ensino/turma-form'
 import { listarCandidatosProfessor } from '@/app/actions/ensino/equipe'
+import { locaisUnicos } from '@/lib/ensino/turma'
 
 export const metadata = { title: 'Nova turma · Ensino IBZS' }
 
@@ -28,18 +29,22 @@ export default async function NovaTurmaPage() {
     acesso.coordenador ? listarCandidatosProfessor() : Promise.resolve(undefined),
     // Turmas que podem servir de modelo. Inclusive as concluídas: copiar a
     // edição do semestre passado é justamente o caso mais comum.
+    // `local` vem junto porque a mesma consulta, já ordenada da mais recente
+    // para a mais antiga, é o histórico de salas do formulário.
     supabase
       .from('ensino_turmas')
-      .select('id, nome, ensino_cursos(nome)')
+      .select('id, nome, local, ensino_cursos(nome)')
       .eq('igreja_id', acesso.igrejaId)
       .order('criado_em', { ascending: false })
       .limit(60),
   ])
   const cursos = cursosRes.data
 
-  const modelos = ((modelosRes.data ?? []) as unknown as {
-    id: string; nome: string; ensino_cursos: { nome: string } | null
-  }[]).map((t) => ({
+  const turmasAnteriores = (modelosRes.data ?? []) as unknown as {
+    id: string; nome: string; local: string | null; ensino_cursos: { nome: string } | null
+  }[]
+
+  const modelos = turmasAnteriores.map((t) => ({
     id: t.id,
     nome: t.nome,
     cursoNome: t.ensino_cursos?.nome ?? 'Sem curso',
@@ -74,6 +79,7 @@ export default async function NovaTurmaPage() {
         candidatos={candidatos}
         professoresIniciais={[{ tipo: 'profile', id: acesso.userId }]}
         modelos={modelos}
+        locais={locaisUnicos(turmasAnteriores)}
       />
     </div>
   )
