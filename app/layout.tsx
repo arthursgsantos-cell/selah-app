@@ -5,8 +5,8 @@ import './globals.css'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' })
 
-const TITULO = 'IBZS · Gestão de Células'
-const DESCRICAO = 'Gerencie sua célula, encontros e eventos da sua igreja.'
+const TITULO = 'IBZS · Igreja Batista Zona Sul'
+const DESCRICAO = 'Transformando Vidas Através da Palavra'
 
 const iconeLogo = (largura: number) =>
   `/_next/image?url=%2Flogo-icon.png&w=${largura}&q=75`

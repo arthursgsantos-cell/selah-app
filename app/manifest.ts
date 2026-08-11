@@ -2,9 +2,9 @@ import type { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'IBZS - Gestão de Células',
+    name: 'IBZS - Igreja Batista Zona Sul',
     short_name: 'IBZS',
-    description: 'Gerencie sua célula, encontros e eventos da sua igreja.',
+    description: 'Transformando Vidas Através da Palavra',
     start_url: '/',
     display: 'standalone',
     background_color: '#ffffff',
