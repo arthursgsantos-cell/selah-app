@@ -3,7 +3,9 @@
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { CalendarPlus, Wand2, Loader2, Trash2, Pencil, ClipboardList, Check } from 'lucide-react'
+import {
+  CalendarPlus, Wand2, Loader2, Trash2, Pencil, ClipboardList, Check, Video,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -28,6 +30,7 @@ export interface AulaGestao {
   horaInicio: string | null
   local: string | null
   status: StatusAula
+  videoChamadaUrl: string | null
   marcados: number
   presentes: number
 }
@@ -39,6 +42,7 @@ export function AulasGestao({
   podeGerar,
   gravado,
   totalAulas,
+  linkPorAula,
 }: {
   turmaId: string
   aulas: AulaGestao[]
@@ -51,6 +55,8 @@ export function AulasGestao({
   gravado: boolean
   /** Nº de aulas do curso — o que o gerador de turma gravada usa. */
   totalAulas: number | null
+  /** Turma com `video_chamada_modo = 'aula'`: cada encontro tem o seu link. */
+  linkPorAula: boolean
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -85,6 +91,7 @@ export function AulasGestao({
         <AulaDialog
           turmaId={turmaId}
           gravado={gravado}
+          linkPorAula={linkPorAula}
           proximoNumero={(aulas.at(-1)?.numero ?? 0) + 1}
         />
         {podeGerar && (!gravado || faltam > 0) && (
@@ -171,6 +178,19 @@ export function AulasGestao({
                       ) : (
                         <span className="text-muted-foreground/70">chamada não feita</span>
                       )}
+                      {/* Numa turma que se encontra online, aula sem link é
+                          aula sem sala: o professor precisa ver isso da lista,
+                          não só ao abrir cada uma. */}
+                      {linkPorAula && (
+                        <span
+                          className={`flex items-center gap-0.5 ${
+                            a.videoChamadaUrl ? 'text-muted-foreground/70' : 'text-amber-600'
+                          }`}
+                        >
+                          <Video className="h-3 w-3" />
+                          {a.videoChamadaUrl ? 'com link' : 'sem link'}
+                        </span>
+                      )}
                     </p>
                   )}
                 </div>
@@ -191,7 +211,12 @@ export function AulasGestao({
                       Chamada
                     </Link>
                   )}
-                  <AulaDialog turmaId={turmaId} aula={a} gravado={gravado} />
+                  <AulaDialog
+                    turmaId={turmaId}
+                    aula={a}
+                    gravado={gravado}
+                    linkPorAula={linkPorAula}
+                  />
                   <button
                     type="button"
                     onClick={() => excluir(a.id)}
@@ -228,11 +253,13 @@ function AulaDialog({
   aula,
   proximoNumero,
   gravado,
+  linkPorAula,
 }: {
   turmaId: string
   aula?: AulaGestao
   proximoNumero?: number
   gravado: boolean
+  linkPorAula: boolean
 }) {
   const editando = aula !== undefined
   const router = useRouter()
@@ -247,11 +274,16 @@ function AulaDialog({
   const [horaInicio, setHoraInicio] = useState(aula?.horaInicio?.slice(0, 5) ?? '')
   const [local, setLocal] = useState(aula?.local ?? '')
   const [status, setStatus] = useState<StatusAula>(aula?.status ?? 'agendada')
+  const [videoUrl, setVideoUrl] = useState(aula?.videoChamadaUrl ?? '')
 
   function submeter(e: React.FormEvent) {
     e.preventDefault()
     if (!data) return
     setErro(null)
+
+    // Fora de "um link por aula" o campo nem existe, e mandar `undefined`
+    // preserva o que estiver gravado em vez de apagá-lo.
+    const video = linkPorAula ? videoUrl.trim() || null : undefined
 
     startTransition(async () => {
       const r = editando
@@ -261,6 +293,7 @@ function AulaDialog({
             horaInicio: horaInicio || null,
             local: local || null,
             status,
+            videoChamadaUrl: video,
           })
         : await criarAulaAction({
             turmaId,
@@ -268,11 +301,17 @@ function AulaDialog({
             titulo: titulo || null,
             horaInicio: horaInicio || null,
             local: local || null,
+            videoChamadaUrl: video ?? null,
           })
 
       if (!r.ok) { setErro(r.erro); return }
       setOpen(false)
-      if (!editando) { setTitulo(''); setData(gravado ? hoje() : ''); setLocal('') }
+      if (!editando) {
+        setTitulo('')
+        setData(gravado ? hoje() : '')
+        setLocal('')
+        setVideoUrl('')
+      }
       router.refresh()
     })
   }
@@ -361,6 +400,26 @@ function AulaDialog({
                   onChange={(e) => setLocal(e.target.value)}
                 />
               </div>
+
+              {/* A turma escolheu ter um link por encontro — é aqui que ele
+                  entra. Fica opcional: o professor cria o calendário antes de
+                  ter os links, e cola cada um quando agenda a chamada. */}
+              {linkPorAula && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="aula-video">Link da videochamada</Label>
+                  <Input
+                    id="aula-video"
+                    type="url"
+                    placeholder="https://meet.google.com/..."
+                    value={videoUrl}
+                    onChange={(e) => setVideoUrl(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Deixe em branco enquanto não tiver — o aluno vê que o link
+                    ainda não foi publicado.
+                  </p>
+                </div>
+              )}
             </>
           )}
 

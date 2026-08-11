@@ -3,7 +3,7 @@
 import { useState, useTransition, useRef, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ImagePlus, X, Loader2, Calculator } from 'lucide-react'
+import { ImagePlus, X, Loader2, Calculator, Video } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -17,7 +17,9 @@ import { criarCursoAction } from '@/app/actions/ensino/cursos'
 import {
   InscricaoTurmaFields, type InscricaoTurmaValue,
 } from '@/components/ensino/inscricao-turma-fields'
-import type { ModoTurma, StatusTurma, TipoInscricaoTurma } from '@/lib/supabase/types'
+import type {
+  ModoTurma, ModoVideoChamada, StatusTurma, TipoInscricaoTurma,
+} from '@/lib/supabase/types'
 
 const campoClass =
   'w-full h-9 rounded-lg border border-input bg-background px-2.5 py-1 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50'
@@ -44,8 +46,9 @@ export interface TurmaParaEditar {
   whatsappUrl: string | null
   tipoInscricao: TipoInscricaoTurma
   linkInscricaoUrl: string | null
-  whatsappInscricao: string | null
   formularioId: string | null
+  videoChamadaModo: ModoVideoChamada
+  videoChamadaUrl: string | null
 }
 
 function hhmm(valor: string | null): string {
@@ -90,15 +93,19 @@ export function TurmaForm({
   const [status, setStatus] = useState<StatusTurma>(turma?.status ?? 'aberta')
   const [modo, setModo] = useState<ModoTurma>(turma?.modo ?? 'presencial')
   const [sequencial, setSequencial] = useState(turma?.sequencial ?? false)
-  const [whatsappUrl, setWhatsappUrl] = useState(turma?.whatsappUrl ?? '')
   const [capaFile, setCapaFile] = useState<File | null>(null)
   const [capaPreview, setCapaPreview] = useState<string | null>(turma?.capaUrl ?? null)
+
+  const [videoModo, setVideoModo] = useState<ModoVideoChamada>(
+    turma?.videoChamadaModo ?? 'nenhum'
+  )
+  const [videoUrl, setVideoUrl] = useState(turma?.videoChamadaUrl ?? '')
 
   const [inscricao, setInscricao] = useState<InscricaoTurmaValue>({
     tipo: turma?.tipoInscricao ?? 'app',
     formularioId: turma?.formularioId ?? '',
     linkUrl: turma?.linkInscricaoUrl ?? '',
-    whatsapp: turma?.whatsappInscricao ?? '',
+    grupoUrl: turma?.whatsappUrl ?? '',
   })
 
   // Numa turma nova o campo ainda não foi tocado, então acompanha o cálculo.
@@ -163,12 +170,18 @@ export function TurmaForm({
       setErro('Informe o endereço do formulário externo.')
       return
     }
-    if (inscricao.tipo === 'whatsapp' && !inscricao.whatsapp.trim()) {
-      setErro('Informe o número de WhatsApp para inscrição.')
+    // Sem o grupo a inscrição por WhatsApp não teria destino: é para lá que o
+    // botão leva, e é entrando nele que o aluno confirma.
+    if (inscricao.tipo === 'whatsapp' && !inscricao.grupoUrl.trim()) {
+      setErro('Informe o link do grupo no WhatsApp — é o destino da inscrição.')
       return
     }
     if (inscricao.tipo === 'formulario' && !inscricao.formularioId) {
       setErro('Escolha o formulário com as perguntas extras.')
+      return
+    }
+    if (videoModo === 'turma' && !videoUrl.trim()) {
+      setErro('Informe o link da videochamada do curso.')
       return
     }
 
@@ -209,11 +222,14 @@ export function TurmaForm({
           status,
           modo,
           sequencial,
-          whatsappUrl: whatsappUrl.trim() || null,
+          whatsappUrl: inscricao.grupoUrl.trim() || null,
           tipoInscricao: inscricao.tipo,
           linkInscricaoUrl: inscricao.linkUrl.trim() || null,
-          whatsappInscricao: inscricao.whatsapp.trim() || null,
           formularioId: inscricao.tipo === 'formulario' ? inscricao.formularioId || null : null,
+          // Turma gravada não tem encontro para acontecer ao vivo — a escolha
+          // nem aparece nela, e um valor herdado de outro modo não sobrevive.
+          videoChamadaModo: modo === 'gravado' ? 'nenhum' : videoModo,
+          videoChamadaUrl: videoModo === 'turma' ? videoUrl.trim() || null : null,
         }
 
         // Editar e criar devolvem formatos diferentes — só a criação traz o id
@@ -420,6 +436,68 @@ export function TurmaForm({
             onChange={(e) => marcar(setLocal)(e.target.value)}
           />
         </div>
+
+        {/* Turma que se encontra online. A sala pode ser fixa para o curso
+            inteiro ou nascer a cada aula — quem agenda pelo Google Agenda cai
+            no segundo caso, e um link só não serviria. */}
+        <div className="space-y-1.5">
+          <Label>Videochamada</Label>
+          <div className="grid gap-1.5 sm:grid-cols-3">
+            {([
+              { valor: 'nenhum', label: 'Não usa', ajuda: 'Encontro presencial' },
+              { valor: 'turma', label: 'Um link só', ajuda: 'A mesma sala em todas as aulas' },
+              { valor: 'aula', label: 'Um por aula', ajuda: 'Cada aula com o seu link' },
+            ] as const).map((o) => (
+              <button
+                key={o.valor}
+                type="button"
+                onClick={() => marcar(setVideoModo)(o.valor)}
+                aria-pressed={videoModo === o.valor}
+                className={`rounded-xl border px-3 py-2 text-left transition-colors ${
+                  videoModo === o.valor
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border hover:bg-accent'
+                }`}
+              >
+                <span className="block text-sm font-medium">{o.label}</span>
+                <span className="block text-[11px] text-muted-foreground leading-tight mt-0.5">
+                  {o.ajuda}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {videoModo === 'turma' && (
+          <div className="space-y-1.5">
+            <Label htmlFor="video-url">Link da sala</Label>
+            <Input
+              id="video-url"
+              type="url"
+              placeholder="https://meet.google.com/..."
+              value={videoUrl}
+              onChange={(e) => marcar(setVideoUrl)(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground flex items-start gap-1.5">
+              <Video className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+              <span>
+                Meet, Zoom, Teams — qualquer um. O botão &ldquo;Entrar na
+                videochamada&rdquo; aparece em todas as aulas para quem está na turma.
+              </span>
+            </p>
+          </div>
+        )}
+
+        {videoModo === 'aula' && (
+          <p className="text-xs text-muted-foreground flex items-start gap-1.5">
+            <Video className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+            <span>
+              O link de cada encontro é colado na própria aula, em &ldquo;Aulas e
+              chamada&rdquo;. Enquanto faltar, a aula avisa que o link ainda não foi
+              publicado.
+            </span>
+          </p>
+        )}
       </Secao>
       )}
 
@@ -523,18 +601,6 @@ export function TurmaForm({
           )}
         </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="zap-grupo">Grupo da turma no WhatsApp (opcional)</Label>
-          <Input
-            id="zap-grupo"
-            placeholder="https://chat.whatsapp.com/..."
-            value={whatsappUrl}
-            onChange={(e) => marcar(setWhatsappUrl)(e.target.value)}
-          />
-          <p className="text-xs text-muted-foreground">
-            Aparece só para quem está na turma.
-          </p>
-        </div>
       </Secao>
 
       <Secao titulo="Aparência">

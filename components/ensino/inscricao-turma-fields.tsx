@@ -17,7 +17,13 @@ export interface InscricaoTurmaValue {
   tipo: TipoInscricaoTurma
   formularioId: string
   linkUrl: string
-  whatsapp: string
+  /**
+   * O grupo da turma no WhatsApp — o mesmo campo nos quatro tipos.
+   *
+   * Em `whatsapp` ele é o destino da inscrição, e por isso obrigatório; nos
+   * outros é o grupo opcional, que aparece só para quem já está na turma.
+   */
+  grupoUrl: string
 }
 
 /**
@@ -82,7 +88,7 @@ export function InscricaoTurmaFields({
           <option value="app">Pelo app — usa os dados do perfil</option>
           <option value="formulario">Pelo app, com perguntas extras</option>
           <option value="link">Link externo (Google Forms, etc.)</option>
-          <option value="whatsapp">Pelo WhatsApp — registra e abre a conversa</option>
+          <option value="whatsapp">Pelo WhatsApp — registra e leva ao grupo</option>
         </select>
       </div>
 
@@ -112,20 +118,11 @@ export function InscricaoTurmaFields({
       )}
 
       {value.tipo === 'whatsapp' && (
-        <div className="space-y-1.5">
-          <Label htmlFor="zap-inscricao">Número para inscrição (com DDI)</Label>
-          <Input
-            id="zap-inscricao"
-            placeholder="Ex: 5584999999999"
-            value={value.whatsapp}
-            onChange={(e) => set({ whatsapp: e.target.value.replace(/\D/g, '') })}
-          />
-          <p className="text-xs text-green-800 bg-green-50 border border-green-200 rounded-lg px-2.5 py-2">
-            O aluno entra na lista da turma <strong>e</strong> a conversa abre em seguida, com a
-            mensagem já escrita. Diferente do link externo: aqui você continua com a chamada e a
-            frequência, e o WhatsApp serve de confirmação.
-          </p>
-        </div>
+        <p className="text-xs text-green-800 bg-green-50 border border-green-200 rounded-lg px-2.5 py-2">
+          O aluno entra na lista da turma <strong>e</strong> é levado ao grupo em seguida — entrar
+          no grupo é a confirmação da inscrição. Diferente do link externo: aqui você continua com
+          a chamada e a frequência.
+        </p>
       )}
 
       {value.tipo === 'formulario' && (
@@ -218,6 +215,29 @@ export function InscricaoTurmaFields({
           </p>
         </div>
       )}
+
+      {/* O grupo da turma. Um campo só: no tipo `whatsapp` ele é o destino da
+          inscrição, nos outros é o grupo de quem já entrou. */}
+      <div className="space-y-1.5">
+        <Label htmlFor="zap-grupo">
+          {value.tipo === 'whatsapp'
+            ? 'Link do grupo no WhatsApp'
+            : 'Grupo da turma no WhatsApp (opcional)'}
+        </Label>
+        <Input
+          id="zap-grupo"
+          type="url"
+          placeholder="https://chat.whatsapp.com/..."
+          value={value.grupoUrl}
+          onChange={(e) => set({ grupoUrl: e.target.value })}
+          required={value.tipo === 'whatsapp'}
+        />
+        <p className="text-xs text-muted-foreground">
+          {value.tipo === 'whatsapp'
+            ? 'É para cá que o botão de inscrição leva. No WhatsApp: grupo › Convidar via link.'
+            : 'Aparece só para quem está na turma.'}
+        </p>
+      </div>
     </div>
   )
 }

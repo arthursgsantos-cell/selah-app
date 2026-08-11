@@ -11,7 +11,11 @@ import {
   STATUS_INSCRICAO, corFrequencia, dataBr, encontrosTexto,
 } from '@/lib/ensino/turma'
 import { MateriaisLista, type MaterialItem } from '@/components/ensino/materiais-lista'
-import type { StatusAula, StatusInscricaoEnsino, StatusTurma } from '@/lib/supabase/types'
+import { BotaoVideoChamada } from '@/components/ensino/botao-videochamada'
+import { linkDaVideoChamada } from '@/lib/ensino/videochamada'
+import type {
+  ModoVideoChamada, StatusAula, StatusInscricaoEnsino, StatusTurma,
+} from '@/lib/supabase/types'
 
 export const metadata = { title: 'Meus cursos · Ensino IBZS' }
 
@@ -31,7 +35,7 @@ export default async function AreaAlunoPage() {
   const { data: inscricoesRaw } = await supabase
     .from('ensino_inscricoes')
     .select(
-      'id, status, observacao, criado_em, turma_id, ensino_turmas(id, nome, capa_url, local, status, dias_semana, horario_inicio, horario_fim, whatsapp_url, ensino_cursos(nome))'
+      'id, status, observacao, criado_em, turma_id, ensino_turmas(id, nome, capa_url, local, status, dias_semana, horario_inicio, horario_fim, whatsapp_url, video_chamada_modo, video_chamada_url, ensino_cursos(nome))'
     )
     .eq('user_id', acesso.userId)
     .order('criado_em', { ascending: false })
@@ -47,6 +51,7 @@ export default async function AreaAlunoPage() {
       status: StatusTurma; dias_semana: number[]
       horario_inicio: string | null; horario_fim: string | null
       whatsapp_url: string | null
+      video_chamada_modo: ModoVideoChamada; video_chamada_url: string | null
       ensino_cursos: { nome: string } | null
     } | null
   }[]
@@ -61,7 +66,7 @@ export default async function AreaAlunoPage() {
     turmasAtivas.length > 0
       ? supabase
           .from('ensino_aulas')
-          .select('id, turma_id, numero, titulo, data, hora_inicio, local, status')
+          .select('id, turma_id, numero, titulo, data, hora_inicio, local, status, video_chamada_url')
           .in('turma_id', turmasAtivas)
           .order('data')
       : Promise.resolve({ data: [] }),
@@ -81,6 +86,7 @@ export default async function AreaAlunoPage() {
   const aulas = (aulasRes.data ?? []) as {
     id: string; turma_id: string; numero: number; titulo: string | null
     data: string; hora_inicio: string | null; local: string | null; status: StatusAula
+    video_chamada_url: string | null
   }[]
 
   const minhasPresencas = new Map(
@@ -226,6 +232,13 @@ export default async function AreaAlunoPage() {
           .filter((m) => m.turma_id === turma.id)
           .map((m) => m.item)
 
+        // O link da chamada é o do próximo encontro: numa turma com link por
+        // aula, o de ontem já não abre nada.
+        const proximaDaTurma = aulasDaTurma.find(
+          (a) => a.data >= hoje && a.status !== 'cancelada'
+        )
+        const linkChamada = linkDaVideoChamada(turma, proximaDaTurma)
+
         return (
           <section key={inscricao.id} className={`${PAINEL} space-y-4`}>
             <div className="flex items-start justify-between gap-3">
@@ -343,6 +356,8 @@ export default async function AreaAlunoPage() {
                 </div>
               </details>
             )}
+
+            {linkChamada && <BotaoVideoChamada url={linkChamada} forma="linha" />}
 
             {turma.whatsapp_url && (
               <a

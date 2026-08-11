@@ -51,10 +51,18 @@ export type TipoMaterial = 'arquivo' | 'link' | 'video'
 /**
  * Como a pessoa se inscreve numa turma. Só `link` manda para fora sem deixar
  * rastro: nele o app não registra inscrição nem monta lista de chamada.
- * `whatsapp` grava a inscrição como o caminho do app e depois abre a conversa —
- * a conversa é confirmação, não substituto do cadastro.
+ * `whatsapp` grava a inscrição como o caminho do app e depois leva ao grupo da
+ * turma — entrar no grupo é a confirmação, não o cadastro.
  */
 export type TipoInscricaoTurma = 'app' | 'formulario' | 'link' | 'whatsapp'
+/**
+ * De onde sai o link de "entrar na videochamada". `turma` é a sala fixa do
+ * curso inteiro; `aula`, um link por encontro — o que sai de quem agenda cada
+ * aula no Google Agenda. É escolha do professor, e não dedução dos links
+ * preenchidos: aula sem link seria ambígua entre "usa o da turma" e "ainda não
+ * tem".
+ */
+export type ModoVideoChamada = 'nenhum' | 'turma' | 'aula'
 export type CampoFormulario = {
   id: string
   tipo: 'texto' | 'email' | 'telefone' | 'numero' | 'opcoes' | 'checkbox' | 'textarea' | 'grupo'
@@ -1555,11 +1563,17 @@ export type Database = {
           fundo_galeria_opacidade: number
           fundo_auto_cor: boolean
           fundo_auto_cor_origem: string | null
+          /**
+           * O grupo da turma. É também o destino da inscrição quando
+           * `tipo_inscricao` é `whatsapp` — entrar no grupo é a confirmação.
+           */
           whatsapp_url: string | null
           tipo_inscricao: TipoInscricaoTurma
           link_inscricao_url: string | null
-          whatsapp_inscricao: string | null
           formulario_id: string | null
+          video_chamada_modo: ModoVideoChamada
+          /** Só em `video_chamada_modo = 'turma'`: a sala do curso inteiro. */
+          video_chamada_url: string | null
           criado_por: string | null
           criado_em: string
           atualizado_em: string
@@ -1597,8 +1611,9 @@ export type Database = {
           whatsapp_url?: string | null
           tipo_inscricao?: TipoInscricaoTurma
           link_inscricao_url?: string | null
-          whatsapp_inscricao?: string | null
           formulario_id?: string | null
+          video_chamada_modo?: ModoVideoChamada
+          video_chamada_url?: string | null
           criado_por?: string | null
           criado_em?: string
           atualizado_em?: string
@@ -1636,8 +1651,9 @@ export type Database = {
           whatsapp_url?: string | null
           tipo_inscricao?: TipoInscricaoTurma
           link_inscricao_url?: string | null
-          whatsapp_inscricao?: string | null
           formulario_id?: string | null
+          video_chamada_modo?: ModoVideoChamada
+          video_chamada_url?: string | null
           criado_por?: string | null
           criado_em?: string
           atualizado_em?: string
@@ -1735,6 +1751,8 @@ export type Database = {
           hora_inicio: string | null
           local: string | null
           status: StatusAula
+          /** Só em turma com `video_chamada_modo = 'aula'`. */
+          video_chamada_url: string | null
           criado_em: string
         }
         Insert: {
@@ -1747,6 +1765,7 @@ export type Database = {
           hora_inicio?: string | null
           local?: string | null
           status?: StatusAula
+          video_chamada_url?: string | null
           criado_em?: string
         }
         Update: {
@@ -1759,6 +1778,7 @@ export type Database = {
           hora_inicio?: string | null
           local?: string | null
           status?: StatusAula
+          video_chamada_url?: string | null
           criado_em?: string
         }
         Relationships: []

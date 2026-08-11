@@ -6,7 +6,9 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { loginCom } from '@/lib/destino-login'
 import { acessoEnsino, podeLecionar } from '@/lib/ensino/permissoes'
 import { TurmaForm, type TurmaParaEditar } from '@/components/ensino/turma-form'
-import type { ModoTurma, StatusTurma, TipoInscricaoTurma } from '@/lib/supabase/types'
+import type {
+  ModoTurma, ModoVideoChamada, StatusTurma, TipoInscricaoTurma,
+} from '@/lib/supabase/types'
 
 export const metadata = { title: 'Editar turma · Ensino IBZS' }
 
@@ -18,7 +20,7 @@ export default async function EditarTurmaPage({ params }: { params: { id: string
   const { data: turmaRaw } = await admin
     .from('ensino_turmas')
     .select(
-      'id, curso_id, nome, descricao, capa_url, local, data_inicio, data_fim, dias_semana, horario_inicio, horario_fim, total_aulas, vagas, inscricoes_abertas, aprovacao_automatica, status, modo, sequencial, whatsapp_url, tipo_inscricao, link_inscricao_url, whatsapp_inscricao, formulario_id'
+      'id, curso_id, nome, descricao, capa_url, local, data_inicio, data_fim, dias_semana, horario_inicio, horario_fim, total_aulas, vagas, inscricoes_abertas, aprovacao_automatica, status, modo, sequencial, whatsapp_url, tipo_inscricao, link_inscricao_url, formulario_id, video_chamada_modo, video_chamada_url'
     )
     .eq('id', params.id)
     .maybeSingle()
@@ -36,8 +38,9 @@ export default async function EditarTurmaPage({ params }: { params: { id: string
     status: StatusTurma; modo: ModoTurma; sequencial: boolean
     whatsapp_url: string | null
     tipo_inscricao: TipoInscricaoTurma
-    link_inscricao_url: string | null; whatsapp_inscricao: string | null
+    link_inscricao_url: string | null
     formulario_id: string | null
+    video_chamada_modo: ModoVideoChamada; video_chamada_url: string | null
   }
 
   const turma: TurmaParaEditar = {
@@ -62,8 +65,9 @@ export default async function EditarTurmaPage({ params }: { params: { id: string
     whatsappUrl: t.whatsapp_url,
     tipoInscricao: t.tipo_inscricao ?? 'app',
     linkInscricaoUrl: t.link_inscricao_url,
-    whatsappInscricao: t.whatsapp_inscricao,
     formularioId: t.formulario_id,
+    videoChamadaModo: t.video_chamada_modo ?? 'nenhum',
+    videoChamadaUrl: t.video_chamada_url,
   }
 
   const supabase = await createClient()

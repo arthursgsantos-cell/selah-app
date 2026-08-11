@@ -155,16 +155,17 @@ export async function inscreverAction(params: {
 }
 
 /**
- * Inscrição pelo WhatsApp — que agora **também** registra no app.
+ * Inscrição pelo WhatsApp — registra no app e leva ao grupo da turma.
  *
- * Antes este botão só abria a conversa, e a turma inteira ficava fora do
+ * Antes este botão só abria uma conversa, e a turma inteira ficava fora do
  * sistema: sem lista de chamada, sem frequência, sem saber quem pediu. Agora a
  * ordem é outra — grava a inscrição igual ao botão do app e só depois manda a
- * pessoa para o WhatsApp, com a mensagem já escrita. A conversa deixa de ser o
- * cadastro e passa a ser a confirmação dele.
+ * pessoa para o grupo. Entrar no grupo é a confirmação da inscrição, e é isso
+ * que a turma sempre quis dizer com "inscrição pelo WhatsApp"; não há mensagem
+ * pré-digitada, porque não há nada a mandar.
  *
- * A pessoa que já está inscrita não vira uma segunda linha: o WhatsApp abre do
- * mesmo jeito, porque falar com o professor continua valendo.
+ * Quem já está inscrito não vira uma segunda linha: o grupo abre do mesmo
+ * jeito, que é o que a pessoa quer ao voltar aqui.
  */
 export async function inscreverPeloWhatsappAction(turmaId: string): Promise<
   | { ok: true; url: string; status: StatusInscricaoEnsino; jaInscrito: boolean }
@@ -176,20 +177,20 @@ export async function inscreverPeloWhatsappAction(turmaId: string): Promise<
   const supabase = await createClient()
   const { data: dadosTurma } = await supabase
     .from('ensino_turmas')
-    .select('id, nome, tipo_inscricao, whatsapp_inscricao')
+    .select('id, nome, tipo_inscricao, whatsapp_url')
     .eq('id', turmaId)
     .single()
 
   if (!dadosTurma) return { ok: false, erro: 'Turma não encontrada.' }
 
-  const numero = (dadosTurma.whatsapp_inscricao ?? '').replace(/\D/g, '')
-  if (dadosTurma.tipo_inscricao !== 'whatsapp' || !numero) {
+  const grupo = (dadosTurma.whatsapp_url ?? '').trim()
+  if (dadosTurma.tipo_inscricao !== 'whatsapp' || !grupo) {
     return { ok: false, erro: 'Esta turma não usa inscrição por WhatsApp.' }
   }
 
   // Quem já está na turma pula a checagem de "recebe inscrição": para ele o
-  // botão é só "abrir conversa", e uma turma encerrada não é motivo para
-  // recusar falar com o professor.
+  // botão é só "entrar no grupo", e uma turma encerrada não é motivo para
+  // recusar o acesso ao grupo de que já faz parte.
   const { data: existente } = await createAdminClient()
     .from('ensino_inscricoes')
     .select('status')
@@ -211,18 +212,7 @@ export async function inscreverPeloWhatsappAction(turmaId: string): Promise<
     status = r.status
   }
 
-  // A mensagem já vai escrita: o professor recebe nome e turma sem ter de
-  // perguntar, e a conversa começa no assunto.
-  const texto = jaInscrito
-    ? `Olá! Sou ${acesso.nome}. Já estou inscrito(a) na turma ${dadosTurma.nome} e queria falar sobre ela.`
-    : `Olá! Sou ${acesso.nome}. Acabei de me inscrever na turma ${dadosTurma.nome} pelo app.`
-
-  return {
-    ok: true,
-    url: `https://wa.me/${numero}?text=${encodeURIComponent(texto)}`,
-    status,
-    jaInscrito,
-  }
+  return { ok: true, url: grupo, status, jaInscrito }
 }
 
 /**

@@ -16,7 +16,11 @@ import { textoRicoEmTextoPuro } from '@/lib/texto-rico'
 import { MateriaisAula, type MaterialAula } from '@/components/ensino/materiais-aula'
 import { AulaConcluidaBtn } from '@/components/ensino/aula-concluida-btn'
 import { AulaDescricao } from '@/components/ensino/aula-descricao'
-import type { ModoTurma, StatusAula, TipoMaterial } from '@/lib/supabase/types'
+import { BotaoVideoChamada } from '@/components/ensino/botao-videochamada'
+import { linkDaVideoChamada } from '@/lib/ensino/videochamada'
+import type {
+  ModoTurma, ModoVideoChamada, StatusAula, TipoMaterial,
+} from '@/lib/supabase/types'
 
 export async function generateMetadata({
   params,
@@ -78,18 +82,19 @@ export default async function AulaPage({
   const [turmaRes, aulasRes] = await Promise.all([
     supabase
       .from('ensino_turmas')
-      .select('id, nome, modo, sequencial, ensino_cursos(nome)')
+      .select('id, nome, modo, sequencial, video_chamada_modo, video_chamada_url, ensino_cursos(nome)')
       .eq('id', params.id)
       .maybeSingle(),
     supabase
       .from('ensino_aulas')
-      .select('id, numero, titulo, descricao, data, hora_inicio, local, status')
+      .select('id, numero, titulo, descricao, data, hora_inicio, local, status, video_chamada_url')
       .eq('turma_id', params.id)
       .order('numero'),
   ])
 
   const turma = turmaRes.data as unknown as {
     id: string; nome: string; modo: ModoTurma; sequencial: boolean
+    video_chamada_modo: ModoVideoChamada; video_chamada_url: string | null
     ensino_cursos: { nome: string } | null
   } | null
   if (!turma) notFound()
@@ -99,6 +104,7 @@ export default async function AulaPage({
   const aulas = (aulasRes.data ?? []) as {
     id: string; numero: number; titulo: string | null; descricao: string | null
     data: string; hora_inicio: string | null; local: string | null; status: StatusAula
+    video_chamada_url: string | null
   }[]
 
   const indice = aulas.findIndex((a) => a.numero === numero)
@@ -195,6 +201,11 @@ export default async function AulaPage({
    * quando esta aula está disponível — é justamente esta.
    */
   const videoEm = players[0]?.material.criado_em ?? null
+
+  // A sala do encontro: a fixa do curso, ou a desta aula. Só para quem está na
+  // turma — link de chamada é endereço de porta aberta.
+  const linkChamada = linkDaVideoChamada(turma, aula)
+  const esperandoLink = turma.video_chamada_modo === 'aula' && !aula.video_chamada_url
 
   return (
     <div className="space-y-5 max-w-3xl mx-auto pb-6">
@@ -293,6 +304,16 @@ export default async function AulaPage({
           )}
         </div>
       </div>
+
+      {/* Entrar na videochamada, logo abaixo do cabeçalho: quem abre a aula na
+          hora do encontro veio para isso, e não deve ter de procurar. */}
+      {(inscrito || leciona) && linkChamada && <BotaoVideoChamada url={linkChamada} />}
+      {(inscrito || leciona) && esperandoLink && (
+        <p className="rounded-2xl border border-dashed border-border px-4 py-3 text-sm text-muted-foreground flex items-center gap-2">
+          <Video className="h-4 w-4 shrink-0" />
+          O link desta videochamada ainda não foi publicado.
+        </p>
+      )}
 
       {/* Aula trancada: numa turma sequencial, a próxima só abre depois. */}
       {trancada ? (

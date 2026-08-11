@@ -3,7 +3,7 @@ import { notFound, redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import {
   ArrowLeft, CalendarDays, MapPin, Users, GraduationCap, ClipboardList,
-  BookOpen, FolderOpen, MessageCircle, ChevronRight, Pencil, Check,
+  BookOpen, FolderOpen, MessageCircle, ChevronRight, Pencil, Check, Video,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/server'
@@ -22,8 +22,11 @@ import { TurmaFundo } from '@/components/ensino/turma-fundo'
 import { TurmaCapa } from '@/components/ensino/turma-capa'
 import { FundoGaleria } from '@/components/shared/fundo-galeria'
 import { MateriaisLista, type MaterialItem } from '@/components/ensino/materiais-lista'
+import { BotaoVideoChamada } from '@/components/ensino/botao-videochamada'
+import { linkDaVideoChamada } from '@/lib/ensino/videochamada'
 import type {
-  ModoTurma, StatusAula, StatusInscricaoEnsino, StatusTurma, TipoInscricaoTurma,
+  ModoTurma, ModoVideoChamada, StatusAula, StatusInscricaoEnsino, StatusTurma,
+  TipoInscricaoTurma,
 } from '@/lib/supabase/types'
 
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
@@ -56,7 +59,7 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
   const { data: turmaRaw } = await supabase
     .from('ensino_turmas')
     .select(
-      'id, curso_id, nome, descricao, capa_url, local, data_inicio, data_fim, dias_semana, horario_inicio, horario_fim, total_aulas, vagas, inscricoes_abertas, aprovacao_automatica, status, modo, sequencial, destaque, whatsapp_url, tipo_inscricao, link_inscricao_url, whatsapp_inscricao, cor, cor_secundaria, fundo_tipo, fundo_imagem_url, fundo_opacidade, fundo_galeria, fundo_galeria_opacidade, fundo_auto_cor, fundo_auto_cor_origem, ensino_cursos(nome, descricao)'
+      'id, curso_id, nome, descricao, capa_url, local, data_inicio, data_fim, dias_semana, horario_inicio, horario_fim, total_aulas, vagas, inscricoes_abertas, aprovacao_automatica, status, modo, sequencial, destaque, whatsapp_url, tipo_inscricao, link_inscricao_url, video_chamada_modo, video_chamada_url, cor, cor_secundaria, fundo_tipo, fundo_imagem_url, fundo_opacidade, fundo_galeria, fundo_galeria_opacidade, fundo_auto_cor, fundo_auto_cor_origem, ensino_cursos(nome, descricao)'
     )
     .eq('id', params.id)
     .maybeSingle()
@@ -73,7 +76,8 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
     status: StatusTurma; modo: ModoTurma; sequencial: boolean
     destaque: boolean; whatsapp_url: string | null
     tipo_inscricao: TipoInscricaoTurma
-    link_inscricao_url: string | null; whatsapp_inscricao: string | null
+    link_inscricao_url: string | null
+    video_chamada_modo: ModoVideoChamada; video_chamada_url: string | null
     cor: string | null; cor_secundaria: string | null
     fundo_tipo: string | null; fundo_imagem_url: string | null; fundo_opacidade: number
     fundo_galeria: boolean; fundo_galeria_opacidade: number
@@ -132,7 +136,7 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
     inscrito || leciona
       ? supabase
           .from('ensino_aulas')
-          .select('id, numero, titulo, data, hora_inicio, local, status')
+          .select('id, numero, titulo, data, hora_inicio, local, status, video_chamada_url')
           .eq('turma_id', turma.id)
           .order('numero')
       : Promise.resolve({ data: [] }),
@@ -147,6 +151,7 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
   const aulas = (aulasRes.data ?? []) as {
     id: string; numero: number; titulo: string | null; data: string
     hora_inicio: string | null; local: string | null; status: StatusAula
+    video_chamada_url: string | null
   }[]
 
   const materiais: MaterialItem[] = ((materiaisRes.data ?? []) as unknown as {
@@ -281,6 +286,26 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
               <dd>{turma.local}</dd>
             </div>
           )}
+          {/* Turma que se encontra online: a sala fica aqui, no lugar do
+              endereço. Só para quem está na turma — link de chamada aberta na
+              página pública é convite a estranho. Quando o link é por aula, é
+              a aula que o mostra. */}
+          {turma.video_chamada_modo === 'turma' && turma.video_chamada_url && (inscrito || leciona) && (
+            <div className="flex items-start gap-2">
+              <Video className="h-4 w-4 shrink-0 mt-0.5 text-muted-foreground" />
+              <dd>
+                <BotaoVideoChamada url={turma.video_chamada_url} forma="linha" />
+              </dd>
+            </div>
+          )}
+          {turma.video_chamada_modo === 'aula' && (inscrito || leciona) && (
+            <div className="flex items-start gap-2">
+              <Video className="h-4 w-4 shrink-0 mt-0.5 text-muted-foreground" />
+              <dd className="text-muted-foreground">
+                Encontros por videochamada — o link fica na página de cada aula.
+              </dd>
+            </div>
+          )}
           <div className="flex items-start gap-2">
             <Users className="h-4 w-4 shrink-0 mt-0.5 text-muted-foreground" />
             <dd>
@@ -361,7 +386,7 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
         motivoIndisponivel={motivoIndisponivel}
         tipo={turma.tipo_inscricao ?? 'app'}
         linkUrl={turma.link_inscricao_url}
-        whatsapp={turma.whatsapp_inscricao}
+        grupoUrl={turma.whatsapp_url}
       />
 
       {/* Atalhos de quem administra a turma */}
@@ -430,7 +455,8 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
             {gravado ? (concluidas.size > 0 ? 'Continue de onde parou' : 'Comece por aqui') : 'Próxima aula'}
           </p>
-          <div className={`${PAINEL} flex items-center gap-3`}>
+          <div className={`${PAINEL} space-y-3`}>
+            <div className="flex items-center gap-3">
             <Link
               href={`/ensino/turma/${turma.id}/aula/${proximaAula.numero}`}
               className="flex items-center gap-3 min-w-0 flex-1 group"
@@ -463,6 +489,12 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
               >
                 Fazer chamada
               </Link>
+            )}
+            </div>
+            {/* O botão de entrar fica aqui e não só na página da aula: na hora
+                do encontro, a turma é a tela em que a pessoa já está. */}
+            {linkDaVideoChamada(turma, proximaAula) && (
+              <BotaoVideoChamada url={linkDaVideoChamada(turma, proximaAula)!} />
             )}
           </div>
         </section>

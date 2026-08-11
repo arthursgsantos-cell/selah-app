@@ -15,6 +15,8 @@ export async function criarAulaAction(params: {
   descricao?: string | null
   horaInicio?: string | null
   local?: string | null
+  /** Só chega preenchido em turma com `video_chamada_modo = 'aula'`. */
+  videoChamadaUrl?: string | null
 }): Promise<{ ok: true; id: string } | { ok: false; erro: string }> {
   const acesso = await acessoEnsino()
   if (!(await podeLecionar(acesso, params.turmaId))) {
@@ -48,6 +50,7 @@ export async function criarAulaAction(params: {
       descricao: params.descricao?.trim() || null,
       hora_inicio: params.horaInicio || null,
       local: params.local?.trim() || null,
+      video_chamada_url: params.videoChamadaUrl?.trim() || null,
     })
     .select('id')
     .single()
@@ -77,6 +80,7 @@ export async function editarAulaAction(
     horaInicio?: string | null
     local?: string | null
     status?: StatusAula
+    videoChamadaUrl?: string | null
   }
 ): Promise<ResultadoAcao> {
   const acesso = await acessoEnsino()
@@ -106,11 +110,17 @@ export async function editarAulaAction(
         : {}),
       hora_inicio: params.horaInicio || null,
       local: params.local?.trim() || null,
+      // Mesmo critério da descrição: campo ausente é "não mexa". O diálogo de
+      // aula só manda o link em turma que usa link por aula.
+      ...(params.videoChamadaUrl !== undefined
+        ? { video_chamada_url: params.videoChamadaUrl?.trim() || null }
+        : {}),
       ...(params.status ? { status: params.status } : {}),
     })
     .eq('id', id)
 
   if (error) return { ok: false, erro: error.message }
+  revalidatePath(`/ensino/turma/${aula.turma_id}`)
   revalidatePath(`/ensino/turma/${aula.turma_id}/aulas`)
   revalidatePath(`/ensino/turma/${aula.turma_id}/aula/${aula.numero}`)
   revalidatePath(`/ensino/chamada/${id}`)

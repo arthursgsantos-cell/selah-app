@@ -195,19 +195,26 @@ aparecem depois que ele tiver perfil.
 |---|---|---|
 | `app` | confirma os dados do perfil | sim |
 | `formulario` | idem, mais os campos de `formulario_id` | sim |
-| `whatsapp` | grava a inscrição **e** abre a conversa | sim |
+| `whatsapp` | grava a inscrição **e** leva ao grupo da turma | sim |
 | `link` | manda para fora (Google Forms, etc.) | não |
 
-`whatsapp` já foi como o `link`: só abria a conversa, e a turma inteira ficava
+`whatsapp` já foi como o `link`: só abria uma conversa, e a turma inteira ficava
 fora do sistema — sem chamada, sem frequência, sem saber quem tinha pedido. Hoje
 `inscreverPeloWhatsappAction` chama o mesmo núcleo do botão do app
-(`gravarInscricao`) e só então devolve a URL do `wa.me`, com a mensagem já
-escrita. **A conversa virou a confirmação do cadastro, não o cadastro.**
+(`gravarInscricao`) e só então devolve o link do grupo. **Entrar no grupo virou
+a confirmação do cadastro, não o cadastro.**
 
-Quem já está inscrito continua com o botão — falar com o professor não deixou de
-valer —, mas não vira segunda linha: `gravarInscricao` devolve `jaInscrito` em
-vez de erro, e cada chamador decide o que fazer com isso (para o botão do app é
-impedimento; para o do WhatsApp, só motivo de não regravar).
+O destino é `whatsapp_url`, o mesmo campo que já guardava o grupo da turma — não
+há número à parte nem mensagem pré-digitada. Era isso que a inscrição pelo
+WhatsApp sempre quis dizer: a turma abre um grupo, e entrar nele é confirmar. Por
+isso o link do grupo é **obrigatório** quando o tipo é `whatsapp`, validado no
+formulário e de novo em `criarTurmaAction`/`editarTurmaAction`; nos outros três
+tipos ele continua opcional e aparece só para quem já está na turma.
+
+Quem já está inscrito continua com o botão — é por ele que volta ao grupo —, mas
+não vira segunda linha: `gravarInscricao` devolve `jaInscrito` em vez de erro, e
+cada chamador decide o que fazer com isso (para o botão do app é impedimento;
+para o do WhatsApp, só motivo de não regravar).
 
 No cliente, a aba do WhatsApp é aberta **antes** do `await`, ainda dentro do
 clique (`components/ensino/inscricao-turma.tsx`): aberta depois da resposta do
@@ -215,6 +222,35 @@ servidor, o navegador a trataria como pop-up e bloquearia.
 
 Sobra `link` como único caminho sem rastro — e o aviso amarelo no formulário do
 professor diz isso com todas as letras.
+
+## Videochamada
+
+Turma que se reúne online precisa de um "entrar na chamada" do mesmo jeito que a
+presencial precisa de sala. `ensino_turmas.video_chamada_modo` guarda a escolha
+do professor ao criar a turma:
+
+| modo | de onde sai o link |
+|---|---|
+| `nenhum` | não há videochamada (padrão) |
+| `turma` | `ensino_turmas.video_chamada_url` — a mesma sala em todas as aulas |
+| `aula` | `ensino_aulas.video_chamada_url` — um link por encontro |
+
+O modo é escolha explícita, e não dedução a partir dos links preenchidos: sem
+ele, aula sem link ficaria ambígua entre "usa o da turma" e "o professor ainda
+não colou o dela". `linkDaVideoChamada` (`lib/ensino/videochamada.ts`) resolve os
+dois casos num lugar só, e respeita o modo nos dois sentidos — turma com sala
+fixa ignora link sobrando numa aula, e turma com link por aula não cai no da
+turma quando falta o do encontro. Ali a ausência é o que a tela precisa mostrar:
+"o link desta videochamada ainda não foi publicado".
+
+O botão só aparece para inscrito ou professor — link de sala é endereço de porta
+aberta. Aparece na página da aula, no cartão da próxima aula da turma e na área
+do aluno. `plataformaDaChamada` lê o domínio para escrever "Google Meet", "Zoom"
+ou "Microsoft Teams" no botão, sem chamada externa.
+
+A escolha só existe em turma com encontro: em `modo = 'gravado'` a seção nem
+aparece, e o servidor força `nenhum` — mesma razão de `sequencial`, para não
+deixar um botão adormecido esperando a próxima troca de modo.
 
 ## Vagas
 

@@ -19,7 +19,8 @@ interface Props {
   motivoIndisponivel: string
   tipo: TipoInscricaoTurma
   linkUrl: string | null
-  whatsapp: string | null
+  /** O grupo da turma — em `whatsapp`, o destino da inscrição. */
+  grupoUrl: string | null
 }
 
 const APRESENTACAO: Record<
@@ -59,7 +60,7 @@ const APRESENTACAO: Record<
 }
 
 export function InscricaoTurma({
-  turmaId, inscricao, disponivel, motivoIndisponivel, tipo, linkUrl, whatsapp,
+  turmaId, inscricao, disponivel, motivoIndisponivel, tipo, linkUrl, grupoUrl,
 }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -83,7 +84,7 @@ export function InscricaoTurma({
   }
 
   /**
-   * Registra a inscrição e só então abre a conversa.
+   * Registra a inscrição e só então abre o grupo.
    *
    * A aba nasce **antes** do `await`, ainda dentro do clique: aberta depois da
    * resposta do servidor, o navegador a trataria como pop-up e bloquearia.
@@ -134,11 +135,11 @@ export function InscricaoTurma({
         </Button>
       )}
 
-      {/* WhatsApp registra antes de abrir a conversa: o clique aqui vale o
-          mesmo que o "quero me inscrever" do app, e a conversa é a confirmação.
+      {/* WhatsApp registra antes de abrir o grupo: o clique aqui vale o mesmo
+          que o "quero me inscrever" do app, e entrar no grupo é a confirmação.
           Quem já está inscrito continua com o botão, só que sem virar segunda
-          linha — falar com o professor não deixou de valer. */}
-      {tipo === 'whatsapp' && whatsapp && (disponivel || ativa) && (
+          linha — é por ele que volta ao grupo. */}
+      {tipo === 'whatsapp' && grupoUrl && (disponivel || ativa) && (
         <Button
           size="lg"
           className="w-full"
@@ -151,13 +152,13 @@ export function InscricaoTurma({
           ) : (
             <MessageCircle className="h-4 w-4" />
           )}
-          {ativa ? 'Abrir conversa no WhatsApp' : 'Inscrever pelo WhatsApp'}
+          {ativa ? 'Entrar no grupo do WhatsApp' : 'Inscrever e entrar no grupo'}
         </Button>
       )}
 
-      {tipo === 'whatsapp' && whatsapp && !ativa && disponivel && (
+      {tipo === 'whatsapp' && grupoUrl && !ativa && disponivel && (
         <p className="text-xs text-muted-foreground text-center -mt-1">
-          Sua inscrição fica registrada aqui e a conversa abre em seguida.
+          Sua inscrição fica registrada aqui e o grupo da turma abre em seguida.
         </p>
       )}
 

@@ -4,7 +4,9 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { acessoEnsino, podeLecionar } from '@/lib/ensino/permissoes'
-import type { ModoTurma, StatusTurma, TipoInscricaoTurma } from '@/lib/supabase/types'
+import type {
+  ModoTurma, ModoVideoChamada, StatusTurma, TipoInscricaoTurma,
+} from '@/lib/supabase/types'
 import { BUCKET_CAPAS, type ResultadoAcao } from '@/lib/ensino/tipos'
 
 /**
@@ -52,11 +54,16 @@ export interface DadosTurma {
   modo?: ModoTurma
   /** Só vale em `gravado`: a aula N só abre com a N-1 concluída. */
   sequencial?: boolean
+  /**
+   * O grupo da turma. Em `tipoInscricao = 'whatsapp'` é também o destino do
+   * botão de inscrição — entrar no grupo é a confirmação.
+   */
   whatsappUrl?: string | null
   tipoInscricao?: TipoInscricaoTurma
   linkInscricaoUrl?: string | null
-  whatsappInscricao?: string | null
   formularioId?: string | null
+  videoChamadaModo?: ModoVideoChamada
+  videoChamadaUrl?: string | null
   /** Ids de perfis. Quem cria já entra como professor se a lista vier vazia. */
   professores?: string[]
 }
@@ -66,6 +73,28 @@ function limpar(v: string | null | undefined): string | null {
   return t ? t : null
 }
 
+function videoModo(dados: DadosTurma): ModoVideoChamada {
+  if (dados.modo === 'gravado') return 'nenhum'
+  return dados.videoChamadaModo ?? 'nenhum'
+}
+
+/**
+ * O que só o servidor pode garantir: um tipo de inscrição sem o destino dele
+ * deixaria a página da turma com um botão que não leva a lugar nenhum.
+ */
+function inscricaoIncompleta(dados: DadosTurma): string | null {
+  if (dados.tipoInscricao === 'whatsapp' && !limpar(dados.whatsappUrl)) {
+    return 'Informe o link do grupo no WhatsApp — é o destino da inscrição.'
+  }
+  if (dados.tipoInscricao === 'link' && !limpar(dados.linkInscricaoUrl)) {
+    return 'Informe o endereço do formulário externo.'
+  }
+  if (videoModo(dados) === 'turma' && !limpar(dados.videoChamadaUrl)) {
+    return 'Informe o link da videochamada do curso.'
+  }
+  return null
+}
+
 export async function criarTurmaAction(dados: DadosTurma): Promise<
   { ok: true; id: string } | { ok: false; erro: string }
 > {
@@ -73,6 +102,9 @@ export async function criarTurmaAction(dados: DadosTurma): Promise<
   if (!acesso?.professor) return { ok: false, erro: 'Sem permissão para criar turmas.' }
   if (!dados.nome.trim()) return { ok: false, erro: 'A turma precisa de um nome.' }
   if (!dados.cursoId) return { ok: false, erro: 'Escolha o curso da turma.' }
+
+  const faltando = inscricaoIncompleta(dados)
+  if (faltando) return { ok: false, erro: faltando }
 
   const supabase = await createClient()
   const { data, error } = await supabase
@@ -102,8 +134,12 @@ export async function criarTurmaAction(dados: DadosTurma): Promise<
       whatsapp_url: limpar(dados.whatsappUrl),
       tipo_inscricao: dados.tipoInscricao ?? 'app',
       link_inscricao_url: limpar(dados.linkInscricaoUrl),
-      whatsapp_inscricao: limpar(dados.whatsappInscricao),
       formulario_id: dados.formularioId || null,
+      // Videochamada só existe em turma com encontro: numa gravada o modo cai
+      // para 'nenhum', pela mesma razão de `sequencial` — guardar a escolha
+      // deixaria um botão adormecido esperando a próxima troca de modo.
+      video_chamada_modo: videoModo(dados),
+      video_chamada_url: videoModo(dados) === 'turma' ? limpar(dados.videoChamadaUrl) : null,
       criado_por: acesso.userId,
     })
     .select('id')
@@ -138,6 +174,9 @@ export async function editarTurmaAction(
   }
   if (!dados.nome.trim()) return { ok: false, erro: 'A turma precisa de um nome.' }
 
+  const faltando = inscricaoIncompleta(dados)
+  if (faltando) return { ok: false, erro: faltando }
+
   const supabase = await createClient()
   const { error } = await supabase
     .from('ensino_turmas')
@@ -162,8 +201,12 @@ export async function editarTurmaAction(
       whatsapp_url: limpar(dados.whatsappUrl),
       tipo_inscricao: dados.tipoInscricao ?? 'app',
       link_inscricao_url: limpar(dados.linkInscricaoUrl),
-      whatsapp_inscricao: limpar(dados.whatsappInscricao),
       formulario_id: dados.formularioId || null,
+      // Videochamada só existe em turma com encontro: numa gravada o modo cai
+      // para 'nenhum', pela mesma razão de `sequencial` — guardar a escolha
+      // deixaria um botão adormecido esperando a próxima troca de modo.
+      video_chamada_modo: videoModo(dados),
+      video_chamada_url: videoModo(dados) === 'turma' ? limpar(dados.videoChamadaUrl) : null,
       atualizado_em: new Date().toISOString(),
     })
     .eq('id', id)

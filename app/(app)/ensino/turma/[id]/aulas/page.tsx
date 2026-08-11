@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { loginCom } from '@/lib/destino-login'
 import { acessoEnsino, podeLecionar } from '@/lib/ensino/permissoes'
 import { AulasGestao, type AulaGestao } from '@/components/ensino/aulas-gestao'
-import type { ModoTurma, StatusAula } from '@/lib/supabase/types'
+import type { ModoTurma, ModoVideoChamada, StatusAula } from '@/lib/supabase/types'
 
 export const metadata = { title: 'Aulas da turma · Ensino IBZS' }
 
@@ -17,7 +17,7 @@ export default async function AulasTurmaPage({ params }: { params: { id: string 
 
   const { data: turmaRaw } = await admin
     .from('ensino_turmas')
-    .select('id, nome, modo, total_aulas, data_inicio, dias_semana, ensino_cursos(nome)')
+    .select('id, nome, modo, total_aulas, data_inicio, dias_semana, video_chamada_modo, ensino_cursos(nome)')
     .eq('id', params.id)
     .maybeSingle()
 
@@ -27,6 +27,7 @@ export default async function AulasTurmaPage({ params }: { params: { id: string 
   const turma = turmaRaw as unknown as {
     id: string; nome: string; modo: ModoTurma; total_aulas: number | null
     data_inicio: string | null; dias_semana: number[]
+    video_chamada_modo: ModoVideoChamada
     ensino_cursos: { nome: string } | null
   }
 
@@ -35,7 +36,7 @@ export default async function AulasTurmaPage({ params }: { params: { id: string 
   const [aulasRes, alunosRes] = await Promise.all([
     admin
       .from('ensino_aulas')
-      .select('id, numero, titulo, data, hora_inicio, local, status')
+      .select('id, numero, titulo, data, hora_inicio, local, status, video_chamada_url')
       .eq('turma_id', turma.id)
       .order('numero'),
     admin
@@ -48,6 +49,7 @@ export default async function AulasTurmaPage({ params }: { params: { id: string 
   const aulasBase = (aulasRes.data ?? []) as {
     id: string; numero: number; titulo: string | null; data: string
     hora_inicio: string | null; local: string | null; status: StatusAula
+    video_chamada_url: string | null
   }[]
 
   // Quantos já foram marcados em cada aula, para a lista mostrar de relance
@@ -73,6 +75,7 @@ export default async function AulasTurmaPage({ params }: { params: { id: string 
     horaInicio: a.hora_inicio,
     local: a.local,
     status: a.status,
+    videoChamadaUrl: a.video_chamada_url,
     marcados: resumo.get(a.id)?.marcados ?? 0,
     presentes: resumo.get(a.id)?.presentes ?? 0,
   }))
@@ -102,6 +105,7 @@ export default async function AulasTurmaPage({ params }: { params: { id: string 
         totalAlunos={alunosRes.count ?? 0}
         gravado={gravado}
         totalAulas={turma.total_aulas}
+        linkPorAula={turma.video_chamada_modo === 'aula'}
         podeGerar={
           gravado
             ? (turma.total_aulas ?? 0) > 0
