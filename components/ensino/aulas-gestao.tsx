@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   CalendarPlus, Wand2, Loader2, Trash2, Pencil, ClipboardList, Check, Video,
+  GripVertical,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,6 +15,7 @@ import {
 } from '@/components/ui/dialog'
 import {
   criarAulaAction, editarAulaAction, excluirAulaAction, gerarAulasAction,
+  reordenarAulasAction,
 } from '@/app/actions/ensino/aulas'
 import { dataBr, STATUS_AULA } from '@/lib/ensino/turma'
 import { nomeDoDia } from '@/lib/dia-semana'
@@ -83,6 +85,31 @@ export function AulasGestao({
     })
   }
 
+  /**
+   * Leva a aula para outra posição, empurrando as demais.
+   *
+   * Quem muda de lugar é a aula; o número e a data ficam onde estão. Pôr a
+   * terceira como primeira é dar a ela o dia da primeira e adiar as outras —
+   * sem reescrever data por data.
+   */
+  function mover(id: string, posicao: number) {
+    const ordem = aulas.map((a) => a.id)
+    const de = ordem.indexOf(id)
+    const para = Math.min(Math.max(posicao - 1, 0), ordem.length - 1)
+    if (de < 0 || de === para) return
+
+    ordem.splice(de, 1)
+    ordem.splice(para, 0, id)
+
+    setErro(null)
+    setAviso(null)
+    startTransition(async () => {
+      const r = await reordenarAulasAction(turmaId, ordem)
+      if (!r.ok) { setErro(r.erro); return }
+      router.refresh()
+    })
+  }
+
   const faltam = gravado && totalAulas ? totalAulas - aulas.length : 0
 
   return (
@@ -140,9 +167,28 @@ export function AulasGestao({
 
             return (
               <div key={a.id} className="flex items-center gap-3 px-3 py-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-xs font-bold text-muted-foreground">
-                  {a.numero}
-                </div>
+                {/* O número é o seletor de posição: trocar aqui move a aula e
+                    leva as datas junto. Com uma aula só não há o que ordenar. */}
+                {aulas.length > 1 ? (
+                  <div className="relative h-9 w-9 shrink-0">
+                    <select
+                      value={a.numero}
+                      onChange={(e) => mover(a.id, Number(e.target.value))}
+                      disabled={isPending}
+                      aria-label={`Posição da aula ${a.numero}`}
+                      className="peer h-full w-full cursor-pointer appearance-none rounded-lg border border-transparent bg-muted text-center text-xs font-bold text-muted-foreground outline-none transition-colors hover:border-primary/40 hover:text-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-50"
+                    >
+                      {aulas.map((_, i) => (
+                        <option key={i} value={i + 1}>{i + 1}</option>
+                      ))}
+                    </select>
+                    <GripVertical className="pointer-events-none absolute -right-0.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground/0 transition-colors peer-hover:text-muted-foreground/50" />
+                  </div>
+                ) : (
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-xs font-bold text-muted-foreground">
+                    {a.numero}
+                  </div>
+                )}
 
                 <div className="min-w-0 flex-1">
                   <Link
@@ -231,6 +277,14 @@ export function AulasGestao({
             )
           })}
         </div>
+      )}
+
+      {aulas.length > 1 && (
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          O número de cada aula é um seletor: mude-o para levar a aula a outra
+          posição. As demais se ajustam sozinhas
+          {gravado ? '.' : ', e cada aula fica com a data do lugar que passou a ocupar.'}
+        </p>
       )}
 
       {!gravado && totalAlunos === 0 && aulas.length > 0 && (

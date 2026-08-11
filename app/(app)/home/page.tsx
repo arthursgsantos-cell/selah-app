@@ -322,6 +322,25 @@ export default async function HomePage() {
   const fbSvg = <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
   const ytSvg = <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
 
+  /**
+   * O fundo da home é um só, configurado pela liderança em `igrejas`.
+   *
+   * Vale igual para visitante, convidado e membro: quem edita muda a home
+   * inteira, não a "sua" versão dela. O que separa as telas é só a galeria da
+   * comunidade — reservada a quem já é membro — e o botão de editar, que fica
+   * com pastor e admin.
+   */
+  const fundoHome = {
+    cor: church?.cor ?? null,
+    corSecundaria: church?.cor_secundaria ?? null,
+    fundoTipo: church?.fundo_tipo ?? null,
+    fundoImagemUrl: church?.fundo_imagem_url ?? null,
+    fundoOpacidade: church?.fundo_opacidade ?? 100,
+    galeriaAtiva: church?.fundo_galeria ?? false,
+    galeriaOpacidade: church?.fundo_galeria_opacidade ?? 35,
+    totalFotos: galleryPhotos.length,
+  }
+
   if (!profile) {
     // ── GUEST / PUBLIC VIEW ──────────────────────────────────────────
     return (
@@ -331,17 +350,7 @@ export default async function HomePage() {
             está logado. Sem `canEdit`: visitante nunca vê o botão de editar,
             só o resultado. Galeria da comunidade fica de fora — reservada
             para membros. */}
-        <HomeFundo
-          cor={church?.cor ?? null}
-          corSecundaria={church?.cor_secundaria ?? null}
-          fundoTipo={church?.fundo_tipo ?? null}
-          fundoImagemUrl={church?.fundo_imagem_url ?? null}
-          fundoOpacidade={church?.fundo_opacidade ?? 100}
-          galeriaAtiva={false}
-          galeriaOpacidade={church?.fundo_galeria_opacidade ?? 35}
-          totalFotos={galleryPhotos.length}
-          canEdit={false}
-        />
+        <HomeFundo {...fundoHome} galeriaAtiva={false} canEdit={false} />
 
         {/* Hero — identidade da igreja */}
         <div className="relative rounded-3xl overflow-hidden shadow-xl">
@@ -600,26 +609,22 @@ export default async function HomePage() {
     <div className="space-y-6 max-w-2xl mx-auto pb-6">
 
       {/* Fundo da página inicial — configurado pela liderança e guardado em
-          `igrejas`. Sem `fundo_tipo` a home mantém o fundo padrão do app. */}
+          `igrejas`. Sem `fundo_tipo` a home mantém o fundo padrão do app.
+          A cascata de fotos é a única parte que o convidado não vê. */}
       <FundoGaleria
         fotos={galleryPhotos.map((f) => f.url)}
         opacidade={church?.fundo_galeria_opacidade ?? 35}
-        ativo={church?.fundo_galeria ?? false}
+        ativo={isMember && (church?.fundo_galeria ?? false)}
       />
-      {podeEditarHome && (
+      {/* A camada de cor sai do mesmo componente do painel de edição, e por
+          isso era renderizada só para quem podia editar: membro e convidado
+          ficavam sem o fundo que a liderança escolheu. */}
+      {podeEditarHome ? (
         <div className="flex justify-end -mb-2">
-          <HomeFundo
-            cor={church?.cor ?? null}
-            corSecundaria={church?.cor_secundaria ?? null}
-            fundoTipo={church?.fundo_tipo ?? null}
-            fundoImagemUrl={church?.fundo_imagem_url ?? null}
-            fundoOpacidade={church?.fundo_opacidade ?? 100}
-            galeriaAtiva={church?.fundo_galeria ?? false}
-            galeriaOpacidade={church?.fundo_galeria_opacidade ?? 35}
-            totalFotos={galleryPhotos.length}
-            canEdit
-          />
+          <HomeFundo {...fundoHome} canEdit />
         </div>
+      ) : (
+        <HomeFundo {...fundoHome} canEdit={false} />
       )}
 
       {/* Hero — boas-vindas pessoal */}

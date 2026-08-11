@@ -164,6 +164,94 @@ export async function salvarDescricaoAulaAction(
   return { ok: true }
 }
 
+/**
+ * Reordena as aulas da turma.
+ *
+ * O calendário é dos números, não das aulas: a aula 1 acontece no primeiro dia,
+ * a 2 no segundo. Então mover a terceira aula para a frente é dar a ela o número
+ * e a data que eram da primeira, e empurrar as outras — que é justamente o que
+ * se espera de "esta aula devia ser a primeira", sem ninguém reescrever data por
+ * data.
+ *
+ * A aula leva junto o que é dela (título, texto, materiais, presenças já
+ * marcadas), porque continua sendo a mesma linha: só o lugar dela na sequência
+ * muda.
+ */
+export async function reordenarAulasAction(
+  turmaId: string,
+  idsNaOrdem: string[]
+): Promise<ResultadoAcao> {
+  const acesso = await acessoEnsino()
+  if (!(await podeLecionar(acesso, turmaId))) {
+    return { ok: false, erro: 'Você não administra esta turma.' }
+  }
+
+  const admin = createAdminClient()
+  const { data } = await admin
+    .from('ensino_aulas')
+    .select('id, turma_id, numero, data, status')
+    .eq('turma_id', turmaId)
+    .order('numero')
+
+  const atuais = (data ?? []) as {
+    id: string; turma_id: string; numero: number; data: string; status: StatusAula
+  }[]
+
+  // A ordem tem de ser uma permutação exata do que existe: uma lista defasada
+  // (aula criada noutra aba, aula excluída) renumeraria umas e deixaria outras
+  // com o número antigo.
+  const conhecidos = new Set(atuais.map((a) => a.id))
+  const recebidos = new Set(idsNaOrdem)
+  if (
+    idsNaOrdem.length !== atuais.length ||
+    recebidos.size !== idsNaOrdem.length ||
+    idsNaOrdem.some((id) => !conhecidos.has(id))
+  ) {
+    return { ok: false, erro: 'A lista de aulas mudou. Recarregue a página e tente de novo.' }
+  }
+
+  // Os lugares na sequência, na ordem em que estão hoje. É o que as aulas vão
+  // ocupar na ordem nova.
+  const lugares = atuais.map((a) => ({ numero: a.numero, data: a.data }))
+  const porId = new Map(atuais.map((a) => [a.id, a]))
+
+  const nada = idsNaOrdem.every((id, i) => porId.get(id)!.numero === lugares[i].numero)
+  if (nada) return { ok: true }
+
+  // Dois passos porque (turma_id, numero) é único e não adiável: trocar a 1 com
+  // a 3 direto esbarraria no número que a outra ainda ocupa. Todas passam por
+  // números negativos, que ninguém usa, e só então recebem o definitivo.
+  const base = (id: string) => {
+    const a = porId.get(id)!
+    return { id: a.id, turma_id: a.turma_id, status: a.status }
+  }
+
+  const { error: erroLimpeza } = await admin.from('ensino_aulas').upsert(
+    idsNaOrdem.map((id, i) => ({ ...base(id), numero: -(i + 1), data: porId.get(id)!.data }))
+  )
+  if (erroLimpeza) return { ok: false, erro: erroLimpeza.message }
+
+  const { error } = await admin.from('ensino_aulas').upsert(
+    idsNaOrdem.map((id, i) => ({ ...base(id), numero: lugares[i].numero, data: lugares[i].data }))
+  )
+  if (error) {
+    // Sem isto a turma ficaria com as aulas em números negativos — nenhuma
+    // abriria, porque a página da aula é `/aula/[numero]`.
+    await admin.from('ensino_aulas').upsert(
+      atuais.map((a) => ({
+        id: a.id, turma_id: a.turma_id, status: a.status, numero: a.numero, data: a.data,
+      }))
+    )
+    return { ok: false, erro: error.message }
+  }
+
+  revalidatePath(`/ensino/turma/${turmaId}`)
+  revalidatePath(`/ensino/turma/${turmaId}/aulas`)
+  revalidatePath(`/ensino/turma/${turmaId}/materiais`)
+  revalidatePath('/ensino/aluno')
+  return { ok: true }
+}
+
 export async function excluirAulaAction(id: string): Promise<ResultadoAcao> {
   const acesso = await acessoEnsino()
 

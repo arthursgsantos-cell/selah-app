@@ -15,7 +15,10 @@ export interface TurmaResumo {
   /** Endereço legível da turma. Nulo só em turma criada antes do slug existir. */
   slug: string | null
   nome: string
+  cursoId: string
   cursoNome: string
+  /** Se a turma ainda aceita pedidos — o que o filtro de inscrição usa. */
+  inscricoesAbertas: boolean
   capaUrl: string | null
   local: string | null
   dataInicio: string | null

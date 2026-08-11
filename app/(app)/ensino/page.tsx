@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { loginCom } from '@/lib/destino-login'
 import { acessoEnsino } from '@/lib/ensino/permissoes'
 import { listarTurmas, minhasInscricoesPorTurma } from '@/lib/ensino/consultas'
-import { TurmaCard } from '@/components/ensino/turma-card'
+import { TurmasExplorador } from '@/components/ensino/turmas-explorador'
 
 export const metadata = {
   title: 'Ensino · Igreja Batista Zona Sul',
@@ -21,11 +21,6 @@ export default async function EnsinoPage() {
     listarTurmas({ igrejaId: acesso.igrejaId }),
     minhasInscricoesPorTurma(acesso.userId),
   ])
-
-  // Concluídas e canceladas descem para o fim: a vitrine é de quem ainda pode
-  // receber aluno.
-  const abertas = turmas.filter((t) => t.status === 'aberta' || t.status === 'em_andamento')
-  const encerradas = turmas.filter((t) => t.status === 'concluida' || t.status === 'cancelada')
 
   const minhasTurmas = turmas.filter((t) => minhas[t.id])
 
@@ -102,12 +97,8 @@ export default async function EnsinoPage() {
           )}
         </div>
 
-        {abertas.length > 0 ? (
-          <div className="space-y-3">
-            {abertas.map((turma) => (
-              <TurmaCard key={turma.id} turma={turma} minhaInscricao={minhas[turma.id] ?? null} />
-            ))}
-          </div>
+        {turmas.length > 0 ? (
+          <TurmasExplorador turmas={turmas} minhas={minhas} />
         ) : (
           <Card>
             <CardContent className="py-12 text-center">
@@ -130,19 +121,6 @@ export default async function EnsinoPage() {
           </Card>
         )}
       </section>
-
-      {encerradas.length > 0 && (
-        <section>
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
-            Encerradas
-          </p>
-          <div className="space-y-3 opacity-60">
-            {encerradas.map((turma) => (
-              <TurmaCard key={turma.id} turma={turma} minhaInscricao={minhas[turma.id] ?? null} />
-            ))}
-          </div>
-        </section>
-      )}
     </div>
   )
 }

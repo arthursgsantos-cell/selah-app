@@ -18,6 +18,8 @@ type LinhaTurma = {
   id: string
   slug: string | null
   nome: string
+  curso_id: string
+  inscricoes_abertas: boolean
   capa_url: string | null
   local: string | null
   data_inicio: string | null
@@ -85,7 +87,9 @@ function montar(
     id: linha.id,
     slug: linha.slug,
     nome: linha.nome,
+    cursoId: linha.curso_id,
     cursoNome: linha.ensino_cursos?.nome ?? 'Curso',
+    inscricoesAbertas: linha.inscricoes_abertas,
     capaUrl: linha.capa_url,
     local: linha.local,
     dataInicio: linha.data_inicio,
@@ -101,7 +105,7 @@ function montar(
 }
 
 const CAMPOS =
-  'id, slug, nome, capa_url, local, data_inicio, data_fim, dias_semana, horario_inicio, horario_fim, vagas, status, ensino_cursos(nome)'
+  'id, slug, nome, curso_id, inscricoes_abertas, capa_url, local, data_inicio, data_fim, dias_semana, horario_inicio, horario_fim, vagas, status, ensino_cursos(nome)'
 
 /** Turmas da igreja, das mais recentes para as mais antigas. */
 export async function listarTurmas(opcoes?: {
