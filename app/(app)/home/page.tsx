@@ -472,8 +472,8 @@ export default async function HomePage() {
 
         {/* Próximos eventos */}
         {eventos && eventos.length > 0 && (
-          <section>
-            <div className="flex items-center gap-2 mb-3">
+          <section className={SECAO}>
+            <div className={SECAO_TITULO}>
               <Sparkles className="h-4 w-4 text-[#0F52BA]" />
               <h2 className="text-sm font-semibold">Próximos eventos</h2>
             </div>
@@ -487,8 +487,8 @@ export default async function HomePage() {
         )}
 
         {/* Mapa */}
-        <section>
-          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2.5 px-0.5">Como nos encontrar</p>
+        <section className={SECAO}>
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Como nos encontrar</p>
           <div className="rounded-2xl overflow-hidden border border-blue-100 relative">
             <iframe
               src="https://maps.google.com/maps?q=-5.8897333,-35.2013972&z=17&output=embed"

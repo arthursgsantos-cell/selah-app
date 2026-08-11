@@ -15,7 +15,7 @@ import {
   STATUS_TURMA, encontrosTexto, periodoTexto, vagasRestantes,
   inscricoesDisponiveis, dataBr, STATUS_AULA,
 } from '@/lib/ensino/turma'
-import { PAINEL } from '@/lib/estilos'
+import { PAINEL, SECAO, CARTAO_ANINHADO } from '@/lib/estilos'
 import { InscricaoTurma } from '@/components/ensino/inscricao-turma'
 import { DestaqueTurmaBtn } from '@/components/ensino/destaque-turma-btn'
 import { TurmaFundo } from '@/components/ensino/turma-fundo'
@@ -391,7 +391,7 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
 
       {/* Atalhos de quem administra a turma */}
       {leciona && (
-        <section className="space-y-2">
+        <section className={SECAO}>
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
             Gestão da turma
           </p>
@@ -432,30 +432,32 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
       {/* Próxima aula */}
       {/* Progresso do curso gravado */}
       {gravado && inscrito && aulas.length > 0 && (
-        <section>
-          <div className="flex items-center justify-between gap-2 mb-1.5">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-              Seu progresso
-            </p>
-            <span className="text-xs font-medium">
-              {concluidas.size} de {aulas.length} {aulas.length === 1 ? 'aula' : 'aulas'}
-            </span>
-          </div>
-          <div className="h-2 rounded-full bg-muted overflow-hidden">
-            <div
-              className="h-full rounded-full bg-primary transition-all"
-              style={{ width: `${Math.round((concluidas.size / aulas.length) * 100)}%` }}
-            />
+        <section className={SECAO}>
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+                Seu progresso
+              </p>
+              <span className="text-xs font-medium">
+                {concluidas.size} de {aulas.length} {aulas.length === 1 ? 'aula' : 'aulas'}
+              </span>
+            </div>
+            <div className="h-2 rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-full rounded-full bg-primary transition-all"
+                style={{ width: `${Math.round((concluidas.size / aulas.length) * 100)}%` }}
+              />
+            </div>
           </div>
         </section>
       )}
 
       {(inscrito || leciona) && proximaAula && (
-        <section>
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
+        <section className={SECAO}>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
             {gravado ? (concluidas.size > 0 ? 'Continue de onde parou' : 'Comece por aqui') : 'Próxima aula'}
           </p>
-          <div className={`${PAINEL} space-y-3`}>
+          <div className="space-y-3">
             <div className="flex items-center gap-3">
             <Link
               href={`/ensino/turma/${turma.id}/aula/${proximaAula.numero}`}
@@ -502,8 +504,8 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
 
       {/* Materiais */}
       {(inscrito || leciona || materiais.length > 0) && (
-        <section>
-          <div className="flex items-center justify-between gap-3 mb-3">
+        <section className={SECAO}>
+          <div className="flex items-center justify-between gap-3">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
               Materiais
             </p>
@@ -529,8 +531,8 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
 
       {/* Calendário de aulas — visível só para inscritos e professores */}
       {(inscrito || leciona) && aulas.length > 0 && (
-        <section>
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
+        <section className={SECAO}>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
             Aulas
           </p>
           <div className="rounded-2xl border border-border divide-y overflow-hidden">
@@ -582,11 +584,13 @@ function AtalhoGestao({
   descricao: string
   destaque?: boolean
 }) {
+  // Fica dentro da seção, e cartão branco sobre cartão branco some: o tom
+  // suave devolve o contorno.
   return (
     <Link
       href={href}
-      className={`flex items-center gap-3 rounded-2xl border bg-card p-3.5 shadow-sm transition-colors hover:bg-accent ${
-        destaque ? 'border-amber-300 bg-amber-50/50' : 'border-border'
+      className={`flex items-center gap-3 rounded-2xl border p-3.5 transition-colors hover:bg-accent ${
+        destaque ? 'border-amber-300 bg-amber-50' : `border-border ${CARTAO_ANINHADO}`
       }`}
     >
       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">

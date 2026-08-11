@@ -24,6 +24,12 @@ export const CARTAO_ANINHADO = 'bg-muted'
  * era legível enquanto o fundo era branco; desde que a home passou a aceitar
  * cor, imagem e a cascata de fotos, o título precisa do mesmo cartão que o
  * conteúdo — flutuar sozinho sobre a foto deixa a página remendada.
+ *
+ * PADRÃO DO SITE: em toda página que renderiza `FundoPagina` ou
+ * `FundoGaleria` — home, célula, rede, evento e a turma do Ensino — nenhum
+ * texto fica direto sobre o fundo. Ou está dentro de um `Card`, ou de um
+ * `PAINEL`, ou desta `SECAO` junto do próprio título. Único texto que escapa
+ * é o link de voltar do topo, que é navegação e não conteúdo.
  */
 export const SECAO = 'space-y-3 rounded-2xl bg-card p-4 shadow-sm'
 

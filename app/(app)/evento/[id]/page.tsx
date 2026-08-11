@@ -22,6 +22,7 @@ import { EventoContagem } from '@/components/eventos/evento-contagem'
 import { InscritosPlanilha } from '@/components/eventos/inscritos-planilha'
 import { DestaqueBtn } from '@/components/eventos/destaque-btn'
 import { SecaoChrome } from '@/components/eventos/secao-chrome'
+import { SECAO, SECAO_TITULO } from '@/lib/estilos'
 import { AdicionarSecao } from '@/components/eventos/adicionar-secao'
 import type { BotaoEvento, CardEvento } from '@/app/actions/evento-pagina'
 import type { SecaoEvento } from '@/app/actions/evento-secoes'
@@ -428,8 +429,8 @@ export default async function EventoPage({ params }: { params: { id: string } })
           qualquer evento: com link externo ou inscrição no WhatsApp, é lá que o
           organizador cadastra quem pagou. */}
       {canEdit && (
-        <section className="space-y-3 border-t border-border pt-4">
-          <div className="flex items-center gap-2">
+        <section className={SECAO}>
+          <div className={SECAO_TITULO}>
             <Wallet className="h-4 w-4 text-muted-foreground" />
             <h2 className="text-sm font-semibold">Cobrança</h2>
           </div>

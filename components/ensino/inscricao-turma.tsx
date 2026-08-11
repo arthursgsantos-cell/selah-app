@@ -9,6 +9,7 @@ import {
   cancelarMinhaInscricaoAction,
   inscreverPeloWhatsappAction,
 } from '@/app/actions/ensino/inscricoes'
+import { PAINEL } from '@/lib/estilos'
 import type { StatusInscricaoEnsino, TipoInscricaoTurma } from '@/lib/supabase/types'
 
 interface Props {
@@ -103,8 +104,10 @@ export function InscricaoTurma({
     })
   }
 
+  // O bloco inteiro vai num painel: a página da turma aceita cor e fotos de
+  // fundo, e o aviso e o "cancelar" são texto solto que sumia sobre elas.
   return (
-    <div className="space-y-3">
+    <div className={`${PAINEL} space-y-3`}>
       {inscricao && (
         <div className={`rounded-2xl border p-4 ${APRESENTACAO[inscricao.status].classe}`}>
           <div className="flex items-start gap-3">
@@ -169,7 +172,7 @@ export function InscricaoTurma({
       )}
 
       {!ativa && !disponivel && (
-        <p className="rounded-2xl border border-border bg-muted/40 p-4 text-center text-sm text-muted-foreground">
+        <p className="rounded-2xl border border-border bg-muted p-4 text-center text-sm text-muted-foreground">
           {motivoIndisponivel}
         </p>
       )}
@@ -177,7 +180,7 @@ export function InscricaoTurma({
       {ativa && inscricao?.status !== 'concluida' && (
         <>
           {confirmando ? (
-            <div className="rounded-2xl border border-border bg-muted/40 p-4 space-y-3">
+            <div className="rounded-2xl border border-border bg-muted p-4 space-y-3">
               <p className="text-sm">
                 Cancelar sua inscrição nesta turma? Você pode pedir de novo enquanto houver vaga.
               </p>
