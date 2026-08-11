@@ -57,6 +57,70 @@ export async function listarEquipe(): Promise<MembroEquipe[]> {
     .sort((a, b) => a.nome.localeCompare(b.nome))
 }
 
+export interface CandidatoProfessor {
+  id: string
+  nome: string
+  avatarUrl: string | null
+  /** De onde vem a permissão de dar aula. */
+  origem: 'equipe' | 'lideranca' | 'turma'
+}
+
+/**
+ * Quem pode ser posto como professor de uma turma.
+ *
+ * Três fontes: a equipe do Ensino, a liderança da igreja — pastor e admin
+ * coordenam sem cadastro em `ensino_equipe` — e quem já leciona a turma. A
+ * terceira existe porque quem cria a turma vira professor dela na hora, mesmo
+ * sem passar pela equipe: sem esse resgate, o nome que está na turma sumiria da
+ * lista que ele mesmo ocupa e a primeira gravação o derrubaria sem aviso.
+ */
+export async function listarCandidatosProfessor(
+  turmaId?: string
+): Promise<CandidatoProfessor[]> {
+  const acesso = await acessoEnsino()
+  if (!acesso?.coordenador) return []
+
+  const admin = createAdminClient()
+
+  const [equipeRes, liderancaRes, atuaisRes] = await Promise.all([
+    admin.from('ensino_equipe').select('profile_id').eq('igreja_id', acesso.igrejaId),
+    admin
+      .from('profiles')
+      .select('id')
+      .eq('igreja_id', acesso.igrejaId)
+      .in('role', ['pastor', 'admin']),
+    turmaId
+      ? admin.from('ensino_turma_professores').select('profile_id').eq('turma_id', turmaId)
+      : Promise.resolve({ data: [] as { profile_id: string }[] }),
+  ])
+
+  const daEquipe = new Set((equipeRes.data ?? []).map((e) => e.profile_id))
+  const daLideranca = new Set((liderancaRes.data ?? []).map((p) => p.id))
+  const daTurma = new Set((atuaisRes.data ?? []).map((t) => t.profile_id))
+
+  const ids = [...new Set([...daEquipe, ...daLideranca, ...daTurma])]
+  if (ids.length === 0) return []
+
+  const { data } = await admin
+    .from('profiles')
+    .select('id, nome, avatar_url')
+    .eq('igreja_id', acesso.igrejaId)
+    .in('id', ids)
+
+  return ((data ?? []) as { id: string; nome: string; avatar_url: string | null }[])
+    .map((p) => ({
+      id: p.id,
+      nome: p.nome,
+      avatarUrl: p.avatar_url,
+      origem: daEquipe.has(p.id)
+        ? ('equipe' as const)
+        : daLideranca.has(p.id)
+          ? ('lideranca' as const)
+          : ('turma' as const),
+    }))
+    .sort((a, b) => a.nome.localeCompare(b.nome))
+}
+
 export async function definirPapelAction(
   profileId: string,
   papel: PapelEnsino

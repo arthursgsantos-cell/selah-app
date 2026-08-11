@@ -7,6 +7,7 @@ import { loginCom } from '@/lib/destino-login'
 import { acessoEnsino, podeLecionar } from '@/lib/ensino/permissoes'
 import { TurmaForm, type TurmaParaEditar } from '@/components/ensino/turma-form'
 import { ExcluirTurmaBtn } from '@/components/ensino/excluir-turma-btn'
+import { listarCandidatosProfessor } from '@/app/actions/ensino/equipe'
 import type {
   ModoTurma, ModoVideoChamada, StatusTurma, TipoInscricaoTurma,
 } from '@/lib/supabase/types'
@@ -79,6 +80,21 @@ export default async function EditarTurmaPage({ params }: { params: { id: string
     .eq('ativo', true)
     .order('nome')
 
+  // A equipe da turma só é editável pela coordenação — para os demais o
+  // formulário nem recebe a lista, e a seção não existe.
+  const [candidatos, professoresRes] = await Promise.all([
+    acesso.coordenador ? listarCandidatosProfessor(turma.id) : Promise.resolve(undefined),
+    admin
+      .from('ensino_turma_professores')
+      .select('profile_id, principal')
+      .eq('turma_id', turma.id)
+      .order('principal', { ascending: false }),
+  ])
+
+  const professoresIniciais = ((professoresRes.data ?? []) as { profile_id: string }[]).map(
+    (p) => p.profile_id
+  )
+
   // O que a exclusão levaria junto. Só a coordenação exclui, então só para ela
   // vale a contagem — e é ela que a confirmação mostra, em vez de um "tem
   // certeza?" que não informa nada.
@@ -105,7 +121,12 @@ export default async function EditarTurmaPage({ params }: { params: { id: string
         <p className="text-sm text-muted-foreground mt-0.5">{turma.nome}</p>
       </div>
 
-      <TurmaForm cursos={(cursos ?? []) as { id: string; nome: string }[]} turma={turma} />
+      <TurmaForm
+        cursos={(cursos ?? []) as { id: string; nome: string }[]}
+        turma={turma}
+        candidatos={candidatos}
+        professoresIniciais={professoresIniciais}
+      />
 
       {acesso.coordenador && (
         <ExcluirTurmaBtn

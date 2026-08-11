@@ -73,6 +73,22 @@ function limpar(v: string | null | undefined): string | null {
   return t ? t : null
 }
 
+/**
+ * Confere a equipe escolhida na interface. Os ids chegam do cliente, e um
+ * perfil de outra igreja aqui viraria acesso à turma inteira — mesma cautela de
+ * `definirPapelAction`.
+ */
+async function professoresForaDaIgreja(igrejaId: string, ids: string[]): Promise<boolean> {
+  const admin = createAdminClient()
+  const { data } = await admin
+    .from('profiles')
+    .select('id')
+    .eq('igreja_id', igrejaId)
+    .in('id', ids)
+
+  return (data ?? []).length !== new Set(ids).size
+}
+
 function videoModo(dados: DadosTurma): ModoVideoChamada {
   if (dados.modo === 'gravado') return 'nenhum'
   return dados.videoChamadaModo ?? 'nenhum'
@@ -105,6 +121,10 @@ export async function criarTurmaAction(dados: DadosTurma): Promise<
 
   const faltando = inscricaoIncompleta(dados)
   if (faltando) return { ok: false, erro: faltando }
+
+  if (dados.professores?.length && (await professoresForaDaIgreja(acesso.igrejaId, dados.professores))) {
+    return { ok: false, erro: 'Professor não encontrado nesta igreja.' }
+  }
 
   const supabase = await createClient()
   const { data, error } = await supabase
@@ -169,13 +189,28 @@ export async function editarTurmaAction(
   dados: DadosTurma
 ): Promise<ResultadoAcao> {
   const acesso = await acessoEnsino()
-  if (!(await podeLecionar(acesso, id))) {
+  if (!acesso || !(await podeLecionar(acesso, id))) {
     return { ok: false, erro: 'Você não administra esta turma.' }
   }
   if (!dados.nome.trim()) return { ok: false, erro: 'A turma precisa de um nome.' }
 
   const faltando = inscricaoIncompleta(dados)
   if (faltando) return { ok: false, erro: faltando }
+
+  // Só coordenador troca a equipe da turma — a RLS de
+  // `ensino_turma_professores` recusaria um professor tentando se remover ou
+  // adicionar colegas. A conferência vem antes da gravação: recusar depois
+  // deixaria os dados da turma salvos e a equipe não.
+  const trocarProfessores = dados.professores !== undefined && acesso.coordenador
+  if (trocarProfessores) {
+    const escolhidos = dados.professores!
+    if (escolhidos.length === 0) {
+      return { ok: false, erro: 'A turma precisa de pelo menos um professor.' }
+    }
+    if (await professoresForaDaIgreja(acesso.igrejaId, escolhidos)) {
+      return { ok: false, erro: 'Professor não encontrado nesta igreja.' }
+    }
+  }
 
   const supabase = await createClient()
   const { error } = await supabase
@@ -213,21 +248,16 @@ export async function editarTurmaAction(
 
   if (error) return { ok: false, erro: error.message }
 
-  // Só coordenador troca a equipe da turma — a RLS de
-  // `ensino_turma_professores` recusaria um professor tentando se remover ou
-  // adicionar colegas.
-  if (dados.professores && acesso?.coordenador) {
+  if (trocarProfessores) {
     const admin = createAdminClient()
     await admin.from('ensino_turma_professores').delete().eq('turma_id', id)
-    if (dados.professores.length > 0) {
-      await admin.from('ensino_turma_professores').insert(
-        dados.professores.map((profileId, i) => ({
-          turma_id: id,
-          profile_id: profileId,
-          principal: i === 0,
-        }))
-      )
-    }
+    await admin.from('ensino_turma_professores').insert(
+      dados.professores!.map((profileId, i) => ({
+        turma_id: id,
+        profile_id: profileId,
+        principal: i === 0,
+      }))
+    )
   }
 
   revalidatePath('/ensino')

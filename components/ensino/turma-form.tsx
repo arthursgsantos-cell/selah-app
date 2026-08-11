@@ -17,6 +17,7 @@ import { criarCursoAction } from '@/app/actions/ensino/cursos'
 import {
   InscricaoTurmaFields, type InscricaoTurmaValue,
 } from '@/components/ensino/inscricao-turma-fields'
+import type { CandidatoProfessor } from '@/app/actions/ensino/equipe'
 import type {
   ModoTurma, ModoVideoChamada, StatusTurma, TipoInscricaoTurma,
 } from '@/lib/supabase/types'
@@ -51,6 +52,12 @@ export interface TurmaParaEditar {
   videoChamadaUrl: string | null
 }
 
+const ORIGEM: Record<CandidatoProfessor['origem'], string> = {
+  equipe: 'Equipe do Ensino',
+  lideranca: 'Liderança da igreja',
+  turma: 'Já leciona esta turma',
+}
+
 function hhmm(valor: string | null): string {
   return valor ? valor.slice(0, 5) : ''
 }
@@ -65,9 +72,19 @@ function hhmm(valor: string | null): string {
 export function TurmaForm({
   cursos,
   turma,
+  candidatos,
+  professoresIniciais = [],
 }: {
   cursos: { id: string; nome: string }[]
   turma?: TurmaParaEditar
+  /**
+   * Quem pode lecionar. Só a coordenação troca a equipe da turma, então a
+   * página manda a lista só para ela — sem lista, a seção não aparece e o
+   * formulário não mexe nos professores.
+   */
+  candidatos?: CandidatoProfessor[]
+  /** Equipe atual da turma, ou quem está criando. O primeiro é o principal. */
+  professoresIniciais?: string[]
 }) {
   const editando = turma !== undefined
   const router = useRouter()
@@ -93,6 +110,7 @@ export function TurmaForm({
   const [status, setStatus] = useState<StatusTurma>(turma?.status ?? 'aberta')
   const [modo, setModo] = useState<ModoTurma>(turma?.modo ?? 'presencial')
   const [sequencial, setSequencial] = useState(turma?.sequencial ?? false)
+  const [professores, setProfessores] = useState<string[]>(professoresIniciais)
   const [capaFile, setCapaFile] = useState<File | null>(null)
   const [capaPreview, setCapaPreview] = useState<string | null>(turma?.capaUrl ?? null)
 
@@ -143,6 +161,20 @@ export function TurmaForm({
     )
   }
 
+  function alternarProfessor(id: string) {
+    setSujo(true)
+    setProfessores((atual) =>
+      atual.includes(id) ? atual.filter((p) => p !== id) : [...atual, id]
+    )
+  }
+
+  // Principal é posição, não campo: a primeira da lista é a que a turma mostra
+  // primeiro, e promover alguém é trazê-lo para a frente.
+  function tornarPrincipal(id: string) {
+    setSujo(true)
+    setProfessores((atual) => [id, ...atual.filter((p) => p !== id)])
+  }
+
   function trocarCapa(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -182,6 +214,11 @@ export function TurmaForm({
     }
     if (videoModo === 'turma' && !videoUrl.trim()) {
       setErro('Informe o link da videochamada do curso.')
+      return
+    }
+    // Turma sem professor ficaria sem ninguém capaz de fazer a chamada.
+    if (candidatos && professores.length === 0) {
+      setErro('Escolha pelo menos um professor para a turma.')
       return
     }
 
@@ -230,6 +267,9 @@ export function TurmaForm({
           // nem aparece nela, e um valor herdado de outro modo não sobrevive.
           videoChamadaModo: modo === 'gravado' ? 'nenhum' : videoModo,
           videoChamadaUrl: videoModo === 'turma' ? videoUrl.trim() || null : null,
+          // Sem a seção na tela a equipe não vai no pacote: mandar a lista
+          // vazia apagaria os professores de quem só pode editar a turma.
+          professores: candidatos ? professores : undefined,
         }
 
         // Editar e criar devolvem formatos diferentes — só a criação traz o id
@@ -361,6 +401,92 @@ export function TurmaForm({
           </p>
         )}
       </Secao>
+
+      {/* Quem dá aula. Só a coordenação recebe `candidatos` — professor edita a
+          turma, mas não escolhe quem entra nela. */}
+      {candidatos && (
+        <Secao titulo="Professores">
+          {candidatos.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Ninguém cadastrado como professor ainda. Cadastre a equipe em{' '}
+              <Link href="/ensino/admin" className="text-primary hover:underline">
+                Administração do Ensino
+              </Link>
+              .
+            </p>
+          ) : (
+            <>
+              <div className="rounded-xl border border-border divide-y overflow-hidden">
+                {candidatos.map((c) => {
+                  const posicao = professores.indexOf(c.id)
+                  return (
+                    <div key={c.id} className="flex items-center gap-3 px-3 py-2.5">
+                      <input
+                        id={`prof-${c.id}`}
+                        type="checkbox"
+                        checked={posicao >= 0}
+                        onChange={() => alternarProfessor(c.id)}
+                        className="h-4 w-4 shrink-0 rounded border-input accent-primary"
+                      />
+                      <label
+                        htmlFor={`prof-${c.id}`}
+                        className="flex min-w-0 flex-1 items-center gap-2.5 cursor-pointer"
+                      >
+                        <span className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-muted text-muted-foreground flex items-center justify-center text-[10px] font-bold">
+                          {c.avatarUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              referrerPolicy="no-referrer"
+                              src={c.avatarUrl}
+                              alt={c.nome}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            c.nome.split(' ').slice(0, 2).map((n) => n[0]).join('')
+                          )}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block text-sm font-medium leading-tight truncate">
+                            {c.nome}
+                          </span>
+                          <span className="block text-xs text-muted-foreground">
+                            {ORIGEM[c.origem]}
+                          </span>
+                        </span>
+                      </label>
+
+                      {posicao === 0 && (
+                        <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                          principal
+                        </span>
+                      )}
+                      {posicao > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => tornarPrincipal(c.id)}
+                          className="shrink-0 text-xs text-primary hover:underline"
+                        >
+                          tornar principal
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Quem está marcado aqui faz chamada, cadastra aulas e publica materiais
+                desta turma. O principal é o nome que aparece primeiro. Para incluir
+                alguém que não está na lista, cadastre-o antes em{' '}
+                <Link href="/ensino/admin" className="text-primary hover:underline">
+                  Administração do Ensino
+                </Link>
+                .
+              </p>
+            </>
+          )}
+        </Secao>
+      )}
 
       {/* Turma gravada não tem calendário: não há dia da semana, horário nem
           sala. O que resta de "quando" é a data em que cada aula foi publicada,

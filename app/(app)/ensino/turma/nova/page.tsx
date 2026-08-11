@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { loginCom } from '@/lib/destino-login'
 import { acessoEnsino } from '@/lib/ensino/permissoes'
 import { TurmaForm } from '@/components/ensino/turma-form'
+import { listarCandidatosProfessor } from '@/app/actions/ensino/equipe'
 
 export const metadata = { title: 'Nova turma · Ensino IBZS' }
 
@@ -14,13 +15,19 @@ export default async function NovaTurmaPage() {
   if (!acesso.professor) redirect('/ensino')
 
   const supabase = await createClient()
-  const { data: cursos } = await supabase
-    .from('ensino_cursos')
-    .select('id, nome')
-    .eq('igreja_id', acesso.igrejaId)
-    .eq('ativo', true)
-    .order('ordem')
-    .order('nome')
+  const [cursosRes, candidatos] = await Promise.all([
+    supabase
+      .from('ensino_cursos')
+      .select('id, nome')
+      .eq('igreja_id', acesso.igrejaId)
+      .eq('ativo', true)
+      .order('ordem')
+      .order('nome'),
+    // A coordenação já decide na criação quem vai dar aula; o professor comum
+    // continua entrando como professor da turma que cria.
+    acesso.coordenador ? listarCandidatosProfessor() : Promise.resolve(undefined),
+  ])
+  const cursos = cursosRes.data
 
   return (
     <div className="space-y-5 max-w-2xl mx-auto pb-6">
@@ -39,12 +46,18 @@ export default async function NovaTurmaPage() {
         <div>
           <h1 className="text-xl font-bold leading-tight">Nova turma</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Você entra como professor. A coordenação pode trocar depois.
+            {acesso.coordenador
+              ? 'Você entra como professor — troque na seção Professores.'
+              : 'Você entra como professor. A coordenação pode trocar depois.'}
           </p>
         </div>
       </div>
 
-      <TurmaForm cursos={(cursos ?? []) as { id: string; nome: string }[]} />
+      <TurmaForm
+        cursos={(cursos ?? []) as { id: string; nome: string }[]}
+        candidatos={candidatos}
+        professoresIniciais={[acesso.userId]}
+      />
     </div>
   )
 }
