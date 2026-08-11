@@ -10,11 +10,13 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { contarAprovados } from '@/app/actions/ensino/turmas'
+import { ehUuid } from '@/lib/slug-ou-id'
 import type { TurmaResumo } from '@/components/ensino/turma-card'
 import type { StatusInscricaoEnsino, StatusTurma } from '@/lib/supabase/types'
 
 type LinhaTurma = {
   id: string
+  slug: string | null
   nome: string
   capa_url: string | null
   local: string | null
@@ -26,6 +28,27 @@ type LinhaTurma = {
   vagas: number | null
   status: StatusTurma
   ensino_cursos: { nome: string } | null
+}
+
+/**
+ * O UUID da turma a partir do que veio na URL — slug ou o próprio id.
+ *
+ * Tudo abaixo de `/ensino/turma/[id]` consulta por UUID, e `podeLecionar`
+ * compara com `turma_id`: é aqui que a chave bonita vira o que o banco entende,
+ * antes de qualquer outra consulta. Devolve null quando o slug não existe, e
+ * quem chama trata como turma inexistente.
+ */
+export async function idDaTurma(chave: string): Promise<string | null> {
+  if (ehUuid(chave)) return chave
+
+  const admin = createAdminClient()
+  const { data } = await admin
+    .from('ensino_turmas')
+    .select('id')
+    .eq('slug', chave)
+    .maybeSingle()
+
+  return (data as { id: string } | null)?.id ?? null
 }
 
 /** Primeiro nome de cada professor da turma, para caber no cartão. */
@@ -59,6 +82,7 @@ function montar(
 ): TurmaResumo {
   return {
     id: linha.id,
+    slug: linha.slug,
     nome: linha.nome,
     cursoNome: linha.ensino_cursos?.nome ?? 'Curso',
     capaUrl: linha.capa_url,
@@ -76,7 +100,7 @@ function montar(
 }
 
 const CAMPOS =
-  'id, nome, capa_url, local, data_inicio, data_fim, dias_semana, horario_inicio, horario_fim, vagas, status, ensino_cursos(nome)'
+  'id, slug, nome, capa_url, local, data_inicio, data_fim, dias_semana, horario_inicio, horario_fim, vagas, status, ensino_cursos(nome)'
 
 /** Turmas da igreja, das mais recentes para as mais antigas. */
 export async function listarTurmas(opcoes?: {

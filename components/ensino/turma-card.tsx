@@ -12,6 +12,8 @@ import { STATUS_INSCRICAO } from '@/lib/ensino/turma'
 
 export interface TurmaResumo {
   id: string
+  /** Endereço legível da turma. Nulo só em turma criada antes do slug existir. */
+  slug: string | null
   nome: string
   cursoNome: string
   capaUrl: string | null
@@ -50,7 +52,7 @@ export function TurmaCard({
   return (
     <Card>
       <CardContent className="pt-4 pb-4">
-        <Link href={href ?? `/ensino/turma/${turma.id}`} className="flex items-start gap-3.5">
+        <Link href={href ?? `/ensino/turma/${turma.slug ?? turma.id}`} className="flex items-start gap-3.5">
           {/* Retrato, e não quadrado: a capa de um curso costuma ser capa de
               livro ou arte vertical, e o recorte quadrado cortava o título da
               própria arte. */}

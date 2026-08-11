@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { loginCom } from '@/lib/destino-login'
 import { acessoEnsino, podeLecionar } from '@/lib/ensino/permissoes'
 import { corFrequencia, dataBr } from '@/lib/ensino/turma'
+import { porSlugOuId } from '@/lib/slug-ou-id'
 import type { StatusAula } from '@/lib/supabase/types'
 
 export const metadata = { title: 'Frequência da turma · Ensino IBZS' }
@@ -22,14 +23,15 @@ export default async function PresencasTurmaPage({ params }: { params: { id: str
 
   const admin = createAdminClient()
 
-  const { data: turmaRaw } = await admin
-    .from('ensino_turmas')
-    .select('id, nome, ensino_cursos(nome)')
-    .eq('id', params.id)
-    .maybeSingle()
+  const { data: turmaRaw } = await porSlugOuId(
+    admin.from('ensino_turmas').select('id, nome, ensino_cursos(nome)'),
+    params.id
+  ).maybeSingle()
 
   if (!turmaRaw) notFound()
-  if (!(await podeLecionar(acesso, params.id))) redirect(`/ensino/turma/${params.id}`)
+  if (!(await podeLecionar(acesso, (turmaRaw as { id: string }).id))) {
+    redirect(`/ensino/turma/${params.id}`)
+  }
 
   const turma = turmaRaw as unknown as {
     id: string; nome: string; ensino_cursos: { nome: string } | null
@@ -81,7 +83,7 @@ export default async function PresencasTurmaPage({ params }: { params: { id: str
   if (alunos.length === 0 || aulas.length === 0) {
     return (
       <div className="space-y-5 max-w-2xl mx-auto pb-6">
-        <Voltar turmaId={turma.id} nome={turma.nome} />
+        <Voltar turmaId={params.id} nome={turma.nome} />
         <Cabecalho turma={turma} />
         <div className="rounded-2xl border border-dashed border-border py-12 text-center">
           <p className="text-sm text-muted-foreground">
@@ -91,11 +93,11 @@ export default async function PresencasTurmaPage({ params }: { params: { id: str
           </p>
           <p className="text-xs text-muted-foreground/70 mt-1">
             {alunos.length === 0 ? (
-              <Link href={`/ensino/turma/${turma.id}/alunos`} className="text-primary hover:underline">
+              <Link href={`/ensino/turma/${params.id}/alunos`} className="text-primary hover:underline">
                 Ver inscrições
               </Link>
             ) : (
-              <Link href={`/ensino/turma/${turma.id}/aulas`} className="text-primary hover:underline">
+              <Link href={`/ensino/turma/${params.id}/aulas`} className="text-primary hover:underline">
                 Cadastrar aulas
               </Link>
             )}
@@ -107,7 +109,7 @@ export default async function PresencasTurmaPage({ params }: { params: { id: str
 
   return (
     <div className="space-y-5 max-w-4xl mx-auto pb-6">
-      <Voltar turmaId={turma.id} nome={turma.nome} />
+      <Voltar turmaId={params.id} nome={turma.nome} />
       <Cabecalho turma={turma} />
 
       <p className="text-xs text-muted-foreground">

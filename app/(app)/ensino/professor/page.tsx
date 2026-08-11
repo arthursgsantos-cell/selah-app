@@ -32,7 +32,7 @@ export default async function PainelProfessorPage() {
 
   let turmasQuery = admin
     .from('ensino_turmas')
-    .select('id, nome, capa_url, local, status, dias_semana, horario_inicio, horario_fim, vagas, ensino_cursos(nome)')
+    .select('id, slug, nome, capa_url, local, status, dias_semana, horario_inicio, horario_fim, vagas, ensino_cursos(nome)')
     .eq('igreja_id', acesso.igrejaId)
     .order('criado_em', { ascending: false })
 
@@ -45,7 +45,7 @@ export default async function PainelProfessorPage() {
   const { data: turmasRaw } = await turmasQuery
 
   const turmas = (turmasRaw ?? []) as unknown as {
-    id: string; nome: string; capa_url: string | null; local: string | null
+    id: string; slug: string | null; nome: string; capa_url: string | null; local: string | null
     status: StatusTurma; dias_semana: number[]
     horario_inicio: string | null; horario_fim: string | null; vagas: number | null
     ensino_cursos: { nome: string } | null
@@ -186,7 +186,7 @@ export default async function PainelProfessorPage() {
               .map((t) => (
                 <Link
                   key={t.id}
-                  href={`/ensino/turma/${t.id}/alunos`}
+                  href={`/ensino/turma/${t.slug ?? t.id}/alunos`}
                   className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50/60 p-3.5 transition-colors hover:bg-amber-50"
                 >
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
@@ -295,7 +295,7 @@ export default async function PainelProfessorPage() {
               return (
                 <div key={t.id} className={`${PAINEL} space-y-3`}>
                   <div className="flex items-start justify-between gap-3">
-                    <Link href={`/ensino/turma/${t.id}`} className="min-w-0 group">
+                    <Link href={`/ensino/turma/${t.slug ?? t.id}`} className="min-w-0 group">
                       <p className="text-[10px] font-bold text-primary uppercase tracking-widest truncate">
                         {t.ensino_cursos?.nome}
                       </p>
@@ -328,15 +328,15 @@ export default async function PainelProfessorPage() {
                   </div>
 
                   <div className="flex flex-wrap gap-1.5 border-t pt-3">
-                    <AtalhoTurma href={`/ensino/turma/${t.id}/aulas`} icone={<ClipboardList className="h-3.5 w-3.5" />} label="Aulas" />
+                    <AtalhoTurma href={`/ensino/turma/${t.slug ?? t.id}/aulas`} icone={<ClipboardList className="h-3.5 w-3.5" />} label="Aulas" />
                     <AtalhoTurma
-                      href={`/ensino/turma/${t.id}/alunos`}
+                      href={`/ensino/turma/${t.slug ?? t.id}/alunos`}
                       icone={<Users className="h-3.5 w-3.5" />}
                       label="Alunos"
                       selo={pendentes[t.id] || undefined}
                     />
-                    <AtalhoTurma href={`/ensino/turma/${t.id}/materiais`} icone={null} label="Materiais" />
-                    <AtalhoTurma href={`/ensino/turma/${t.id}/presencas`} icone={null} label="Frequência" />
+                    <AtalhoTurma href={`/ensino/turma/${t.slug ?? t.id}/materiais`} icone={null} label="Materiais" />
+                    <AtalhoTurma href={`/ensino/turma/${t.slug ?? t.id}/presencas`} icone={null} label="Frequência" />
                   </div>
                 </div>
               )

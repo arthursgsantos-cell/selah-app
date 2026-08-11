@@ -35,7 +35,7 @@ export default async function AreaAlunoPage() {
   const { data: inscricoesRaw } = await supabase
     .from('ensino_inscricoes')
     .select(
-      'id, status, observacao, criado_em, turma_id, ensino_turmas(id, nome, capa_url, local, status, dias_semana, horario_inicio, horario_fim, whatsapp_url, video_chamada_modo, video_chamada_url, ensino_cursos(nome))'
+      'id, status, observacao, criado_em, turma_id, ensino_turmas(id, slug, nome, capa_url, local, status, dias_semana, horario_inicio, horario_fim, whatsapp_url, video_chamada_modo, video_chamada_url, ensino_cursos(nome))'
     )
     .eq('user_id', acesso.userId)
     .order('criado_em', { ascending: false })
@@ -47,7 +47,7 @@ export default async function AreaAlunoPage() {
     criado_em: string
     turma_id: string
     ensino_turmas: {
-      id: string; nome: string; capa_url: string | null; local: string | null
+      id: string; slug: string | null; nome: string; capa_url: string | null; local: string | null
       status: StatusTurma; dias_semana: number[]
       horario_inicio: string | null; horario_fim: string | null
       whatsapp_url: string | null
@@ -165,7 +165,7 @@ export default async function AreaAlunoPage() {
             {pendentes.map((i) => (
               <Link
                 key={i.id}
-                href={`/ensino/turma/${i.turma_id}`}
+                href={`/ensino/turma/${i.ensino_turmas?.slug ?? i.turma_id}`}
                 className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50/60 p-3.5 transition-colors hover:bg-amber-50"
               >
                 <div className="min-w-0 flex-1">
@@ -242,7 +242,7 @@ export default async function AreaAlunoPage() {
         return (
           <section key={inscricao.id} className={`${PAINEL} space-y-4`}>
             <div className="flex items-start justify-between gap-3">
-              <Link href={`/ensino/turma/${turma.id}`} className="min-w-0 group">
+              <Link href={`/ensino/turma/${turma.slug ?? turma.id}`} className="min-w-0 group">
                 <p className="text-[10px] font-bold text-primary uppercase tracking-widest">
                   {turma.ensino_cursos?.nome}
                 </p>
@@ -331,7 +331,7 @@ export default async function AreaAlunoPage() {
                     return (
                       <Link
                         key={a.id}
-                        href={`/ensino/turma/${turma.id}/aula/${a.numero}`}
+                        href={`/ensino/turma/${turma.slug ?? turma.id}/aula/${a.numero}`}
                         className="flex items-center gap-3 px-3 py-2 hover:bg-accent transition-colors"
                       >
                         <span className="text-xs font-bold text-muted-foreground w-5 shrink-0">
@@ -382,7 +382,7 @@ export default async function AreaAlunoPage() {
             {outras.map((i) => (
               <Link
                 key={i.id}
-                href={`/ensino/turma/${i.turma_id}`}
+                href={`/ensino/turma/${i.ensino_turmas?.slug ?? i.turma_id}`}
                 className="flex items-center gap-3 px-3 py-2.5 hover:bg-accent transition-colors"
               >
                 <div className="min-w-0 flex-1">

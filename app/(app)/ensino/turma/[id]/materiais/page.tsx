@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { loginCom } from '@/lib/destino-login'
 import { acessoEnsino, podeLecionar } from '@/lib/ensino/permissoes'
 import { MateriaisGestao, type AulaOpcao } from '@/components/ensino/materiais-gestao'
+import { porSlugOuId } from '@/lib/slug-ou-id'
 import type { MaterialItem } from '@/components/ensino/materiais-lista'
 
 export const metadata = { title: 'Materiais da turma · Ensino IBZS' }
@@ -15,14 +16,15 @@ export default async function MateriaisTurmaPage({ params }: { params: { id: str
 
   const admin = createAdminClient()
 
-  const { data: turmaRaw } = await admin
-    .from('ensino_turmas')
-    .select('id, nome, ensino_cursos(nome)')
-    .eq('id', params.id)
-    .maybeSingle()
+  const { data: turmaRaw } = await porSlugOuId(
+    admin.from('ensino_turmas').select('id, nome, ensino_cursos(nome)'),
+    params.id
+  ).maybeSingle()
 
   if (!turmaRaw) notFound()
-  if (!(await podeLecionar(acesso, params.id))) redirect(`/ensino/turma/${params.id}`)
+  if (!(await podeLecionar(acesso, (turmaRaw as { id: string }).id))) {
+    redirect(`/ensino/turma/${params.id}`)
+  }
 
   const turma = turmaRaw as unknown as {
     id: string; nome: string; ensino_cursos: { nome: string } | null
@@ -63,7 +65,7 @@ export default async function MateriaisTurmaPage({ params }: { params: { id: str
   return (
     <div className="space-y-5 max-w-2xl mx-auto pb-6">
       <Link
-        href={`/ensino/turma/${turma.id}`}
+        href={`/ensino/turma/${params.id}`}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors -ml-1"
       >
         <ArrowLeft className="h-4 w-4" />

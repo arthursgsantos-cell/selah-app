@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { loginCom } from '@/lib/destino-login'
 import { acessoEnsino, podeLecionar } from '@/lib/ensino/permissoes'
 import { AulasGestao, type AulaGestao } from '@/components/ensino/aulas-gestao'
+import { porSlugOuId } from '@/lib/slug-ou-id'
 import type { ModoTurma, ModoVideoChamada, StatusAula } from '@/lib/supabase/types'
 
 export const metadata = { title: 'Aulas da turma · Ensino IBZS' }
@@ -15,14 +16,17 @@ export default async function AulasTurmaPage({ params }: { params: { id: string 
 
   const admin = createAdminClient()
 
-  const { data: turmaRaw } = await admin
-    .from('ensino_turmas')
-    .select('id, nome, modo, total_aulas, data_inicio, dias_semana, video_chamada_modo, ensino_cursos(nome)')
-    .eq('id', params.id)
-    .maybeSingle()
+  const { data: turmaRaw } = await porSlugOuId(
+    admin
+      .from('ensino_turmas')
+      .select('id, nome, modo, total_aulas, data_inicio, dias_semana, video_chamada_modo, ensino_cursos(nome)'),
+    params.id
+  ).maybeSingle()
 
   if (!turmaRaw) notFound()
-  if (!(await podeLecionar(acesso, params.id))) redirect(`/ensino/turma/${params.id}`)
+  if (!(await podeLecionar(acesso, (turmaRaw as { id: string }).id))) {
+    redirect(`/ensino/turma/${params.id}`)
+  }
 
   const turma = turmaRaw as unknown as {
     id: string; nome: string; modo: ModoTurma; total_aulas: number | null
@@ -83,7 +87,7 @@ export default async function AulasTurmaPage({ params }: { params: { id: string 
   return (
     <div className="space-y-5 max-w-2xl mx-auto pb-6">
       <Link
-        href={`/ensino/turma/${turma.id}`}
+        href={`/ensino/turma/${params.id}`}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors -ml-1"
       >
         <ArrowLeft className="h-4 w-4" />

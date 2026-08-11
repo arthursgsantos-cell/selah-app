@@ -18,6 +18,7 @@ import { AulaConcluidaBtn } from '@/components/ensino/aula-concluida-btn'
 import { AulaDescricao } from '@/components/ensino/aula-descricao'
 import { BotaoVideoChamada } from '@/components/ensino/botao-videochamada'
 import { linkDaVideoChamada } from '@/lib/ensino/videochamada'
+import { idDaTurma } from '@/lib/ensino/consultas'
 import type {
   ModoTurma, ModoVideoChamada, StatusAula, TipoMaterial,
 } from '@/lib/supabase/types'
@@ -27,10 +28,13 @@ export async function generateMetadata({
 }: {
   params: { id: string; numero: string }
 }): Promise<Metadata> {
+  const turmaId = await idDaTurma(params.id)
+  if (!turmaId) return { title: 'Aula não encontrada' }
+
   const { data } = await createAdminClient()
     .from('ensino_aulas')
     .select('numero, titulo, descricao, ensino_turmas(nome)')
-    .eq('turma_id', params.id)
+    .eq('turma_id', turmaId)
     .eq('numero', Number(params.numero))
     .maybeSingle()
 
@@ -77,18 +81,22 @@ export default async function AulaPage({
   const numero = Number(params.numero)
   if (!Number.isInteger(numero)) notFound()
 
+  // A URL pode trazer o slug da turma; daqui para baixo tudo consulta por UUID.
+  const turmaId = await idDaTurma(params.id)
+  if (!turmaId) notFound()
+
   const supabase = await createClient()
 
   const [turmaRes, aulasRes] = await Promise.all([
     supabase
       .from('ensino_turmas')
       .select('id, nome, modo, sequencial, video_chamada_modo, video_chamada_url, ensino_cursos(nome)')
-      .eq('id', params.id)
+      .eq('id', turmaId)
       .maybeSingle(),
     supabase
       .from('ensino_aulas')
       .select('id, numero, titulo, descricao, data, hora_inicio, local, status, video_chamada_url')
-      .eq('turma_id', params.id)
+      .eq('turma_id', turmaId)
       .order('numero'),
   ])
 
@@ -210,7 +218,7 @@ export default async function AulaPage({
   return (
     <div className="space-y-5 max-w-3xl mx-auto pb-6">
       <Link
-        href={`/ensino/turma/${turma.id}`}
+        href={`/ensino/turma/${params.id}`}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors -ml-1"
       >
         <ArrowLeft className="h-4 w-4" />
@@ -325,7 +333,7 @@ export default async function AulaPage({
           </p>
           {aulas[concluidas.size] && (
             <Link
-              href={`/ensino/turma/${turma.id}/aula/${aulas[concluidas.size].numero}`}
+              href={`/ensino/turma/${params.id}/aula/${aulas[concluidas.size].numero}`}
               className="inline-flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-opacity mt-4"
             >
               Ir para a aula {aulas[concluidas.size].numero}
@@ -373,14 +381,14 @@ export default async function AulaPage({
             </Link>
           )}
           <Link
-            href={`/ensino/turma/${turma.id}/aulas`}
+            href={`/ensino/turma/${params.id}/aulas`}
             className="inline-flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-xl border border-border hover:bg-accent transition-colors"
           >
             <Pencil className="h-4 w-4" />
             Editar aula
           </Link>
           <Link
-            href={`/ensino/turma/${turma.id}/materiais`}
+            href={`/ensino/turma/${params.id}/materiais`}
             className="inline-flex items-center gap-1.5 text-sm font-medium px-3.5 py-2 rounded-xl border border-border hover:bg-accent transition-colors"
           >
             <FolderOpen className="h-4 w-4" />
@@ -407,7 +415,7 @@ export default async function AulaPage({
       <div className="flex items-center justify-between gap-2">
         {anterior ? (
           <Link
-            href={`/ensino/turma/${turma.id}/aula/${anterior.numero}`}
+            href={`/ensino/turma/${params.id}/aula/${anterior.numero}`}
             className="inline-flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg border border-border hover:bg-accent transition-colors min-w-0"
           >
             <ChevronLeft className="h-4 w-4 shrink-0" />
@@ -420,7 +428,7 @@ export default async function AulaPage({
         )}
         {proxima && (
           <Link
-            href={`/ensino/turma/${turma.id}/aula/${proxima.numero}`}
+            href={`/ensino/turma/${params.id}/aula/${proxima.numero}`}
             className="inline-flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity min-w-0"
           >
             <span className="truncate max-w-[9rem]">
@@ -447,7 +455,7 @@ export default async function AulaPage({
             return (
               <Link
                 key={a.id}
-                href={`/ensino/turma/${turma.id}/aula/${a.numero}`}
+                href={`/ensino/turma/${params.id}/aula/${a.numero}`}
                 aria-current={atual ? 'page' : undefined}
                 className={`flex items-center gap-3 px-3 py-2.5 transition-colors ${
                   atual ? 'bg-primary/5' : 'hover:bg-accent'

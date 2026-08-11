@@ -24,17 +24,20 @@ import { FundoGaleria } from '@/components/shared/fundo-galeria'
 import { MateriaisLista, type MaterialItem } from '@/components/ensino/materiais-lista'
 import { BotaoVideoChamada } from '@/components/ensino/botao-videochamada'
 import { linkDaVideoChamada } from '@/lib/ensino/videochamada'
+import { RedeShareButton } from '@/components/rede/rede-share-button'
+import { porSlugOuId } from '@/lib/slug-ou-id'
 import type {
   ModoTurma, ModoVideoChamada, StatusAula, StatusInscricaoEnsino, StatusTurma,
   TipoInscricaoTurma,
 } from '@/lib/supabase/types'
 
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
-  const { data } = await createAdminClient()
-    .from('ensino_turmas')
-    .select('nome, descricao, capa_url, ensino_cursos(nome)')
-    .eq('id', params.id)
-    .maybeSingle()
+  const { data } = await porSlugOuId(
+    createAdminClient()
+      .from('ensino_turmas')
+      .select('nome, descricao, capa_url, ensino_cursos(nome)'),
+    params.id
+  ).maybeSingle()
 
   if (!data) return { title: 'Turma não encontrada' }
 
@@ -56,18 +59,19 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
 
   const supabase = await createClient()
 
-  const { data: turmaRaw } = await supabase
-    .from('ensino_turmas')
-    .select(
-      'id, curso_id, nome, descricao, capa_url, local, data_inicio, data_fim, dias_semana, horario_inicio, horario_fim, total_aulas, vagas, inscricoes_abertas, aprovacao_automatica, status, modo, sequencial, destaque, whatsapp_url, tipo_inscricao, link_inscricao_url, video_chamada_modo, video_chamada_url, cor, cor_secundaria, fundo_tipo, fundo_imagem_url, fundo_opacidade, fundo_galeria, fundo_galeria_opacidade, fundo_auto_cor, fundo_auto_cor_origem, ensino_cursos(nome, descricao)'
-    )
-    .eq('id', params.id)
-    .maybeSingle()
+  const { data: turmaRaw } = await porSlugOuId(
+    supabase
+      .from('ensino_turmas')
+      .select(
+        'id, slug, curso_id, nome, descricao, capa_url, local, data_inicio, data_fim, dias_semana, horario_inicio, horario_fim, total_aulas, vagas, inscricoes_abertas, aprovacao_automatica, status, modo, sequencial, destaque, whatsapp_url, tipo_inscricao, link_inscricao_url, video_chamada_modo, video_chamada_url, cor, cor_secundaria, fundo_tipo, fundo_imagem_url, fundo_opacidade, fundo_galeria, fundo_galeria_opacidade, fundo_auto_cor, fundo_auto_cor_origem, ensino_cursos(nome, descricao)'
+      ),
+    params.id
+  ).maybeSingle()
 
   if (!turmaRaw) notFound()
 
   const turma = turmaRaw as unknown as {
-    id: string; curso_id: string; nome: string; descricao: string | null
+    id: string; slug: string | null; curso_id: string; nome: string; descricao: string | null
     capa_url: string | null; local: string | null
     data_inicio: string | null; data_fim: string | null
     dias_semana: number[]; horario_inicio: string | null; horario_fim: string | null
@@ -84,6 +88,14 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
     fundo_auto_cor: boolean; fundo_auto_cor_origem: string | null
     ensino_cursos: { nome: string; descricao: string | null } | null
   }
+
+  // Quem chegou pelo UUID sai daqui com o endereço legível: assim o que for
+  // compartilhado a partir desta página já vai bonito, sem depender de o
+  // remetente ter vindo pelo link certo. Mesmo caminho da página do evento.
+  if (turma.slug && params.id !== turma.slug) redirect(`/ensino/turma/${turma.slug}`)
+
+  /** O que vai nos links desta página — slug quando existe, UUID nas antigas. */
+  const chave = turma.slug ?? turma.id
 
   const leciona = await podeLecionar(acesso, turma.id)
   const admin = createAdminClient()
@@ -255,19 +267,24 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
           <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${status.classe}`}>
             {status.label}
           </span>
-          {leciona && (
-            <div className="flex items-center gap-1.5">
-              <DestaqueTurmaBtn turmaId={turma.id} destaque={turma.destaque} />
-              <Button
-                size="sm"
-                variant="ghost"
-                render={<Link href={`/ensino/turma/${turma.id}/editar`} />}
-              >
-                <Pencil className="h-4 w-4" />
-                Editar
-              </Button>
-            </div>
-          )}
+          {/* Compartilhar é de todo mundo: convidar alguém para o curso não é
+              tarefa de professor. */}
+          <div className="flex items-center gap-1.5">
+            {leciona && (
+              <>
+                <DestaqueTurmaBtn turmaId={turma.id} destaque={turma.destaque} />
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  render={<Link href={`/ensino/turma/${chave}/editar`} />}
+                >
+                  <Pencil className="h-4 w-4" />
+                  Editar
+                </Button>
+              </>
+            )}
+            <RedeShareButton nome={turma.nome} prefixo="" />
+          </div>
         </div>
 
         <dl className="space-y-2 text-sm">
@@ -397,7 +414,7 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
           </p>
           <div className="grid gap-2 sm:grid-cols-2">
             <AtalhoGestao
-              href={`/ensino/turma/${turma.id}/alunos`}
+              href={`/ensino/turma/${chave}/alunos`}
               icone={<Users className="h-5 w-5" />}
               titulo="Alunos e inscrições"
               descricao={
@@ -408,19 +425,19 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
               destaque={pendentes > 0}
             />
             <AtalhoGestao
-              href={`/ensino/turma/${turma.id}/aulas`}
+              href={`/ensino/turma/${chave}/aulas`}
               icone={<ClipboardList className="h-5 w-5" />}
               titulo="Aulas e chamada"
               descricao={`${aulas.length} ${aulas.length === 1 ? 'aula' : 'aulas'} cadastradas`}
             />
             <AtalhoGestao
-              href={`/ensino/turma/${turma.id}/materiais`}
+              href={`/ensino/turma/${chave}/materiais`}
               icone={<FolderOpen className="h-5 w-5" />}
               titulo="Materiais"
               descricao={`${materiais.length} ${materiais.length === 1 ? 'item' : 'itens'}`}
             />
             <AtalhoGestao
-              href={`/ensino/turma/${turma.id}/presencas`}
+              href={`/ensino/turma/${chave}/presencas`}
               icone={<BookOpen className="h-5 w-5" />}
               titulo="Frequência"
               descricao="Histórico de presenças"
@@ -460,7 +477,7 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
           <div className="space-y-3">
             <div className="flex items-center gap-3">
             <Link
-              href={`/ensino/turma/${turma.id}/aula/${proximaAula.numero}`}
+              href={`/ensino/turma/${chave}/aula/${proximaAula.numero}`}
               className="flex items-center gap-3 min-w-0 flex-1 group"
             >
               <div className="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -511,7 +528,7 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
             </p>
             {leciona && (
               <Link
-                href={`/ensino/turma/${turma.id}/materiais`}
+                href={`/ensino/turma/${chave}/materiais`}
                 className="text-xs text-primary hover:underline font-medium"
               >
                 Gerenciar
@@ -539,7 +556,7 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
             {aulas.map((a) => (
               <Link
                 key={a.id}
-                href={`/ensino/turma/${turma.id}/aula/${a.numero}`}
+                href={`/ensino/turma/${chave}/aula/${a.numero}`}
                 className="flex items-center gap-3 px-3 py-2.5 hover:bg-accent transition-colors"
               >
                 <div

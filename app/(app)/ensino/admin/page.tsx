@@ -28,14 +28,14 @@ export default async function AdminEnsinoPage() {
       .order('nome'),
     admin
       .from('ensino_turmas')
-      .select('id, curso_id, nome, status, ensino_cursos(nome)')
+      .select('id, slug, curso_id, nome, status, ensino_cursos(nome)')
       .eq('igreja_id', acesso.igrejaId)
       .order('criado_em', { ascending: false }),
     listarEquipe(),
   ])
 
   const turmas = (turmasRes.data ?? []) as unknown as {
-    id: string; curso_id: string; nome: string; status: StatusTurma
+    id: string; slug: string | null; curso_id: string; nome: string; status: StatusTurma
     ensino_cursos: { nome: string } | null
   }[]
 
@@ -199,7 +199,7 @@ export default async function AdminEnsinoPage() {
                 return (
                   <Link
                     key={t.id}
-                    href={`/ensino/turma/${t.id}`}
+                    href={`/ensino/turma/${t.slug ?? t.id}`}
                     className="flex items-center gap-3 px-4 py-3 hover:bg-accent transition-colors"
                   >
                     <div className="min-w-0 flex-1">

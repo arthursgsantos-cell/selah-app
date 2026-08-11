@@ -1534,6 +1534,8 @@ export type Database = {
         // mesma convenção de `celulas.dia_semana`.
         Row: {
           id: string
+          /** Endereço legível da turma (`/ensino/turma/carta-de-tiago`). */
+          slug: string | null
           curso_id: string
           igreja_id: string
           nome: string
@@ -1580,6 +1582,8 @@ export type Database = {
         }
         Insert: {
           id?: string
+          /** Em branco, o gatilho `gerar_slug_turma` monta a partir do nome. */
+          slug?: string | null
           curso_id: string
           igreja_id: string
           nome: string
@@ -1620,6 +1624,7 @@ export type Database = {
         }
         Update: {
           id?: string
+          slug?: string | null
           curso_id?: string
           igreja_id?: string
           nome?: string

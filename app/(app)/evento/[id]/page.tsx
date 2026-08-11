@@ -29,24 +29,10 @@ import type { SecaoEvento } from '@/app/actions/evento-secoes'
 import { contarInscritos } from '@/lib/inscricoes-planilha'
 import { buscarInscricao } from '@/lib/inscricao-pessoal'
 import { RedeShareButton } from '@/components/rede/rede-share-button'
+import { porSlugOuId } from '@/lib/slug-ou-id'
 import type { TipoInscricao, TipoChavePix, CampoFormulario } from '@/lib/supabase/types'
 
 const CARGOS_EDICAO = ['admin', 'pastor', 'supervisor', 'supervisor_treinamento', 'lider']
-
-const PADRAO_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
-/**
- * A URL usa o slug (`/evento/1-retiro-rede-one`), mas o UUID continua valendo:
- * links já compartilhados no WhatsApp não podem quebrar. Filtrar por `id` com
- * um valor que não é UUID faria o Postgres devolver erro, então o formato
- * decide qual coluna consultar.
- */
-function porSlugOuId<T extends { eq: (coluna: string, valor: string) => T }>(
-  query: T,
-  chave: string
-): T {
-  return PADRAO_UUID.test(chave) ? query.eq('id', chave) : query.eq('slug', chave)
-}
 
 /**
  * Sem estas tags, WhatsApp e a folha de compartilhamento do celular não têm o

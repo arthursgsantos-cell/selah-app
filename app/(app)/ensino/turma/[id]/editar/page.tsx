@@ -8,6 +8,7 @@ import { acessoEnsino, podeLecionar } from '@/lib/ensino/permissoes'
 import { TurmaForm, type TurmaParaEditar } from '@/components/ensino/turma-form'
 import { ExcluirTurmaBtn } from '@/components/ensino/excluir-turma-btn'
 import { listarCandidatosProfessor } from '@/app/actions/ensino/equipe'
+import { porSlugOuId } from '@/lib/slug-ou-id'
 import type {
   ModoTurma, ModoVideoChamada, StatusTurma, TipoInscricaoTurma,
 } from '@/lib/supabase/types'
@@ -19,16 +20,19 @@ export default async function EditarTurmaPage({ params }: { params: { id: string
   if (!acesso) redirect(loginCom(`/ensino/turma/${params.id}/editar`))
 
   const admin = createAdminClient()
-  const { data: turmaRaw } = await admin
-    .from('ensino_turmas')
-    .select(
-      'id, curso_id, nome, descricao, capa_url, local, data_inicio, data_fim, dias_semana, horario_inicio, horario_fim, total_aulas, vagas, inscricoes_abertas, aprovacao_automatica, status, modo, sequencial, whatsapp_url, tipo_inscricao, link_inscricao_url, formulario_id, video_chamada_modo, video_chamada_url'
-    )
-    .eq('id', params.id)
-    .maybeSingle()
+  const { data: turmaRaw } = await porSlugOuId(
+    admin
+      .from('ensino_turmas')
+      .select(
+        'id, curso_id, nome, descricao, capa_url, local, data_inicio, data_fim, dias_semana, horario_inicio, horario_fim, total_aulas, vagas, inscricoes_abertas, aprovacao_automatica, status, modo, sequencial, whatsapp_url, tipo_inscricao, link_inscricao_url, formulario_id, video_chamada_modo, video_chamada_url'
+      ),
+    params.id
+  ).maybeSingle()
 
   if (!turmaRaw) notFound()
-  if (!(await podeLecionar(acesso, params.id))) redirect(`/ensino/turma/${params.id}`)
+  if (!(await podeLecionar(acesso, (turmaRaw as { id: string }).id))) {
+    redirect(`/ensino/turma/${params.id}`)
+  }
 
   const t = turmaRaw as unknown as {
     id: string; curso_id: string; nome: string; descricao: string | null
@@ -109,7 +113,7 @@ export default async function EditarTurmaPage({ params }: { params: { id: string
   return (
     <div className="space-y-5 max-w-2xl mx-auto pb-6">
       <Link
-        href={`/ensino/turma/${turma.id}`}
+        href={`/ensino/turma/${params.id}`}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors -ml-1"
       >
         <ArrowLeft className="h-4 w-4" />
