@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { loginCom } from '@/lib/destino-login'
 import { acessoEnsino, podeLecionar } from '@/lib/ensino/permissoes'
 import { TurmaForm, type TurmaParaEditar } from '@/components/ensino/turma-form'
+import { ExcluirTurmaBtn } from '@/components/ensino/excluir-turma-btn'
 import type {
   ModoTurma, ModoVideoChamada, StatusTurma, TipoInscricaoTurma,
 } from '@/lib/supabase/types'
@@ -78,6 +79,17 @@ export default async function EditarTurmaPage({ params }: { params: { id: string
     .eq('ativo', true)
     .order('nome')
 
+  // O que a exclusão levaria junto. Só a coordenação exclui, então só para ela
+  // vale a contagem — e é ela que a confirmação mostra, em vez de um "tem
+  // certeza?" que não informa nada.
+  const [inscricoesRes, aulasRes, materiaisRes] = acesso.coordenador
+    ? await Promise.all([
+        admin.from('ensino_inscricoes').select('id', { count: 'exact', head: true }).eq('turma_id', turma.id),
+        admin.from('ensino_aulas').select('id', { count: 'exact', head: true }).eq('turma_id', turma.id),
+        admin.from('ensino_materiais').select('id', { count: 'exact', head: true }).eq('turma_id', turma.id),
+      ])
+    : [{ count: 0 }, { count: 0 }, { count: 0 }]
+
   return (
     <div className="space-y-5 max-w-2xl mx-auto pb-6">
       <Link
@@ -94,6 +106,16 @@ export default async function EditarTurmaPage({ params }: { params: { id: string
       </div>
 
       <TurmaForm cursos={(cursos ?? []) as { id: string; nome: string }[]} turma={turma} />
+
+      {acesso.coordenador && (
+        <ExcluirTurmaBtn
+          turmaId={turma.id}
+          nome={turma.nome}
+          alunos={inscricoesRes.count ?? 0}
+          aulas={aulasRes.count ?? 0}
+          materiais={materiaisRes.count ?? 0}
+        />
+      )}
     </div>
   )
 }

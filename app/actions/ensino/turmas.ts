@@ -271,8 +271,15 @@ export async function excluirTurmaAction(id: string): Promise<ResultadoAcao> {
   const { error } = await supabase.from('ensino_turmas').delete().eq('id', id)
 
   if (error) return { ok: false, erro: error.message }
+
+  // A turma podia estar em destaque na home e na lista de quem cursava — as
+  // duas telas mostrariam um cartão que não abre mais.
   revalidatePath('/ensino')
   revalidatePath('/ensino/professor')
+  revalidatePath('/ensino/admin')
+  revalidatePath('/ensino/aluno')
+  revalidatePath('/home')
+  revalidatePath('/', 'layout')
   return { ok: true }
 }
 
