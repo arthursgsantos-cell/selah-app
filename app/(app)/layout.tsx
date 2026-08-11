@@ -1,6 +1,7 @@
 import { createClient, getAuthUser } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Header } from '@/components/shared/header'
+import { RetomarDestino } from '@/components/auth/retomar-destino'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await getAuthUser()
@@ -54,6 +55,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     /* `dvh` em vez de `vh`: no Safari do iPhone a barra de endereço faz o
        `100vh` passar da área visível e cortar o rodapé da tela. */
     <div className="flex h-[100dvh] overflow-hidden">
+      {/* Só para quem entrou: um visitante na home não tem destino a retomar. */}
+      {user && <RetomarDestino />}
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header
           userName={profile?.nome}

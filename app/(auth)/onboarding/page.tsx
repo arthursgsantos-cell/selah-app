@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { criarPerfilAdmin } from '@/app/actions/admin'
 import { criarPerfilConvidado } from '@/app/actions/onboarding'
 import { confirmarMatchPreCadastro, notificarNovoLogin } from '@/app/actions/pre-cadastro'
+import { consumirDestino } from '@/lib/destino-login'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -43,6 +44,18 @@ export default function OnboardingPage() {
     })
   }, [])
 
+  /**
+   * Onde termina o onboarding. Quem chegou por um link — o de uma turma, por
+   * exemplo — volta para ele agora que tem perfil; quem entrou pela porta da
+   * frente segue para a home.
+   *
+   * O onboarding é alcançado por `redirect('/onboarding')`, sem query: o
+   * destino só existe aqui porque foi guardado lá na tela de login.
+   */
+  function concluirEm(): string {
+    return consumirDestino() ?? '/home'
+  }
+
   async function concluir(e: React.FormEvent) {
     e.preventDefault()
     setCarregando(true)
@@ -55,7 +68,7 @@ export default function OnboardingPage() {
         setCarregando(false)
         return
       }
-      router.push('/home')
+      router.push(concluirEm())
       router.refresh()
       return
     }
@@ -73,7 +86,7 @@ export default function OnboardingPage() {
     // E-mail encontrado no pré-cadastro: identidade e cargo já resolvidos,
     // não faz sentido perguntar de novo por semelhança de nome.
     if (resultado.cargo && resultado.cargo !== 'convidado') {
-      router.push('/home')
+      router.push(concluirEm())
       router.refresh()
       return
     }
@@ -92,21 +105,21 @@ export default function OnboardingPage() {
 
     // Sem matches: notificar admin e ir para home
     await notificarNovoLogin()
-    router.push('/home')
+    router.push(concluirEm())
     router.refresh()
   }
 
   async function confirmarMatch(candidatoId: string) {
     setConfirmando(candidatoId)
     await confirmarMatchPreCadastro(candidatoId)
-    router.push('/home')
+    router.push(concluirEm())
     router.refresh()
   }
 
   async function pularMatch() {
     setConfirmando('skip')
     await notificarNovoLogin()
-    router.push('/home')
+    router.push(concluirEm())
     router.refresh()
   }
 

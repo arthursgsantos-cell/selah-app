@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { destinoSeguro, comDestino } from '@/lib/destino-login'
+import { destinoSeguro, comDestino, guardarDestino, limparDestino } from '@/lib/destino-login'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -57,11 +57,26 @@ export default function CadastroPage() {
   const router = useRouter()
   const supabase = createClient()
 
+  // Só o cliente conhece a query; montar o link com ela durante a renderização
+  // faria servidor e cliente discordarem na hidratação.
+  const [hrefLogin, setHrefLogin] = useState('/login')
+
+  // Mesma rede de segurança do login: o destino precisa sobreviver à ida ao
+  // Google e ao onboarding, que não carregam a query.
+  useEffect(() => {
+    guardarDestino()
+    setHrefLogin(comDestino('/login'))
+  }, [])
+
   async function entrarComGoogle() {
     setErro(null)
+    const destino = destinoSeguro()
+    const callback = new URL('/auth/callback', window.location.origin)
+    if (destino) callback.searchParams.set('next', destino)
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo: callback.toString() },
     })
     if (error) setErro('Não foi possível iniciar o cadastro com Google.')
   }
@@ -141,7 +156,9 @@ export default function CadastroPage() {
         role,
       })
       // Conta criada: já leva para a página que a pessoa tentou abrir.
-      router.push(destinoSeguro() ?? '/home')
+      const destino = destinoSeguro() ?? '/home'
+      limparDestino()
+      router.push(destino)
       return
     }
 
@@ -164,7 +181,7 @@ export default function CadastroPage() {
           <AvisoEmail assunto="Confirm Your Signup" />
         </CardContent>
         <CardFooter>
-          <Link href={comDestino('/login')} className="text-sm text-primary hover:underline">
+          <Link href={hrefLogin} className="text-sm text-primary hover:underline">
             Voltar para o login
           </Link>
         </CardFooter>
@@ -252,7 +269,7 @@ export default function CadastroPage() {
       </CardContent>
       <CardFooter className="justify-center text-sm text-muted-foreground">
         Já tem conta?{' '}
-        <Link href={comDestino('/login')} className="ml-1 text-primary hover:underline font-medium">
+        <Link href={hrefLogin} className="ml-1 text-primary hover:underline font-medium">
           Entrar
         </Link>
       </CardFooter>

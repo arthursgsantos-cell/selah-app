@@ -1,12 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { destinoSeguro, comDestino } from '@/lib/destino-login'
+import { destinoSeguro, comDestino, guardarDestino, limparDestino } from '@/lib/destino-login'
 
 function GoogleIcon() {
   return (
@@ -28,7 +28,18 @@ export default function LoginPage() {
   const router = useRouter()
   const supabase = createClient()
 
+  // O link de "Criar conta" leva o destino junto, mas só o cliente conhece a
+  // query — no servidor ele nasce sem ela. Resolver isso durante a renderização
+  // faria os dois HTMLs discordarem e o React reclamar de hidratação; por isso
+  // o destino entra depois que a tela montou.
+  const [hrefCadastro, setHrefCadastro] = useState('/cadastro')
 
+  // Guarda o destino assim que a tela abre. É o que segura o caminho durante a
+  // ida ao Google e a passagem pelo onboarding, onde a query não sobrevive.
+  useEffect(() => {
+    guardarDestino()
+    setHrefCadastro(comDestino('/cadastro'))
+  }, [])
 
   async function entrarComGoogle() {
     setErro(null)
@@ -64,13 +75,23 @@ export default function LoginPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
       const { data: profile } = await supabase.from('profiles').select('id').eq('id', user.id).single()
-      // Sem perfil o onboarding vem primeiro: o destino não faz sentido ainda.
-      router.push(profile ? destinoSeguro() ?? '/home' : '/onboarding')
+      // Sem perfil o onboarding vem primeiro: o destino não faz sentido ainda —
+      // mas continua guardado, e o onboarding o entrega no fim.
+      if (profile) {
+        const destino = destinoSeguro() ?? '/home'
+        limparDestino()
+        router.push(destino)
+      } else {
+        router.push('/onboarding')
+      }
       router.refresh()
     }
   }
 
   function entrarComoConvidado() {
+    // Escolha explícita de não entrar: o destino guardado morre aqui, senão a
+    // pessoa seria jogada de volta para a página que exigia login.
+    limparDestino()
     router.push('/home')
   }
 
@@ -122,7 +143,7 @@ export default function LoginPage() {
 
       <p className="text-center text-sm text-gray-500">
         Não tem conta?{' '}
-        <Link href={comDestino('/cadastro')} className="font-semibold text-primary hover:underline">
+        <Link href={hrefCadastro} className="font-semibold text-primary hover:underline">
           Criar conta
         </Link>
       </p>

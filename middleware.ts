@@ -37,9 +37,15 @@ export async function middleware(request: NextRequest) {
 
   if (isStatic || isCallback) return supabaseResponse
 
-  // Logado acessando landing ou login/cadastro → home
+  // Logado acessando landing ou login/cadastro → home, ou o destino pedido.
+  // Ignorar o `next` aqui era o que mandava para a home quem clicava num link
+  // protegido, entrava, e voltava a passar pelo /login já autenticado.
   if (user && (isLanding || path === '/login' || path === '/cadastro')) {
-    return NextResponse.redirect(new URL('/home', request.url))
+    const pedido = request.nextUrl.searchParams.get('next')
+    const destino = pedido && pedido.startsWith('/') && !pedido.startsWith('//')
+      ? pedido
+      : '/home'
+    return NextResponse.redirect(new URL(destino, request.url))
   }
 
   // Não logado tentando acessar área protegida → login, guardando o destino.
