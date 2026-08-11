@@ -1,4 +1,4 @@
-import { resolvedorDeCelulas } from './destinos'
+import { resolvedorDeCelulas, type Resolvedor } from './destinos'
 import {
   acharIdDaSubpasta,
   acharIdsDasSubpastas,
@@ -6,7 +6,10 @@ import {
   baixarArquivo,
   extensaoDe,
   hashDoConteudo,
+  idDoLinkDrive,
+  subpastasDe,
   tipoDaImagem,
+  type ArquivoDrive,
 } from './drive'
 import { acharAba, celula, coluna } from './planilha'
 import {
@@ -19,7 +22,7 @@ import {
   type LinhaImportacao,
   type ResultadoImportacao,
 } from './registro'
-import { dataHoraPublicacao } from './texto'
+import { dataHoraPublicacao, normalizarNome } from './texto'
 
 /**
  * Importa as fotos das células para a galeria da comunidade.
@@ -51,6 +54,7 @@ export async function importarFotosDeCelula(ctx: Contexto): Promise<ResultadoImp
   const idxArquivo = coluna(aba, 'Nome do arquivo')
   const idxCelula = coluna(aba, 'Nome da célula')
   const idxData = coluna(aba, 'Data e hora da publicação (Brasília)', 'Data e hora')
+  const idxLink = coluna(aba, 'Link da imagem')
 
   const raiz = await ctx.listar(ctx.pastaRaiz)
   const pastaFotos = acharIdDaSubpasta(raiz, PASTA)
@@ -75,10 +79,20 @@ export async function importarFotosDeCelula(ctx: Contexto): Promise<ResultadoImp
     const nomeCelula = celula(linha, idxCelula)
 
     // Já resolvido numa execução anterior: não vale baixar a imagem de novo só
-    // para recalcular um hash que já conhecemos.
+    // para recalcular um hash que já conhecemos. Só a célula da linha ainda
+    // pode mudar, e isso se resolve sem tocar no arquivo.
     const anterior = porArquivo.get(nome)
     if (anterior && (anterior.status === 'importado' || anterior.status === 'ignorado')) {
-      resultado.ignorados.push(nome)
+      try {
+        const mudou = await reatribuir(ctx, anterior, nomeCelula, acharCelula)
+        if (mudou) resultado.atualizados.push(nome)
+        else resultado.ignorados.push(nome)
+      } catch (e) {
+        resultado.erros.push({
+          arquivo: nome,
+          motivo: e instanceof Error ? e.message : 'erro desconhecido',
+        })
+      }
       continue
     }
 
@@ -100,14 +114,22 @@ export async function importarFotosDeCelula(ctx: Contexto): Promise<ResultadoImp
     }
 
     try {
-      const fileId = await acharFoto(ctx, itensDaPasta, nome, [nomeCelula, destino.nome])
+      // A planilha pode trazer o link direto do arquivo ("Copiar link" no
+      // Drive) — ele aponta o arquivo exato, sem depender do nome bater com o
+      // rótulo do Drive nem de vasculhar pasta por pasta. Só cai na busca por
+      // nome quando a linha não tem link (planilha antiga).
+      const fileId =
+        idDoLinkDrive(celula(linha, idxLink)) ??
+        (await acharFoto(ctx, itensDaPasta, nome, [nomeCelula, destino.nome]))
       if (!fileId) {
-        throw new Error(`Arquivo não encontrado em "${PASTA}" nem na subpasta da célula`)
+        throw new Error(
+          `Arquivo não encontrado em "${PASTA}" nem na subpasta da célula, e a coluna "Link da imagem" está vazia.`
+        )
       }
 
       const buffer = await baixarArquivo(fileId)
       const contentType = tipoDaImagem(buffer)
-      if (!contentType) throw new Error('o arquivo baixado não é uma imagem')
+      if (!contentType) throw new Error(motivoNaoImagem(buffer))
 
       const hash = await hashDoConteudo(buffer)
 
@@ -201,7 +223,7 @@ export async function importarFotosDeCelula(ctx: Contexto): Promise<ResultadoImp
  */
 async function acharFoto(
   ctx: Contexto,
-  itensDaPasta: { rotulo: string; id: string }[],
+  itensDaPasta: ArquivoDrive[],
   nomeArquivo: string,
   nomesDeSubpasta: string[]
 ): Promise<string | null> {
@@ -216,10 +238,71 @@ async function acharFoto(
       const dentro = await ctx.listar(subpasta)
       const achado = acharIdDoArquivo(dentro, nomeArquivo)
       if (achado) return achado
+
+      // Algumas células organizam o próprio material em pastas ("Galeria",
+      // "Fotos e Vídeos", "Encontros"). Vale mais um nível antes de desistir.
+      for (const neta of subpastasDe(dentro)) {
+        const achadoNeta = acharIdDoArquivo(await ctx.listar(neta.id), nomeArquivo)
+        if (achadoNeta) return achadoNeta
+      }
     }
   }
 
   return null
+}
+
+/**
+ * A planilha é a dona do vínculo foto → célula. Quando alguém corrige a coluna
+ * "Nome da célula" de uma linha já importada, a foto acompanha: antes ela ficava
+ * na célula errada para sempre, porque a linha era pulada sem ser olhada.
+ *
+ * Não baixa nada — é só o `celula_id` da foto que muda.
+ */
+async function reatribuir(
+  ctx: Contexto,
+  anterior: LinhaImportacao,
+  nomeCelula: string,
+  acharCelula: Resolvedor
+): Promise<boolean> {
+  if (!anterior.registro_id) return false
+  if (normalizarNome(anterior.grupo_origem ?? '') === normalizarNome(nomeCelula)) return false
+
+  const destino = acharCelula(nomeCelula)
+  // Grafia nova que ninguém cadastrou ainda: a foto fica onde está em vez de
+  // perder a célula que já tinha.
+  if (!destino || destino.id === anterior.celula_id) return false
+
+  const { error } = await ctx.admin
+    .from('fotos_comunidade')
+    .update({ celula_id: destino.id } as never)
+    .eq('id', anterior.registro_id)
+  if (error) throw new Error(error.message)
+
+  await registrar(ctx, {
+    tipo: 'foto_celula',
+    chave: anterior.chave,
+    status: anterior.status,
+    arquivoNome: anterior.arquivo_nome,
+    celulaId: destino.id,
+    destino: anterior.destino,
+    grupoOrigem: nomeCelula,
+    registroId: anterior.registro_id,
+  })
+
+  return true
+}
+
+/**
+ * O que dizer ao pastor quando o download não é uma imagem. Vale distinguir os
+ * dois casos: um é problema do arquivo, o outro é problema do compartilhamento
+ * — e a mensagem única de antes ("não é uma imagem") não ajudava em nenhum.
+ */
+function motivoNaoImagem(buffer: ArrayBuffer): string {
+  const inicio = new TextDecoder().decode(buffer.slice(0, 200)).trimStart().toLowerCase()
+  if (inicio.startsWith('<')) {
+    return 'o Drive devolveu uma página em vez do arquivo. Confirme que a pasta está compartilhada como "qualquer pessoa com o link".'
+  }
+  return 'o arquivo não é JPG, PNG, GIF nem WEBP. Vídeo e foto HEIC do iPhone não entram na galeria — converta para JPG ou tire a linha da planilha.'
 }
 
 /**

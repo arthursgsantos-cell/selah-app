@@ -13,7 +13,12 @@ import { normalizarNome } from './texto'
  * os dois lugares.
  */
 
-export type ArquivoDrive = { rotulo: string; id: string }
+export type ArquivoDrive = {
+  rotulo: string
+  id: string
+  /** `undefined` quando a origem não soube dizer (rótulo sem sufixo de tipo). */
+  pasta?: boolean
+}
 
 /**
  * Cada execução da importação lista a mesma pasta várias vezes (uma por linha
@@ -34,21 +39,70 @@ export function criarLeitorDrive(): LeitorDrive {
   }
 }
 
+const MIME_PASTA = 'application/vnd.google-apps.folder'
+
 /** Lista os itens (arquivos e subpastas) de uma pasta do Drive. */
 export async function listarArquivosDaPasta(folderId: string): Promise<ArquivoDrive[]> {
   const apiKey = process.env.GOOGLE_DRIVE_API_KEY
 
   if (apiKey) {
-    const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(`'${folderId}' in parents and trashed=false`)}&fields=files(id,name)&pageSize=1000&key=${apiKey}`
-    const res = await fetch(url, { cache: 'no-store' })
-    if (res.ok) {
-      const json = (await res.json()) as { files?: { id: string; name: string }[] }
-      const arquivos = (json.files ?? []).map((f) => ({ rotulo: f.name, id: f.id }))
-      if (arquivos.length > 0) return arquivos
-    }
-    // Chave inválida ou sem permissão: segue para o modo sem credencial
+    const pelaApi = await listarPelaApi(folderId, apiKey)
+    // Só a falha da API justifica cair para a raspagem: pasta vazia é resposta
+    // legítima, e tratá-la como falha produzia o erro enganoso de "não está
+    // compartilhada" para uma pasta que só não tem nada dentro.
+    if (pelaApi) return pelaApi
   }
 
+  return listarPelaPaginaPublica(folderId)
+}
+
+/**
+ * Caminho oficial. Devolve `null` quando a API recusa (chave inválida, Drive
+ * API desabilitada, pasta fora do alcance da chave) — aí vale tentar a página
+ * pública.
+ */
+async function listarPelaApi(folderId: string, apiKey: string): Promise<ArquivoDrive[] | null> {
+  const arquivos: ArquivoDrive[] = []
+  let pageToken: string | undefined
+
+  // Uma pasta de célula passa de 1000 fotos com o tempo; sem seguir o
+  // nextPageToken as fotos além da primeira página simplesmente somem.
+  do {
+    const params = new URLSearchParams({
+      q: `'${folderId}' in parents and trashed=false`,
+      fields: 'nextPageToken,files(id,name,mimeType)',
+      pageSize: '1000',
+      key: apiKey,
+    })
+    if (pageToken) params.set('pageToken', pageToken)
+
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files?${params}`, {
+      cache: 'no-store',
+    })
+    if (!res.ok) return null
+
+    const json = (await res.json()) as {
+      files?: { id: string; name: string; mimeType?: string }[]
+      nextPageToken?: string
+    }
+    for (const f of json.files ?? []) {
+      arquivos.push({ rotulo: f.name, id: f.id, pasta: f.mimeType === MIME_PASTA })
+    }
+    pageToken = json.nextPageToken
+  } while (pageToken)
+
+  return arquivos
+}
+
+/**
+ * Modo sem credencial: lê o HTML da página pública da pasta.
+ *
+ * Funciona, mas depende do formato da página do Google e só enxerga os itens
+ * que vêm no primeiro carregamento — o resto do Drive chega por scroll, que o
+ * fetch não dispara. Com GOOGLE_DRIVE_API_KEY configurada este caminho nem é
+ * usado.
+ */
+async function listarPelaPaginaPublica(folderId: string): Promise<ArquivoDrive[]> {
   const res = await fetch(`https://drive.google.com/drive/folders/${folderId}`, {
     cache: 'no-store',
     redirect: 'follow',
@@ -62,30 +116,76 @@ export async function listarArquivosDaPasta(folderId: string): Promise<ArquivoDr
   // rótulo cru e resolvemos por prefixo na hora da busca.
   // A captura do id é preguiçosa e ancorada no sufixo "-<n>-<n>'", senão o
   // quantificador engole parte dele (ids do Drive também contêm hífens).
-  const arquivos: ArquivoDrive[] = []
+  //
+  // O mesmo id aparece quatro vezes, uma por controle da linha: o nome vem
+  // primeiro e depois "Modified ...", "Size ..." e "More actions". Fica só a
+  // primeira ocorrência — os outros rótulos são texto da interface, e mantê-los
+  // enchia a lista de entradas que não correspondem a arquivo nenhum.
+  const porId = new Map<string, ArquivoDrive>()
   const re = /aria-label="([^"]+)"[^>]*?ssk='[^']*?:([a-zA-Z0-9_-]{20,}?)-\d+-\d+'/g
   for (const m of html.matchAll(re)) {
-    arquivos.push({ rotulo: m[1], id: m[2] })
+    if (porId.has(m[2])) continue
+    porId.set(m[2], { rotulo: m[1], id: m[2], pasta: SUFIXO_PASTA.test(m[1]) })
   }
 
-  if (arquivos.length === 0) {
+  if (porId.size === 0) {
     throw new Error('A pasta do Drive não retornou nenhum arquivo. Confirme que está compartilhada como "qualquer pessoa com o link".')
   }
-  return arquivos
+  return [...porId.values()]
+}
+
+/** Sufixo de tipo que a página pública gruda no nome: "... Shared folder". */
+const SUFIXO_PASTA = /\s+(Shared\s+)?(folder|pasta)\s*$/i
+
+/**
+ * O rótulo bate com o nome da planilha quando é igual a ele ou quando o nome
+ * termina ali e o que sobra é o sufixo de tipo da página pública
+ * ("foto.jpg Image Shared").
+ *
+ * A fronteira do espaço é o que impede um nome truncado na planilha de casar
+ * com um arquivo qualquer: sem ela, "alelo_" casava com
+ * "alelo_4.0_2026-07-31_22-56-54.jpg" e importava uma foto arbitrária da
+ * célula no lugar da que a linha descrevia.
+ */
+function correspondeAoNome(rotulo: string, alvo: string): boolean {
+  return rotulo === alvo || rotulo.startsWith(`${alvo} `)
 }
 
 /** Encontra o id do arquivo cujo rótulo corresponde ao nome vindo da planilha. */
 export function acharIdDoArquivo(arquivos: ArquivoDrive[], nome: string): string | null {
   const alvo = nome.trim()
-  const exato = arquivos.find((a) => a.rotulo === alvo)
+  if (!alvo) return null
+
+  const exato = arquivos.find((a) => correspondeAoNome(a.rotulo, alvo))
   if (exato) return exato.id
-  const porPrefixo = arquivos.find((a) => a.rotulo.startsWith(alvo))
-  if (porPrefixo) return porPrefixo.id
+
   // Última tentativa ignorando acento e caixa: o rótulo do Drive e a planilha
   // nem sempre usam a mesma grafia (ex.: "Ágape" x "agape").
   const alvoNorm = normalizarNome(alvo)
-  const porNormalizacao = arquivos.find((a) => normalizarNome(a.rotulo).startsWith(alvoNorm))
+  const porNormalizacao = arquivos.find((a) =>
+    correspondeAoNome(normalizarNome(a.rotulo), alvoNorm)
+  )
   return porNormalizacao?.id ?? null
+}
+
+/** Subpastas de uma listagem, para descer mais um nível na busca. */
+export function subpastasDe(itens: ArquivoDrive[]): ArquivoDrive[] {
+  return itens.filter((i) => i.pasta)
+}
+
+/**
+ * Id do arquivo a partir do link que o Drive gera ("Copiar link"), nos dois
+ * formatos que ele produz: `/file/d/<id>/view` e `?id=<id>`.
+ *
+ * Quando a planilha traz esse link, ele é a fonte mais confiável que existe —
+ * aponta o arquivo exato, sem depender do nome bater com o rótulo no Drive
+ * nem de vasculhar pasta por pasta.
+ */
+export function idDoLinkDrive(link: string): string | null {
+  const texto = link.trim()
+  if (!texto) return null
+  const m = /\/d\/([a-zA-Z0-9_-]{15,})/.exec(texto) ?? /[?&]id=([a-zA-Z0-9_-]{15,})/.exec(texto)
+  return m?.[1] ?? null
 }
 
 /**
@@ -100,9 +200,11 @@ export function acharIdsDasSubpastas(itens: ArquivoDrive[], nome: string): strin
 
   const ids: string[] = []
   for (const item of itens) {
+    // Arquivo com o nome da célula não é a pasta da célula.
+    if (item.pasta === false) continue
     // O rótulo vem com sufixo de tipo ("Alpha (1) Shared folder"): tiramos o
     // tipo e depois o "(n)" antes de comparar.
-    const semTipo = item.rotulo.replace(/\s+(Shared\s+)?(folder|pasta)\s*$/i, '').replace(/\s+Shared\s*$/i, '')
+    const semTipo = item.rotulo.replace(SUFIXO_PASTA, '').replace(/\s+Shared\s*$/i, '')
     const semCopia = semTipo.replace(/\s*\(\d+\)\s*$/, '')
     if (normalizarNome(semCopia) === alvo && !ids.includes(item.id)) ids.push(item.id)
   }
