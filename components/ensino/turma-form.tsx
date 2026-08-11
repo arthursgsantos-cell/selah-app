@@ -3,11 +3,16 @@
 import { useState, useTransition, useRef, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ImagePlus, X, Loader2, Calculator, Video } from 'lucide-react'
+import {
+  ImagePlus, X, Loader2, Calculator, Video, UserPlus, Search, ListPlus, Smartphone,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
+} from '@/components/ui/dialog'
 import { DIAS_SEMANA } from '@/lib/dia-semana'
 import { contarAulasNoPeriodo } from '@/lib/ensino/turma'
 import {
@@ -17,7 +22,11 @@ import { criarCursoAction } from '@/app/actions/ensino/cursos'
 import {
   InscricaoTurmaFields, type InscricaoTurmaValue,
 } from '@/components/ensino/inscricao-turma-fields'
-import type { CandidatoProfessor } from '@/app/actions/ensino/equipe'
+import {
+  buscarPessoasParaProfessor, cadastrarProfessorSemContaAction,
+  type CandidatoProfessor,
+} from '@/app/actions/ensino/equipe'
+import type { ProfessorDaTurma } from '@/lib/ensino/tipos'
 import type {
   ModoTurma, ModoVideoChamada, StatusTurma, TipoInscricaoTurma,
 } from '@/lib/supabase/types'
@@ -56,6 +65,34 @@ const ORIGEM: Record<CandidatoProfessor['origem'], string> = {
   equipe: 'Equipe do Ensino',
   lideranca: 'Liderança da igreja',
   turma: 'Já leciona esta turma',
+  sem_conta: 'Ainda sem conta no app',
+}
+
+/** Perfil e pré-cadastro podem ter o mesmo uuid; a chave da lista precisa dos dois. */
+function chaveDe(pessoa: ProfessorDaTurma | CandidatoProfessor): string {
+  return `${pessoa.tipo}:${pessoa.id}`
+}
+
+function iniciais(nome: string): string {
+  return nome.split(' ').slice(0, 2).map((n) => n[0]).join('').toUpperCase()
+}
+
+function Retrato({ nome, avatarUrl }: { nome: string; avatarUrl: string | null }) {
+  return (
+    <span className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-muted text-muted-foreground flex items-center justify-center text-[10px] font-bold">
+      {avatarUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          referrerPolicy="no-referrer"
+          src={avatarUrl}
+          alt={nome}
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        iniciais(nome)
+      )}
+    </span>
+  )
 }
 
 function hhmm(valor: string | null): string {
@@ -84,7 +121,7 @@ export function TurmaForm({
    */
   candidatos?: CandidatoProfessor[]
   /** Equipe atual da turma, ou quem está criando. O primeiro é o principal. */
-  professoresIniciais?: string[]
+  professoresIniciais?: ProfessorDaTurma[]
 }) {
   const editando = turma !== undefined
   const router = useRouter()
@@ -110,7 +147,10 @@ export function TurmaForm({
   const [status, setStatus] = useState<StatusTurma>(turma?.status ?? 'aberta')
   const [modo, setModo] = useState<ModoTurma>(turma?.modo ?? 'presencial')
   const [sequencial, setSequencial] = useState(turma?.sequencial ?? false)
-  const [professores, setProfessores] = useState<string[]>(professoresIniciais)
+  const [professores, setProfessores] = useState<ProfessorDaTurma[]>(professoresIniciais)
+  // A lista cresce com quem a busca traz: a seção mostra a equipe do Ensino e a
+  // liderança, e a turma pode ser dada por qualquer pessoa da igreja.
+  const [listaProfessores, setListaProfessores] = useState<CandidatoProfessor[]>(candidatos ?? [])
   const [capaFile, setCapaFile] = useState<File | null>(null)
   const [capaPreview, setCapaPreview] = useState<string | null>(turma?.capaUrl ?? null)
 
@@ -161,18 +201,37 @@ export function TurmaForm({
     )
   }
 
-  function alternarProfessor(id: string) {
+  function alternarProfessor(pessoa: ProfessorDaTurma) {
     setSujo(true)
+    const chave = chaveDe(pessoa)
     setProfessores((atual) =>
-      atual.includes(id) ? atual.filter((p) => p !== id) : [...atual, id]
+      atual.some((p) => chaveDe(p) === chave)
+        ? atual.filter((p) => chaveDe(p) !== chave)
+        : [...atual, { tipo: pessoa.tipo, id: pessoa.id }]
     )
   }
 
   // Principal é posição, não campo: a primeira da lista é a que a turma mostra
   // primeiro, e promover alguém é trazê-lo para a frente.
-  function tornarPrincipal(id: string) {
+  function tornarPrincipal(pessoa: ProfessorDaTurma) {
     setSujo(true)
-    setProfessores((atual) => [id, ...atual.filter((p) => p !== id)])
+    const chave = chaveDe(pessoa)
+    setProfessores((atual) => [
+      { tipo: pessoa.tipo, id: pessoa.id },
+      ...atual.filter((p) => chaveDe(p) !== chave),
+    ])
+  }
+
+  /** Quem veio da busca ou do cadastro entra na lista já marcado. */
+  function incluirProfessor(pessoa: CandidatoProfessor) {
+    setSujo(true)
+    const chave = chaveDe(pessoa)
+    setListaProfessores((atual) =>
+      atual.some((c) => chaveDe(c) === chave) ? atual : [...atual, pessoa]
+    )
+    setProfessores((atual) =>
+      atual.some((p) => chaveDe(p) === chave) ? atual : [...atual, { tipo: pessoa.tipo, id: pessoa.id }]
+    )
   }
 
   function trocarCapa(e: React.ChangeEvent<HTMLInputElement>) {
@@ -406,85 +465,66 @@ export function TurmaForm({
           turma, mas não escolhe quem entra nela. */}
       {candidatos && (
         <Secao titulo="Professores">
-          {candidatos.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Ninguém cadastrado como professor ainda. Cadastre a equipe em{' '}
-              <Link href="/ensino/admin" className="text-primary hover:underline">
-                Administração do Ensino
-              </Link>
-              .
-            </p>
-          ) : (
-            <>
-              <div className="rounded-xl border border-border divide-y overflow-hidden">
-                {candidatos.map((c) => {
-                  const posicao = professores.indexOf(c.id)
-                  return (
-                    <div key={c.id} className="flex items-center gap-3 px-3 py-2.5">
-                      <input
-                        id={`prof-${c.id}`}
-                        type="checkbox"
-                        checked={posicao >= 0}
-                        onChange={() => alternarProfessor(c.id)}
-                        className="h-4 w-4 shrink-0 rounded border-input accent-primary"
-                      />
-                      <label
-                        htmlFor={`prof-${c.id}`}
-                        className="flex min-w-0 flex-1 items-center gap-2.5 cursor-pointer"
+          {listaProfessores.length > 0 && (
+            <div className="rounded-xl border border-border divide-y overflow-hidden">
+              {listaProfessores.map((c) => {
+                const posicao = professores.findIndex((p) => chaveDe(p) === chaveDe(c))
+                const campoId = `prof-${chaveDe(c)}`
+                return (
+                  <div key={chaveDe(c)} className="flex items-center gap-3 px-3 py-2.5">
+                    <input
+                      id={campoId}
+                      type="checkbox"
+                      checked={posicao >= 0}
+                      onChange={() => alternarProfessor(c)}
+                      className="h-4 w-4 shrink-0 rounded border-input accent-primary"
+                    />
+                    <label
+                      htmlFor={campoId}
+                      className="flex min-w-0 flex-1 items-center gap-2.5 cursor-pointer"
+                    >
+                      <Retrato nome={c.nome} avatarUrl={c.avatarUrl} />
+                      <span className="min-w-0">
+                        <span className="block text-sm font-medium leading-tight truncate">
+                          {c.nome}
+                        </span>
+                        <span className="block text-xs text-muted-foreground">
+                          {ORIGEM[c.origem]}
+                        </span>
+                      </span>
+                    </label>
+
+                    {posicao === 0 && (
+                      <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                        principal
+                      </span>
+                    )}
+                    {posicao > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => tornarPrincipal(c)}
+                        className="shrink-0 text-xs text-primary hover:underline"
                       >
-                        <span className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-muted text-muted-foreground flex items-center justify-center text-[10px] font-bold">
-                          {c.avatarUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              referrerPolicy="no-referrer"
-                              src={c.avatarUrl}
-                              alt={c.nome}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            c.nome.split(' ').slice(0, 2).map((n) => n[0]).join('')
-                          )}
-                        </span>
-                        <span className="min-w-0">
-                          <span className="block text-sm font-medium leading-tight truncate">
-                            {c.nome}
-                          </span>
-                          <span className="block text-xs text-muted-foreground">
-                            {ORIGEM[c.origem]}
-                          </span>
-                        </span>
-                      </label>
-
-                      {posicao === 0 && (
-                        <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
-                          principal
-                        </span>
-                      )}
-                      {posicao > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => tornarPrincipal(c.id)}
-                          className="shrink-0 text-xs text-primary hover:underline"
-                        >
-                          tornar principal
-                        </button>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Quem está marcado aqui faz chamada, cadastra aulas e publica materiais
-                desta turma. O principal é o nome que aparece primeiro. Para incluir
-                alguém que não está na lista, cadastre-o antes em{' '}
-                <Link href="/ensino/admin" className="text-primary hover:underline">
-                  Administração do Ensino
-                </Link>
-                .
-              </p>
-            </>
+                        tornar principal
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           )}
+
+          <AdicionarProfessorDialog onEscolher={incluirProfessor} />
+
+          <p className="text-xs text-muted-foreground leading-relaxed flex items-start gap-1.5">
+            <Smartphone className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+            <span>
+              Quem está marcado aqui faz chamada, cadastra aulas e publica materiais desta
+              turma. O principal é o nome que aparece primeiro. Professor sem conta no app
+              aparece como nome na turma; quando ele criar a conta, passa a administrar a
+              turma sozinho.
+            </span>
+          </p>
         </Secao>
       )}
 
@@ -816,6 +856,186 @@ export function TurmaForm({
         )}
       </div>
     </form>
+  )
+}
+
+/**
+ * Achar ou cadastrar quem vai dar aula.
+ *
+ * Mesma tela do cadastro de aluno (`adicionar-aluno.tsx`) e pela mesma razão: um
+ * campo só, que **busca** quem o app já conhece enquanto **serve de formulário**
+ * para quem ele não conhece. Aqui não grava vínculo com a turma — devolve a
+ * pessoa para a lista do formulário, que é salva junto com o resto. É o que faz
+ * o diálogo servir também à turma que ainda não existe.
+ */
+function AdicionarProfessorDialog({
+  onEscolher,
+}: {
+  onEscolher: (pessoa: CandidatoProfessor) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [nome, setNome] = useState('')
+  const [telefone, setTelefone] = useState('')
+  const [email, setEmail] = useState('')
+  const [resultados, setResultados] = useState<CandidatoProfessor[]>([])
+  const [buscando, setBuscando] = useState(false)
+  const [salvando, startSalvar] = useTransition()
+  const [erro, setErro] = useState<string | null>(null)
+
+  // Cada busca leva o número da vez: resposta antiga que chega atrasada é
+  // descartada em vez de sobrescrever a lista do termo atual.
+  const buscaAtual = useRef(0)
+  const termo = nome.trim()
+
+  useEffect(() => {
+    if (!open || termo.length < 2) {
+      setResultados([])
+      setBuscando(false)
+      return
+    }
+
+    const vez = ++buscaAtual.current
+    setBuscando(true)
+
+    // Espera a digitação parar: sem isso, "Maria Aparecida" dispararia quinze
+    // consultas para chegar ao mesmo resultado.
+    const timer = setTimeout(async () => {
+      const achados = await buscarPessoasParaProfessor(termo)
+      if (vez !== buscaAtual.current) return
+      setResultados(achados)
+      setBuscando(false)
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [open, termo])
+
+  function fechar() {
+    setOpen(false)
+    setNome(''); setTelefone(''); setEmail('')
+    setResultados([]); setErro(null)
+  }
+
+  function escolher(pessoa: CandidatoProfessor) {
+    onEscolher(pessoa)
+    fechar()
+  }
+
+  function cadastrarNovo() {
+    setErro(null)
+    startSalvar(async () => {
+      const r = await cadastrarProfessorSemContaAction({ nome, telefone, email })
+      if (!r.ok) { setErro(r.erro); return }
+      escolher(r.pessoa)
+    })
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(aberto) => (aberto ? setOpen(true) : fechar())}>
+      <DialogTrigger render={<Button type="button" size="sm" variant="outline" />}>
+        <UserPlus className="h-4 w-4" />
+        Adicionar professor
+      </DialogTrigger>
+
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Adicionar professor à turma</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <Input
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
+              placeholder="Nome do professor"
+              className="pl-8"
+              autoFocus
+            />
+          </div>
+
+          {erro && <p className="text-sm text-destructive">{erro}</p>}
+
+          {termo.length >= 2 && (
+            <div className="space-y-2">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+                Já cadastrados na igreja
+                {buscando && <Loader2 className="h-3 w-3 animate-spin" />}
+              </p>
+
+              {!buscando && resultados.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  Ninguém com esse nome. Cadastre abaixo.
+                </p>
+              ) : (
+                <div className="rounded-xl border border-border divide-y overflow-hidden">
+                  {resultados.map((p) => (
+                    <div key={chaveDe(p)} className="flex items-center gap-2.5 px-2.5 py-2">
+                      <Retrato nome={p.nome} avatarUrl={p.avatarUrl} />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium leading-tight truncate">{p.nome}</p>
+                        <p className="text-[11px] text-muted-foreground truncate">
+                          {p.tipo === 'profile' ? 'usa o app' : 'na lista da igreja'}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        size="xs"
+                        variant="outline"
+                        onClick={() => escolher(p)}
+                        disabled={salvando}
+                      >
+                        Adicionar
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Cadastro na mão */}
+          <div className="rounded-xl border border-border p-3 space-y-2.5">
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">
+              Cadastrar na mão
+            </p>
+
+            <div className="grid grid-cols-2 gap-2">
+              <Input
+                value={telefone}
+                onChange={(e) => setTelefone(e.target.value)}
+                placeholder="Telefone (opcional)"
+                inputMode="tel"
+              />
+              <Input
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="E-mail (opcional)"
+                inputMode="email"
+                autoCapitalize="none"
+              />
+            </div>
+
+            <Button
+              type="button"
+              className="w-full"
+              onClick={cadastrarNovo}
+              disabled={salvando || termo.length < 2}
+            >
+              {salvando ? <Loader2 className="h-4 w-4 animate-spin" /> : <ListPlus className="h-4 w-4" />}
+              {termo.length >= 2 ? `Cadastrar ${termo}` : 'Cadastrar professor'}
+            </Button>
+
+            <p className="text-[11px] text-muted-foreground leading-snug flex items-start gap-1.5">
+              <Smartphone className="h-3.5 w-3.5 shrink-0 mt-px" />
+              <span>
+                Só o nome é obrigatório. A pessoa entra na lista da igreja e o nome já
+                aparece na turma — quando ela criar a conta, passa a administrar a turma.
+              </span>
+            </p>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 

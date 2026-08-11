@@ -1,29 +1,38 @@
 'use client'
 
 import { useRef, useState, useTransition } from 'react'
-import { Camera, GraduationCap } from 'lucide-react'
-import { atualizarCapaTurmaAction } from '@/app/actions/ensino/aparencia'
+import { Camera, GraduationCap, Undo2 } from 'lucide-react'
+import {
+  salvarCapaPaginaTurmaAction,
+  removerCapaPaginaTurmaAction,
+} from '@/app/actions/ensino/aparencia'
 import { comprimirImagem } from '@/lib/comprimir-imagem'
 
 interface Props {
   turmaId: string
   nome: string
   cursoNome: string
+  /** Card da turma — o retrato que aparece nas listagens. */
   capaUrl: string | null
+  /** Capa exclusiva desta página, quando houver. */
+  capaPaginaUrl: string | null
   canEdit: boolean
 }
 
 /**
  * Topo da página da turma.
  *
- * Sem capa cai no bloco em degradê, o mesmo do resto do módulo — assim uma
- * turma recém-criada não abre com um buraco cinza no lugar da arte.
+ * Usa a capa própria quando existe e cai no card da turma quando não — trocar a
+ * capa daqui não altera o card. Sem nenhuma das duas, o bloco em degradê do
+ * resto do módulo evita que uma turma recém-criada abra com um buraco cinza.
  */
-export function TurmaCapa({ turmaId, nome, cursoNome, capaUrl, canEdit }: Props) {
-  const [capa, setCapa] = useState(capaUrl)
+export function TurmaCapa({ turmaId, nome, cursoNome, capaUrl, capaPaginaUrl, canEdit }: Props) {
+  const [capa, setCapa] = useState(capaPaginaUrl)
   const [erro, setErro] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const fileRef = useRef<HTMLInputElement>(null)
+
+  const exibida = capa ?? capaUrl
 
   function enviar(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -38,7 +47,7 @@ export function TurmaCapa({ turmaId, nome, cursoNome, capaUrl, canEdit }: Props)
       try {
         const fd = new FormData()
         fd.append('file', await comprimirImagem(file))
-        setCapa(await atualizarCapaTurmaAction(turmaId, fd))
+        setCapa(await salvarCapaPaginaTurmaAction(turmaId, fd))
       } catch (err) {
         setCapa(anterior)
         setErro(err instanceof Error ? err.message : 'Erro ao enviar a capa')
@@ -46,12 +55,25 @@ export function TurmaCapa({ turmaId, nome, cursoNome, capaUrl, canEdit }: Props)
     })
   }
 
+  function voltarParaOCard() {
+    const anterior = capa
+    setCapa(null)
+    startTransition(async () => {
+      try {
+        await removerCapaPaginaTurmaAction(turmaId)
+      } catch (err) {
+        setCapa(anterior)
+        setErro(err instanceof Error ? err.message : 'Erro ao remover a capa')
+      }
+    })
+  }
+
   return (
     <div className="space-y-1.5">
-      {capa ? (
+      {exibida ? (
         <div className="relative rounded-2xl overflow-hidden shadow-lg">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={capa} alt={nome} className="w-full aspect-[16/9] object-cover" />
+          <img src={exibida} alt={nome} className="w-full aspect-[16/9] object-cover" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
           <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
             <p className="text-[10px] font-bold uppercase tracking-widest text-white/80">
@@ -89,8 +111,25 @@ export function TurmaCapa({ turmaId, nome, cursoNome, capaUrl, canEdit }: Props)
             className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-40"
           >
             <Camera className="h-3 w-3" />
-            {isPending ? 'Enviando...' : capa ? 'Trocar capa' : 'Adicionar capa'}
+            {isPending
+              ? 'Enviando...'
+              : capa
+                ? 'Trocar capa da página'
+                : 'Usar uma capa só para esta página'}
           </button>
+
+          {capa && (
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={voltarParaOCard}
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-40"
+            >
+              <Undo2 className="h-3 w-3" />
+              Voltar a usar o card
+            </button>
+          )}
+
           <input
             ref={fileRef}
             type="file"
@@ -101,6 +140,11 @@ export function TurmaCapa({ turmaId, nome, cursoNome, capaUrl, canEdit }: Props)
         </div>
       )}
 
+      {canEdit && !capa && capaUrl && (
+        <p className="text-[11px] text-muted-foreground">
+          Mostrando o card da turma. Uma capa própria não altera o card.
+        </p>
+      )}
       {erro && <p className="text-xs text-destructive">{erro}</p>}
     </div>
   )

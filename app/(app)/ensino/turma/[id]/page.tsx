@@ -63,7 +63,7 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
     supabase
       .from('ensino_turmas')
       .select(
-        'id, slug, curso_id, nome, descricao, capa_url, local, data_inicio, data_fim, dias_semana, horario_inicio, horario_fim, total_aulas, vagas, inscricoes_abertas, aprovacao_automatica, status, modo, sequencial, destaque, whatsapp_url, tipo_inscricao, link_inscricao_url, video_chamada_modo, video_chamada_url, cor, cor_secundaria, fundo_tipo, fundo_imagem_url, fundo_opacidade, fundo_galeria, fundo_galeria_opacidade, fundo_auto_cor, fundo_auto_cor_origem, ensino_cursos(nome, descricao)'
+        'id, slug, curso_id, nome, descricao, capa_url, capa_pagina_url, local, data_inicio, data_fim, dias_semana, horario_inicio, horario_fim, total_aulas, vagas, inscricoes_abertas, aprovacao_automatica, status, modo, sequencial, destaque, whatsapp_url, tipo_inscricao, link_inscricao_url, video_chamada_modo, video_chamada_url, cor, cor_secundaria, fundo_tipo, fundo_imagem_url, fundo_opacidade, fundo_galeria, fundo_galeria_opacidade, fundo_auto_cor, fundo_auto_cor_origem, ensino_cursos(nome, descricao)'
       ),
     params.id
   ).maybeSingle()
@@ -72,7 +72,7 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
 
   const turma = turmaRaw as unknown as {
     id: string; slug: string | null; curso_id: string; nome: string; descricao: string | null
-    capa_url: string | null; local: string | null
+    capa_url: string | null; capa_pagina_url: string | null; local: string | null
     data_inicio: string | null; data_fim: string | null
     dias_semana: number[]; horario_inicio: string | null; horario_fim: string | null
     total_aulas: number | null; vagas: number | null
@@ -107,7 +107,9 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
     leciona ? contarPendentes([turma.id]) : Promise.resolve({} as Record<string, number>),
     admin
       .from('ensino_turma_professores')
-      .select('principal, profiles(id, nome, avatar_url, titulo)')
+      .select(
+        'principal, profiles(id, nome, avatar_url, titulo), membros_pre_cadastro(id, nome)'
+      )
       .eq('turma_id', turma.id)
       .order('principal', { ascending: false }),
     supabase
@@ -133,10 +135,23 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
     | { id: string; status: StatusInscricaoEnsino; observacao: string | null }
     | null
 
+  // O professor sem conta entra pela lista da igreja: aparece com nome e
+  // iniciais, e é só isso que a página precisa dele.
   const professores = ((professoresRes.data ?? []) as unknown as {
     profiles: { id: string; nome: string; avatar_url: string | null; titulo: string | null } | null
+    membros_pre_cadastro: { id: string; nome: string } | null
   }[])
-    .map((p) => p.profiles)
+    .map((p) =>
+      p.profiles ??
+      (p.membros_pre_cadastro
+        ? {
+            id: p.membros_pre_cadastro.id,
+            nome: p.membros_pre_cadastro.nome,
+            avatar_url: null,
+            titulo: null,
+          }
+        : null)
+    )
     .filter((p): p is { id: string; nome: string; avatar_url: string | null; titulo: string | null } => p !== null)
 
   // Inscrito de verdade: é o que libera aulas e materiais. A RLS já recusaria,
@@ -258,6 +273,7 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
         nome={turma.nome}
         cursoNome={turma.ensino_cursos?.nome ?? 'Curso'}
         capaUrl={turma.capa_url}
+        capaPaginaUrl={turma.capa_pagina_url}
         canEdit={leciona}
       />
 

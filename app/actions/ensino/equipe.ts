@@ -41,7 +41,10 @@ export async function listarEquipe(): Promise<MembroEquipe[]> {
     .in('profile_id', linhas.map((l) => l.profile_id))
 
   const porProfessor = new Map<string, number>()
-  for (const v of vinculos ?? []) {
+  for (const v of (vinculos ?? []) as { profile_id: string | null }[]) {
+    // A turma também aceita professor sem conta, que não tem `profile_id` e
+    // portanto não conta para ninguém desta lista.
+    if (!v.profile_id) continue
     porProfessor.set(v.profile_id, (porProfessor.get(v.profile_id) ?? 0) + 1)
   }
 
@@ -59,10 +62,12 @@ export async function listarEquipe(): Promise<MembroEquipe[]> {
 
 export interface CandidatoProfessor {
   id: string
+  /** `pre_cadastro` é quem ainda não tem conta no app. */
+  tipo: 'profile' | 'pre_cadastro'
   nome: string
   avatarUrl: string | null
   /** De onde vem a permissão de dar aula. */
-  origem: 'equipe' | 'lideranca' | 'turma'
+  origem: 'equipe' | 'lideranca' | 'turma' | 'sem_conta'
 }
 
 /**
@@ -90,35 +95,239 @@ export async function listarCandidatosProfessor(
       .eq('igreja_id', acesso.igrejaId)
       .in('role', ['pastor', 'admin']),
     turmaId
-      ? admin.from('ensino_turma_professores').select('profile_id').eq('turma_id', turmaId)
-      : Promise.resolve({ data: [] as { profile_id: string }[] }),
+      ? admin
+          .from('ensino_turma_professores')
+          .select('profile_id, pre_cadastro_id')
+          .eq('turma_id', turmaId)
+      : Promise.resolve({ data: [] as { profile_id: string | null; pre_cadastro_id: string | null }[] }),
   ])
 
-  const daEquipe = new Set((equipeRes.data ?? []).map((e) => e.profile_id))
-  const daLideranca = new Set((liderancaRes.data ?? []).map((p) => p.id))
-  const daTurma = new Set((atuaisRes.data ?? []).map((t) => t.profile_id))
+  const atuais = (atuaisRes.data ?? []) as {
+    profile_id: string | null; pre_cadastro_id: string | null
+  }[]
+
+  const daEquipe = new Set(((equipeRes.data ?? []) as { profile_id: string }[]).map((e) => e.profile_id))
+  const daLideranca = new Set(((liderancaRes.data ?? []) as { id: string }[]).map((p) => p.id))
+  const daTurma = new Set(atuais.map((t) => t.profile_id).filter((id): id is string => id !== null))
+  const semConta = atuais.map((t) => t.pre_cadastro_id).filter((id): id is string => id !== null)
 
   const ids = [...new Set([...daEquipe, ...daLideranca, ...daTurma])]
-  if (ids.length === 0) return []
 
-  const { data } = await admin
-    .from('profiles')
-    .select('id, nome, avatar_url')
-    .eq('igreja_id', acesso.igrejaId)
-    .in('id', ids)
+  const [perfisRes, presRes] = await Promise.all([
+    ids.length > 0
+      ? admin
+          .from('profiles')
+          .select('id, nome, avatar_url')
+          .eq('igreja_id', acesso.igrejaId)
+          .in('id', ids)
+      : Promise.resolve({ data: [] as { id: string; nome: string; avatar_url: string | null }[] }),
+    // Quem já está na turma sem ter conta. Só estes: a lista da igreja inteira
+    // viraria centenas de linhas de checkbox — para achar alguém novo existe a
+    // busca.
+    semConta.length > 0
+      ? admin.from('membros_pre_cadastro').select('id, nome').in('id', semConta)
+      : Promise.resolve({ data: [] as { id: string; nome: string }[] }),
+  ])
 
-  return ((data ?? []) as { id: string; nome: string; avatar_url: string | null }[])
-    .map((p) => ({
+  const perfis: CandidatoProfessor[] = (
+    (perfisRes.data ?? []) as { id: string; nome: string; avatar_url: string | null }[]
+  ).map((p) => ({
+    id: p.id,
+    tipo: 'profile' as const,
+    nome: p.nome,
+    avatarUrl: p.avatar_url,
+    origem: daEquipe.has(p.id)
+      ? ('equipe' as const)
+      : daLideranca.has(p.id)
+        ? ('lideranca' as const)
+        : ('turma' as const),
+  }))
+
+  const pres: CandidatoProfessor[] = ((presRes.data ?? []) as { id: string; nome: string }[]).map(
+    (p) => ({
       id: p.id,
+      tipo: 'pre_cadastro' as const,
       nome: p.nome,
-      avatarUrl: p.avatar_url,
-      origem: daEquipe.has(p.id)
-        ? ('equipe' as const)
-        : daLideranca.has(p.id)
-          ? ('lideranca' as const)
-          : ('turma' as const),
-    }))
-    .sort((a, b) => a.nome.localeCompare(b.nome))
+      avatarUrl: null,
+      origem: 'sem_conta' as const,
+    })
+  )
+
+  return [...perfis, ...pres].sort((a, b) => a.nome.localeCompare(b.nome))
+}
+
+/** Vira `%joão%` sem os caracteres que quebrariam o filtro do PostgREST. */
+function curinga(termo: string): string {
+  return `%${termo.replace(/[%,()*\\]/g, ' ').trim()}%`
+}
+
+function limpar(valor: string | null | undefined): string | null {
+  const t = valor?.trim()
+  return t ? t : null
+}
+
+/**
+ * Procura quem pôr como professor entre os perfis e os pré-cadastros da igreja.
+ *
+ * Gêmea de `buscarPessoasParaTurma`, que faz o mesmo para o aluno: a lista fixa
+ * de candidatos só mostra a equipe do Ensino e a liderança, e a turma pode ser
+ * dada por qualquer membro. A busca vem antes do cadastro na tela porque
+ * recadastrar quem o app já conhece criaria uma segunda ficha, sem histórico.
+ */
+export async function buscarPessoasParaProfessor(termo: string): Promise<CandidatoProfessor[]> {
+  const acesso = await acessoEnsino()
+  if (!acesso?.coordenador) return []
+
+  const busca = termo.trim()
+  if (busca.length < 2) return []
+
+  const admin = createAdminClient()
+  const padrao = curinga(busca)
+
+  const [perfisRes, preRes] = await Promise.all([
+    admin
+      .from('profiles')
+      .select('id, nome, avatar_url')
+      .eq('igreja_id', acesso.igrejaId)
+      .or(`nome.ilike.${padrao},email.ilike.${padrao},telefone.ilike.${padrao}`)
+      .order('nome')
+      .limit(8),
+    // Só quem ainda não virou perfil: o pré-cadastro já vinculado seria a mesma
+    // pessoa do resultado de cima, duas vezes na lista.
+    admin
+      .from('membros_pre_cadastro')
+      .select('id, nome')
+      .eq('igreja_id', acesso.igrejaId)
+      .is('profile_id', null)
+      .or(`nome.ilike.${padrao},email.ilike.${padrao},telefone.ilike.${padrao}`)
+      .order('nome')
+      .limit(8),
+  ])
+
+  const perfis: CandidatoProfessor[] = (
+    (perfisRes.data ?? []) as { id: string; nome: string; avatar_url: string | null }[]
+  ).map((p) => ({
+    id: p.id,
+    tipo: 'profile' as const,
+    nome: p.nome,
+    avatarUrl: p.avatar_url,
+    origem: 'equipe' as const,
+  }))
+
+  const pres: CandidatoProfessor[] = ((preRes.data ?? []) as { id: string; nome: string }[]).map(
+    (p) => ({
+      id: p.id,
+      tipo: 'pre_cadastro' as const,
+      nome: p.nome,
+      avatarUrl: null,
+      origem: 'sem_conta' as const,
+    })
+  )
+
+  // Quem tem conta primeiro: é o cadastro mais completo dos dois.
+  return [...perfis, ...pres].slice(0, 10)
+}
+
+/**
+ * Cadastra na igreja um professor que o app não conhece.
+ *
+ * Só o nome é obrigatório, como no cadastro de aluno manual e pela mesma razão:
+ * quem está montando a turma nem sempre sabe o contato de quem vai dar aula. A
+ * pessoa é gravada em `membros_pre_cadastro` — a lista da igreja, não uma tabela
+ * do Ensino —, então ela passa a existir para o app inteiro e é reconhecida pelo
+ * e-mail quando criar a conta.
+ *
+ * Não toca na turma: devolve a pessoa para a tela pôr na lista, e o vínculo é
+ * gravado quando o formulário for salvo. É o que faz esta ação servir também à
+ * turma que ainda não existe, na tela de nova turma.
+ */
+export async function cadastrarProfessorSemContaAction(params: {
+  nome: string
+  telefone?: string | null
+  email?: string | null
+}): Promise<{ ok: true; pessoa: CandidatoProfessor } | { ok: false; erro: string }> {
+  const acesso = await acessoEnsino()
+  if (!acesso?.coordenador) {
+    return { ok: false, erro: 'Só a coordenação do Ensino cadastra professores.' }
+  }
+
+  const nome = params.nome.trim().replace(/\s+/g, ' ')
+  if (nome.length < 2) return { ok: false, erro: 'Informe o nome do professor.' }
+
+  const email = limpar(params.email)?.toLowerCase() ?? null
+  const telefone = limpar(params.telefone)
+  const admin = createAdminClient()
+
+  // E-mail é identidade: se já é de alguém no app, é aquela pessoa que entra na
+  // turma, em vez de uma segunda ficha para o mesmo nome.
+  if (email) {
+    const { data: perfil } = await admin
+      .from('profiles')
+      .select('id, nome, avatar_url')
+      .eq('igreja_id', acesso.igrejaId)
+      .ilike('email', email)
+      .limit(1)
+      .maybeSingle()
+
+    if (perfil) {
+      const p = perfil as { id: string; nome: string; avatar_url: string | null }
+      return {
+        ok: true,
+        pessoa: {
+          id: p.id, tipo: 'profile', nome: p.nome, avatarUrl: p.avatar_url, origem: 'equipe',
+        },
+      }
+    }
+
+    const { data: pre } = await admin
+      .from('membros_pre_cadastro')
+      .select('id, nome')
+      .eq('igreja_id', acesso.igrejaId)
+      .is('profile_id', null)
+      .ilike('email', email)
+      .limit(1)
+      .maybeSingle()
+
+    if (pre) {
+      const p = pre as { id: string; nome: string }
+      return {
+        ok: true,
+        pessoa: { id: p.id, tipo: 'pre_cadastro', nome: p.nome, avatarUrl: null, origem: 'sem_conta' },
+      }
+    }
+  }
+
+  // Sem cargo: definir cargo de membro é decisão da liderança, não efeito
+  // colateral de escalar alguém para dar aula.
+  const { data: criado, error } = await admin
+    .from('membros_pre_cadastro')
+    .insert({
+      igreja_id: acesso.igrejaId,
+      nome,
+      telefone,
+      email,
+      obs: 'Cadastrado pelo Ensino como professor',
+      created_by: acesso.userId,
+    })
+    .select('id')
+    .single()
+
+  if (error || !criado) {
+    return { ok: false, erro: error?.message ?? 'Não foi possível cadastrar a pessoa.' }
+  }
+
+  revalidatePath('/usuarios')
+  revalidatePath('/pendencias')
+  return {
+    ok: true,
+    pessoa: {
+      id: (criado as { id: string }).id,
+      tipo: 'pre_cadastro',
+      nome,
+      avatarUrl: null,
+      origem: 'sem_conta',
+    },
+  }
 }
 
 export async function definirPapelAction(

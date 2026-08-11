@@ -7,7 +7,7 @@ import { acessoEnsino, podeLecionar } from '@/lib/ensino/permissoes'
 import type {
   ModoTurma, ModoVideoChamada, StatusTurma, TipoInscricaoTurma,
 } from '@/lib/supabase/types'
-import { BUCKET_CAPAS, type ResultadoAcao } from '@/lib/ensino/tipos'
+import { BUCKET_CAPAS, type ProfessorDaTurma, type ResultadoAcao } from '@/lib/ensino/tipos'
 
 /**
  * Sobe a capa de um curso ou turma para o bucket público `ensino-capas` e
@@ -64,8 +64,8 @@ export interface DadosTurma {
   formularioId?: string | null
   videoChamadaModo?: ModoVideoChamada
   videoChamadaUrl?: string | null
-  /** Ids de perfis. Quem cria já entra como professor se a lista vier vazia. */
-  professores?: string[]
+  /** A equipe da turma. Quem cria já entra como professor se a lista vier vazia. */
+  professores?: ProfessorDaTurma[]
 }
 
 function limpar(v: string | null | undefined): string | null {
@@ -78,15 +78,37 @@ function limpar(v: string | null | undefined): string | null {
  * perfil de outra igreja aqui viraria acesso à turma inteira — mesma cautela de
  * `definirPapelAction`.
  */
-async function professoresForaDaIgreja(igrejaId: string, ids: string[]): Promise<boolean> {
+async function professoresForaDaIgreja(
+  igrejaId: string,
+  professores: ProfessorDaTurma[]
+): Promise<boolean> {
   const admin = createAdminClient()
-  const { data } = await admin
-    .from('profiles')
-    .select('id')
-    .eq('igreja_id', igrejaId)
-    .in('id', ids)
 
-  return (data ?? []).length !== new Set(ids).size
+  const perfis = [...new Set(professores.filter((p) => p.tipo === 'profile').map((p) => p.id))]
+  const pres = [...new Set(professores.filter((p) => p.tipo === 'pre_cadastro').map((p) => p.id))]
+
+  const [perfisRes, presRes] = await Promise.all([
+    perfis.length > 0
+      ? admin.from('profiles').select('id').eq('igreja_id', igrejaId).in('id', perfis)
+      : Promise.resolve({ data: [] as { id: string }[] }),
+    pres.length > 0
+      ? admin.from('membros_pre_cadastro').select('id').eq('igreja_id', igrejaId).in('id', pres)
+      : Promise.resolve({ data: [] as { id: string }[] }),
+  ])
+
+  return (
+    (perfisRes.data ?? []).length !== perfis.length || (presRes.data ?? []).length !== pres.length
+  )
+}
+
+/** As linhas de `ensino_turma_professores`. O primeiro da lista é o principal. */
+function linhasDeProfessores(turmaId: string, professores: ProfessorDaTurma[]) {
+  return professores.map((p, i) => ({
+    turma_id: turmaId,
+    profile_id: p.tipo === 'profile' ? p.id : null,
+    pre_cadastro_id: p.tipo === 'pre_cadastro' ? p.id : null,
+    principal: i === 0,
+  }))
 }
 
 function videoModo(dados: DadosTurma): ModoVideoChamada {
@@ -169,15 +191,12 @@ export async function criarTurmaAction(dados: DadosTurma): Promise<
 
   // Sem professor a turma ficaria sem ninguém capaz de fazer a chamada: quem
   // cria assume a turma quando não indica outra pessoa.
-  const professores = dados.professores?.length ? dados.professores : [acesso.userId]
+  const professores: ProfessorDaTurma[] = dados.professores?.length
+    ? dados.professores
+    : [{ tipo: 'profile', id: acesso.userId }]
+
   const admin = createAdminClient()
-  await admin.from('ensino_turma_professores').insert(
-    professores.map((profileId, i) => ({
-      turma_id: data.id,
-      profile_id: profileId,
-      principal: i === 0,
-    }))
-  )
+  await admin.from('ensino_turma_professores').insert(linhasDeProfessores(data.id, professores))
 
   revalidatePath('/ensino')
   revalidatePath('/ensino/professor')
@@ -251,13 +270,9 @@ export async function editarTurmaAction(
   if (trocarProfessores) {
     const admin = createAdminClient()
     await admin.from('ensino_turma_professores').delete().eq('turma_id', id)
-    await admin.from('ensino_turma_professores').insert(
-      dados.professores!.map((profileId, i) => ({
-        turma_id: id,
-        profile_id: profileId,
-        principal: i === 0,
-      }))
-    )
+    await admin
+      .from('ensino_turma_professores')
+      .insert(linhasDeProfessores(id, dados.professores!))
   }
 
   revalidatePath('/ensino')

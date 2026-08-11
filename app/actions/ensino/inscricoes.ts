@@ -246,10 +246,14 @@ async function notificarProfessores(params: {
         .eq('papel', 'coordenador'),
     ])
 
-    const destinatarios = new Set([
-      ...(professoresRes.data ?? []).map((p) => p.profile_id),
-      ...(coordenadoresRes.data ?? []).map((c) => c.profile_id),
-    ])
+    // Professor sem conta no app não tem para onde receber aviso: a linha dele
+    // na turma tem `profile_id` nulo, e fica de fora da lista.
+    const destinatarios = new Set(
+      [
+        ...((professoresRes.data ?? []) as { profile_id: string | null }[]).map((p) => p.profile_id),
+        ...((coordenadoresRes.data ?? []) as { profile_id: string }[]).map((c) => c.profile_id),
+      ].filter((id): id is string => id !== null)
+    )
 
     if (destinatarios.size === 0) return
 

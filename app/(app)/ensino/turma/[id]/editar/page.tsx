@@ -9,6 +9,7 @@ import { TurmaForm, type TurmaParaEditar } from '@/components/ensino/turma-form'
 import { ExcluirTurmaBtn } from '@/components/ensino/excluir-turma-btn'
 import { listarCandidatosProfessor } from '@/app/actions/ensino/equipe'
 import { porSlugOuId } from '@/lib/slug-ou-id'
+import type { ProfessorDaTurma } from '@/lib/ensino/tipos'
 import type {
   ModoTurma, ModoVideoChamada, StatusTurma, TipoInscricaoTurma,
 } from '@/lib/supabase/types'
@@ -90,13 +91,17 @@ export default async function EditarTurmaPage({ params }: { params: { id: string
     acesso.coordenador ? listarCandidatosProfessor(turma.id) : Promise.resolve(undefined),
     admin
       .from('ensino_turma_professores')
-      .select('profile_id, principal')
+      .select('profile_id, pre_cadastro_id, principal')
       .eq('turma_id', turma.id)
       .order('principal', { ascending: false }),
   ])
 
-  const professoresIniciais = ((professoresRes.data ?? []) as { profile_id: string }[]).map(
-    (p) => p.profile_id
+  const professoresIniciais: ProfessorDaTurma[] = (
+    (professoresRes.data ?? []) as { profile_id: string | null; pre_cadastro_id: string | null }[]
+  ).map((p) =>
+    p.profile_id
+      ? { tipo: 'profile' as const, id: p.profile_id }
+      : { tipo: 'pre_cadastro' as const, id: p.pre_cadastro_id! }
   )
 
   // O que a exclusão levaria junto. Só a coordenação exclui, então só para ela

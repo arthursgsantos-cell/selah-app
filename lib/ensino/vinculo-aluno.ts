@@ -89,3 +89,62 @@ export async function vincularInscricoesEnsino(
     return 0
   }
 }
+
+/**
+ * O mesmo costurar, do lado de quem dá aula.
+ *
+ * O professor cadastrado à mão está na turma por `pre_cadastro_id`, sem acesso
+ * nenhum — `ensino_leciona` compara `profile_id` com `auth.uid()`. Ao criar a
+ * conta ele assume o próprio lugar, e é este vínculo que finalmente lhe dá a
+ * chamada, as aulas e os materiais da turma.
+ *
+ * Devolve quantas turmas passaram a ser dele. Nunca lança, pela mesma razão de
+ * `vincularInscricoesEnsino`: uma falha aqui não pode derrubar a criação do
+ * perfil.
+ */
+export async function vincularProfessoresEnsino(
+  admin: Admin,
+  preCadastroId: string,
+  userId: string
+): Promise<number> {
+  try {
+    const { data: linhas } = await admin
+      .from('ensino_turma_professores')
+      .select('id, turma_id, principal')
+      .eq('pre_cadastro_id', preCadastroId)
+
+    if (!linhas?.length) return 0
+
+    const { data: proprias } = await admin
+      .from('ensino_turma_professores')
+      .select('turma_id')
+      .eq('profile_id', userId)
+      .in('turma_id', linhas.map((l) => l.turma_id))
+
+    const jaLeciona = new Set(
+      ((proprias ?? []) as { turma_id: string }[]).map((p) => p.turma_id)
+    )
+
+    let vinculadas = 0
+
+    for (const linha of linhas as { id: string; turma_id: string; principal: boolean }[]) {
+      // Já estava na turma pelo perfil: a linha do pré-cadastro é a mesma pessoa
+      // duas vezes, e o índice único recusaria a troca de qualquer forma.
+      if (jaLeciona.has(linha.turma_id)) {
+        await admin.from('ensino_turma_professores').delete().eq('id', linha.id)
+        continue
+      }
+
+      await admin
+        .from('ensino_turma_professores')
+        .update({ profile_id: userId, pre_cadastro_id: null })
+        .eq('id', linha.id)
+
+      vinculadas += 1
+    }
+
+    return vinculadas
+  } catch {
+    return 0
+  }
+}

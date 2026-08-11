@@ -58,7 +58,7 @@ async function professoresPorTurma(turmaIds: string[]): Promise<Record<string, s
   const admin = createAdminClient()
   const { data } = await admin
     .from('ensino_turma_professores')
-    .select('turma_id, principal, profiles(nome)')
+    .select('turma_id, principal, profiles(nome), membros_pre_cadastro(nome)')
     .in('turma_id', turmaIds)
     .order('principal', { ascending: false })
 
@@ -66,8 +66,9 @@ async function professoresPorTurma(turmaIds: string[]): Promise<Record<string, s
   for (const linha of (data ?? []) as unknown as {
     turma_id: string
     profiles: { nome: string } | null
+    membros_pre_cadastro: { nome: string } | null
   }[]) {
-    const nome = linha.profiles?.nome
+    const nome = linha.profiles?.nome ?? linha.membros_pre_cadastro?.nome
     if (!nome) continue
     const curto = nome.split(' ').slice(0, 2).join(' ')
     ;(mapa[linha.turma_id] ??= []).push(curto)

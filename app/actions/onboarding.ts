@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { vincularInscricoesEnsino } from '@/lib/ensino/vinculo-aluno'
+import { vincularInscricoesEnsino, vincularProfessoresEnsino } from '@/lib/ensino/vinculo-aluno'
 import type { Role } from '@/lib/supabase/types'
 
 export async function criarPerfilConvidado(
@@ -84,8 +84,10 @@ async function aplicarPreCadastro(
   pre: { id: string; celula_id: string | null; cargo: string | null; vinculo_casal: string | null },
 ) {
   // Turma em que o professor a cadastrou à mão passa a ser dela, com as
-  // presenças que ele já tinha registrado.
+  // presenças que ele já tinha registrado. E, se foi como professora que a
+  // cadastraram, é agora que ela assume a turma.
   await vincularInscricoesEnsino(admin, pre.id, userId)
+  await vincularProfessoresEnsino(admin, pre.id, userId)
 
   if (pre.celula_id) {
     const papel = pre.cargo === 'lider' || pre.cargo === 'lider_treinamento' ? 'lider' : 'membro'

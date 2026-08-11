@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
-import { vincularInscricoesEnsino } from '@/lib/ensino/vinculo-aluno'
+import { vincularInscricoesEnsino, vincularProfessoresEnsino } from '@/lib/ensino/vinculo-aluno'
 
 async function getAdminProfile() {
   const supabase = await createClient()
@@ -94,6 +94,7 @@ export async function adminVincularPreCadastro(preCadastroId: string, profileId:
   // O que o professor tiver lançado no Ensino para esta pessoa passa a ser
   // dela — inclusive as presenças anteriores ao cadastro.
   await vincularInscricoesEnsino(admin, preCadastroId, profileId)
+  await vincularProfessoresEnsino(admin, preCadastroId, profileId)
 
   revalidatePath('/usuarios')
   revalidatePath('/ensino/alunos')
@@ -142,6 +143,7 @@ export async function confirmarMatchPreCadastro(preCadastroId: string): Promise<
   if (erroPre || !pre) return { sucesso: false, erro: 'Erro ao confirmar identificação.' }
 
   await vincularInscricoesEnsino(admin, preCadastroId, user.id)
+  await vincularProfessoresEnsino(admin, preCadastroId, user.id)
 
   // Notificar admin/pastor
   const { data: admins } = await admin

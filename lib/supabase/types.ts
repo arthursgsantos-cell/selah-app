@@ -1540,7 +1540,10 @@ export type Database = {
           igreja_id: string
           nome: string
           descricao: string | null
+          /** Card da turma — o retrato das listagens. */
           capa_url: string | null
+          /** Capa exclusiva do topo da página. Sem ela, o card faz as vezes. */
+          capa_pagina_url: string | null
           local: string | null
           data_inicio: string | null
           data_fim: string | null
@@ -1589,6 +1592,7 @@ export type Database = {
           nome: string
           descricao?: string | null
           capa_url?: string | null
+          capa_pagina_url?: string | null
           local?: string | null
           data_inicio?: string | null
           data_fim?: string | null
@@ -1630,6 +1634,7 @@ export type Database = {
           nome?: string
           descricao?: string | null
           capa_url?: string | null
+          capa_pagina_url?: string | null
           local?: string | null
           data_inicio?: string | null
           data_fim?: string | null
@@ -1666,21 +1671,30 @@ export type Database = {
         Relationships: []
       }
       ensino_turma_professores: {
+        // Exatamente um entre `profile_id` e `pre_cadastro_id`: o professor que
+        // ainda não tem conta entra pela lista da igreja e vira perfil quando
+        // criar a dela.
         Row: {
+          id: string
           turma_id: string
-          profile_id: string
+          profile_id: string | null
+          pre_cadastro_id: string | null
           principal: boolean
           criado_em: string
         }
         Insert: {
+          id?: string
           turma_id: string
-          profile_id: string
+          profile_id?: string | null
+          pre_cadastro_id?: string | null
           principal?: boolean
           criado_em?: string
         }
         Update: {
+          id?: string
           turma_id?: string
-          profile_id?: string
+          profile_id?: string | null
+          pre_cadastro_id?: string | null
           principal?: boolean
           criado_em?: string
         }

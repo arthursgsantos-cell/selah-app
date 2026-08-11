@@ -56,7 +56,7 @@ export default async function NovaTurmaPage() {
       <TurmaForm
         cursos={(cursos ?? []) as { id: string; nome: string }[]}
         candidatos={candidatos}
-        professoresIniciais={[acesso.userId]}
+        professoresIniciais={[{ tipo: 'profile', id: acesso.userId }]}
       />
     </div>
   )

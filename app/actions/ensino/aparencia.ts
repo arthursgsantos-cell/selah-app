@@ -138,8 +138,13 @@ export async function salvarAutoCorTurmaAction(
   revalidatePath(`/ensino/turma/${turmaId}`)
 }
 
-/** Troca a capa da turma — a arte larga do topo da página. */
-export async function atualizarCapaTurmaAction(
+/**
+ * Capa do topo da página da turma — a arte larga.
+ *
+ * Grava em `capa_pagina_url` de propósito: o card das listagens é `capa_url` e
+ * continua saindo do formulário da turma. Trocar a capa daqui não mexe no card.
+ */
+export async function salvarCapaPaginaTurmaAction(
   turmaId: string,
   formData: FormData
 ): Promise<string> {
@@ -162,11 +167,24 @@ export async function atualizarCapaTurmaAction(
 
   const { error } = await admin
     .from('ensino_turmas')
-    .update({ capa_url: data.publicUrl })
+    .update({ capa_pagina_url: data.publicUrl })
     .eq('id', turmaId)
 
   if (error) throw new Error(error.message)
   revalidatePath(`/ensino/turma/${turmaId}`)
-  revalidatePath('/ensino')
   return data.publicUrl
+}
+
+/** Volta a página a mostrar o card da turma. */
+export async function removerCapaPaginaTurmaAction(turmaId: string) {
+  await exigirPermissao(turmaId)
+
+  const admin = createAdminClient()
+  const { error } = await admin
+    .from('ensino_turmas')
+    .update({ capa_pagina_url: null })
+    .eq('id', turmaId)
+
+  if (error) throw new Error(error.message)
+  revalidatePath(`/ensino/turma/${turmaId}`)
 }
