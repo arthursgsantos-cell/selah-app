@@ -46,14 +46,16 @@ const TIPO_INSCRICAO: Record<TipoInscricaoTurma, string> = {
 
 /**
  * O domínio público do app, para o link de compartilhamento sair clicável.
- * Sem `NEXT_PUBLIC_SITE_URL` a Vercel ainda entrega o domínio de produção.
+ *
+ * O último recurso é o mesmo domínio de `metadataBase` em `app/layout.tsx`:
+ * um link de planilha apontando para `localhost` não serviria para ninguém.
  */
 function urlBase(): string {
   const explicito = process.env.NEXT_PUBLIC_SITE_URL
   if (explicito) return explicito.replace(/\/+$/, '')
 
   const vercel = process.env.VERCEL_PROJECT_PRODUCTION_URL
-  return vercel ? `https://${vercel}` : 'http://localhost:3000'
+  return vercel ? `https://${vercel}` : 'https://ibzs.vercel.app'
 }
 
 /**
