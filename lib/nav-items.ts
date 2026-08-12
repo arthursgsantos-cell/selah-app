@@ -9,6 +9,8 @@ import {
   ClipboardList,
   GraduationCap,
   HandCoins,
+  HeartHandshake,
+  ListFilter,
   type LucideIcon,
 } from 'lucide-react'
 import type { Role } from '@/lib/supabase/types'
@@ -48,7 +50,14 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     label: 'Igreja',
     items: [
+      // Aberta ao líder: é ele quem faz o contato com quem chegou, então é
+      // ele quem precisa da lista. O que cada um enxerga é recortado dentro
+      // da página (ver `acessoConsolidacao`).
+      { href: '/consolidacao', label: 'Consolidação', icon: HeartHandshake, minRole: 'lider' as Role },
       { href: '/supervisor', label: 'Rede',          icon: Shield,     minRole: 'supervisor' as Role },
+      // Junta telefone e vínculo da igreja inteira numa tela — supervisor
+      // para cima, como a própria página confere.
+      { href: '/listas',     label: 'Listas',         icon: ListFilter, minRole: 'supervisor' as Role },
       { href: '/pastor',     label: 'Administração',  icon: ChurchIcon, minRole: 'pastor' as Role },
       { href: '/usuarios',   label: 'Membros',        icon: UserCog,    minRole: 'pastor' as Role },
     ],
