@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog'
 import { Pencil, ImagePlus, X, CalendarDays, RefreshCw, Ticket } from 'lucide-react'
 import { InscricaoFields, type InscricaoValue } from '@/components/eventos/inscricao-fields'
+import { ExcluirEventoPainel } from '@/components/shared/excluir-evento-painel'
 import type { TipoEvento, TipoInscricao, TipoChavePix } from '@/lib/supabase/types'
 
 type EscopoEdicao = 'este' | 'este_e_seguintes' | 'todos'
@@ -369,6 +370,17 @@ export function EditarEventoDialog({ evento }: Props) {
                   {isRecorrente ? 'Continuar' : isPending ? 'Salvando...' : 'Salvar'}
                 </Button>
               </DialogFooter>
+
+              {/* Fora do rodapé de propósito: um botão de excluir ao lado do
+                  "Salvar" convida ao clique errado. Fica no fim, separado, e
+                  ainda pede confirmação. */}
+              <ExcluirEventoPainel
+                eventoId={evento.id}
+                titulo={evento.titulo}
+                dataHora={evento.data_hora}
+                recorrenciaId={evento.recorrencia_id ?? null}
+                onExcluido={() => setOpen(false)}
+              />
             </form>
           </>
         )}

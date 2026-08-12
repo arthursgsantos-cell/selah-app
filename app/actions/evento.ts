@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
+import { acessoAoEvento } from '@/lib/eventos-permissoes'
 import type { TipoEvento, RecorrenciaTipo, TipoInscricao, TipoChavePix } from '@/lib/supabase/types'
 
 type EscopoEdicao = 'este' | 'este_e_seguintes' | 'todos'
@@ -223,4 +224,93 @@ export async function updateEventoAction(
   }
 
   revalidarPaths()
+}
+
+/**
+ * O que a exclusão levaria junto — para a confirmação dizer números em vez de
+ * perguntar "tem certeza?".
+ *
+ * Só a inscrição e o pagamento entram na conta: são o que representa gente que
+ * já se comprometeu, e o que ninguém consegue refazer. Seção, card e botão da
+ * página do evento somem junto, mas são configuração, não perda.
+ */
+export async function contarConteudoEventoAction(
+  id: string,
+  recorrenciaId: string | null
+): Promise<{ inscricoes: number; pagamentos: number; naSerie: number }> {
+  const acesso = await acessoAoEvento(id)
+  if (!acesso?.podeVer) return { inscricoes: 0, pagamentos: 0, naSerie: 0 }
+
+  const admin = createAdminClient()
+
+  const [{ count: inscricoes }, { data: inscricaoIds }, { count: naSerie }] = await Promise.all([
+    admin.from('inscricoes_evento').select('id', { count: 'exact', head: true }).eq('evento_id', id),
+    admin.from('inscricoes_evento').select('id').eq('evento_id', id),
+    recorrenciaId
+      ? admin.from('eventos').select('id', { count: 'exact', head: true }).eq('recorrencia_id', recorrenciaId)
+      : Promise.resolve({ count: 0 }),
+  ])
+
+  const ids = ((inscricaoIds ?? []) as { id: string }[]).map((i) => i.id)
+  const { count: pagamentos } = ids.length > 0
+    ? await admin
+        .from('inscricao_pagamentos')
+        .select('id', { count: 'exact', head: true })
+        .in('inscricao_id', ids)
+    : { count: 0 }
+
+  return {
+    inscricoes: inscricoes ?? 0,
+    pagamentos: pagamentos ?? 0,
+    naSerie: naSerie ?? 0,
+  }
+}
+
+/**
+ * Apaga o evento — e, num evento recorrente, o pedaço da série que se escolher.
+ *
+ * Exige `podeDelegar`, e não `pode`: quem só recebeu a gestão do evento
+ * controla o dinheiro dele (é o caso do tesoureiro sem cargo), mas apagar a
+ * coisa toda é de quem responde por ela — direção, quem criou, ou o supervisor
+ * da rede.
+ *
+ * As tabelas filhas caem por CASCADE no banco: inscrições, pagamentos,
+ * presenças, seções, cards, botões, fotos, curtidas, valores e parcelas.
+ */
+export async function excluirEventoAction(
+  id: string,
+  dataHoraAtual: string,
+  recorrenciaId: string | null,
+  escopo: EscopoEdicao
+): Promise<{ ok: true } | { ok: false; erro: string }> {
+  const acesso = await acessoAoEvento(id)
+  if (!acesso) return { ok: false, erro: 'Faça login para excluir este evento.' }
+  if (!acesso.podeDelegar) {
+    return { ok: false, erro: 'Só quem criou o evento, a supervisão da rede ou a direção pode excluí-lo.' }
+  }
+
+  const admin = createAdminClient()
+
+  if (escopo === 'este' || !recorrenciaId) {
+    const { error } = await admin.from('eventos').delete().eq('id', id)
+    if (error) return { ok: false, erro: error.message }
+  } else if (escopo === 'este_e_seguintes') {
+    // O passado fica: apagar ocorrências já realizadas levaria junto a lista
+    // de quem esteve nelas.
+    const { error } = await admin
+      .from('eventos')
+      .delete()
+      .eq('recorrencia_id', recorrenciaId)
+      .gte('data_hora', dataHoraAtual)
+    if (error) return { ok: false, erro: error.message }
+  } else {
+    const { error } = await admin
+      .from('eventos')
+      .delete()
+      .eq('recorrencia_id', recorrenciaId)
+    if (error) return { ok: false, erro: error.message }
+  }
+
+  revalidarPaths()
+  return { ok: true }
 }

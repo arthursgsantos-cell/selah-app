@@ -1212,9 +1212,10 @@ export default async function HomePage() {
           )}
         </div>
 
-        {/* Redes sociais */}
-        {(church?.instagram_url || church?.facebook_url || church?.youtube_url) && (
-          <div className="flex gap-2 mb-6">
+        {/* Redes sociais. `flex-wrap` porque com quatro botões a linha estoura
+            na largura de celular — sem ele o último fica cortado fora da tela. */}
+        {(church?.instagram_url || church?.facebook_url || church?.youtube_url || church?.spotify_url) && (
+          <div className="flex flex-wrap gap-2 mb-6">
             {church?.instagram_url && (
               <a href={church.instagram_url} target="_blank" rel="noopener noreferrer"
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-white text-xs font-semibold hover:opacity-90 transition-opacity"
@@ -1232,6 +1233,12 @@ export default async function HomePage() {
               <a href={church.youtube_url} target="_blank" rel="noopener noreferrer"
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#FF0000] text-white text-xs font-semibold hover:opacity-90 transition-opacity">
                 {ytSvg} YouTube
+              </a>
+            )}
+            {church?.spotify_url && (
+              <a href={church.spotify_url} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#1DB954] text-white text-xs font-semibold hover:opacity-90 transition-opacity">
+                {spSvg} Mensagens
               </a>
             )}
           </div>
