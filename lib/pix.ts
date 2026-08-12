@@ -103,6 +103,30 @@ export function gerarPayloadPix(params: PixParams): string {
   return payload + checksum
 }
 
+/**
+ * Marca o valor com o final de centavos da campanha.
+ *
+ * O centavo **substitui** o que estava lá, não soma: o final é a assinatura do
+ * destino no extrato, então R$ 75,50 para uma campanha de final 23 vira
+ * R$ 75,23 — e não R$ 75,73, que não seria assinatura de nada. Quem contribui
+ * vê o valor ajustado antes de pagar; a página mostra os dois.
+ *
+ * Valores abaixo de um real ficam como estão: 0,50 viraria 0,23, mexendo mais
+ * na doação do que a identificação justifica.
+ *
+ * `null` entra e sai `null` — sem valor no QR não há centavo onde escrever, e
+ * é a página que avisa disso.
+ */
+export function aplicarCentavosCampanha(
+  valor: number | null,
+  centavos: number | null | undefined
+): number | null {
+  if (valor == null || centavos == null) return valor
+  if (!Number.isInteger(centavos) || centavos < 1 || centavos > 99) return valor
+  if (valor < 1) return valor
+  return Math.floor(valor) + centavos / 100
+}
+
 export function formatarChavePix(chave: string, tipo: TipoChavePix): string {
   switch (tipo) {
     case 'cpf':    return chave.replace(/\D/g, '').replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')

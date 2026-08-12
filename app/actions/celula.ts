@@ -285,6 +285,13 @@ export async function editCelulaAction(data: {
   horario?: string | null
   /** Transferência de rede. Só cargos de gestão podem mexer. */
   rede_id?: string | null
+  /** Data-alvo combinada para a próxima multiplicação. Líder também define. */
+  multiplicacao_prevista?: string | null
+  /**
+   * Célula que gerou esta, na árvore de multiplicação. Estrutural — só quem
+   * gerencia a rede mexe, mesma régua da transferência de rede.
+   */
+  celula_mae_id?: string | null
 }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -317,6 +324,16 @@ export async function editCelulaAction(data: {
   const redeDestino =
     isAdminRole && data.rede_id && data.rede_id !== redeAnterior ? data.rede_id : null
 
+  // Estrutural, mesma régua da rede: só quem gerencia decide a linhagem.
+  if (data.celula_mae_id !== undefined && !isAdminRole) {
+    throw new Error('Sem permissão para definir a célula-mãe.')
+  }
+  // Uma célula não pode ser mãe de si mesma — a árvore quebraria num ciclo
+  // de um nó só.
+  if (data.celula_mae_id === data.id) {
+    throw new Error('Uma célula não pode ser mãe de si mesma.')
+  }
+
   const { error } = await supabase
     .from('celulas')
     .update({
@@ -328,6 +345,12 @@ export async function editCelulaAction(data: {
       dia_semana: data.dia_semana ?? null,
       horario: data.horario ?? null,
       ...(redeDestino ? { rede_id: redeDestino } : {}),
+      ...(data.multiplicacao_prevista !== undefined
+        ? { multiplicacao_prevista: data.multiplicacao_prevista }
+        : {}),
+      ...(isAdminRole && data.celula_mae_id !== undefined
+        ? { celula_mae_id: data.celula_mae_id }
+        : {}),
     })
     .eq('id', data.id)
 
@@ -335,12 +358,15 @@ export async function editCelulaAction(data: {
   revalidatePath('/celula')
   revalidatePath(`/celula/${data.id}`)
   revalidatePath('/supervisor')
+  // O painel do pastor mostra os alertas de multiplicação da igreja inteira,
+  // então qualquer edição de célula pode mudar o que aparece lá — não só a
+  // transferência de rede.
+  revalidatePath('/pastor')
   // As duas páginas de rede mudam de conteúdo: a célula sai de uma e entra na
   // outra.
   if (redeDestino) {
     if (redeAnterior) revalidatePath(`/rede/${redeAnterior}`)
     revalidatePath(`/rede/${redeDestino}`)
-    revalidatePath('/pastor')
   }
 }
 

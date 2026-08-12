@@ -14,7 +14,7 @@ import {
   DialogTrigger,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { Settings2, Trash2 } from 'lucide-react'
+import { GitBranch, Settings2, Trash2 } from 'lucide-react'
 import type { Frequencia } from '@/lib/supabase/types'
 import { DIAS_SEMANA, normalizarHorario } from '@/lib/dia-semana'
 
@@ -38,11 +38,18 @@ interface Props {
   redeId?: string | null
   /** Redes disponíveis. Vazio esconde o campo (líder não transfere). */
   redes?: { id: string; nome: string }[]
+  /** Data-alvo combinada para a próxima multiplicação. */
+  multiplicacaoPrevista?: string | null
+  /** Célula que gerou esta, na árvore de multiplicação. */
+  celulaMaeId?: string | null
+  /** Candidatas a célula-mãe. Vazio esconde o campo (líder não define linhagem). */
+  celulasParaMae?: { id: string; nome: string }[]
 }
 
 export function EditarCelulaDialog({
   celulaId, nome, descricao, localPadrao, frequencia, diaSemana, horario,
   cor, canDelete = false, redeId = null, redes = [],
+  multiplicacaoPrevista = null, celulaMaeId = null, celulasParaMae = [],
 }: Props) {
   const [open, setOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -54,6 +61,8 @@ export function EditarCelulaDialog({
   const [horarioState, setHorario] = useState(normalizarHorario(horario))
   const [corState, setCor] = useState<string>(cor ?? '#6366f1')
   const [redeState, setRede] = useState<string>(redeId ?? '')
+  const [multiplicacaoState, setMultiplicacao] = useState<string>(multiplicacaoPrevista ?? '')
+  const [celulaMaeState, setCelulaMae] = useState<string>(celulaMaeId ?? '')
   const [erro, setErro] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const [isDeleting, startDelete] = useTransition()
@@ -82,6 +91,8 @@ export function EditarCelulaDialog({
           dia_semana: diaState === '' ? null : Number(diaState),
           horario: normalizarHorario(horarioState) || null,
           rede_id: redeState || null,
+          multiplicacao_prevista: multiplicacaoState || null,
+          ...(celulasParaMae.length > 0 ? { celula_mae_id: celulaMaeState || null } : {}),
         })
         setOpen(false)
       } catch (err) {
@@ -212,6 +223,47 @@ export function EditarCelulaDialog({
                     A célula sai da rede atual e passa a aparecer na rede escolhida.
                   </p>
                 )}
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <Label htmlFor="cel-multiplicacao" className="flex items-center gap-1.5">
+                <GitBranch className="h-3.5 w-3.5" />
+                Data prevista para multiplicar
+              </Label>
+              <input
+                id="cel-multiplicacao"
+                type="date"
+                value={multiplicacaoState}
+                onChange={(e) => setMultiplicacao(e.target.value)}
+                className="w-full h-9 rounded-lg border border-input bg-background px-2.5 text-sm outline-none focus-visible:border-ring"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                O painel da rede avisa quando essa data estiver a 90 dias ou já
+                tiver passado. Deixe em branco para tirar o alerta.
+              </p>
+            </div>
+
+            {/* Linhagem — de qual célula esta nasceu. Estrutural, então só
+                chega a quem gerencia a rede (mesma régua da transferência). */}
+            {celulasParaMae.length > 0 && (
+              <div className="space-y-1.5">
+                <Label htmlFor="cel-mae">Célula-mãe</Label>
+                <select
+                  id="cel-mae"
+                  value={celulaMaeState}
+                  onChange={(e) => setCelulaMae(e.target.value)}
+                  className="w-full h-9 rounded-lg border border-input bg-background px-2.5 text-sm outline-none focus-visible:border-ring"
+                >
+                  <option value="">Nenhuma — célula raiz</option>
+                  {celulasParaMae.map((c) => (
+                    <option key={c.id} value={c.id}>{c.nome}</option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-muted-foreground">
+                  A célula que multiplicou e gerou esta. Ajuda a ver a árvore da
+                  rede — não precisa preencher se não souber.
+                </p>
               </div>
             )}
 

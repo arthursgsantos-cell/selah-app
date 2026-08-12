@@ -4,8 +4,11 @@ import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { PixIgreja } from '@/components/contribuir/pix-igreja'
+import { ContribuicaoFundo } from '@/components/contribuir/contribuicao-fundo'
 import { PAINEL, SECAO } from '@/lib/estilos'
 import type { TipoChavePix } from '@/lib/pix'
+import { textoRicoParaHtml } from '@/lib/texto-rico'
+import type { Campanha } from '@/app/actions/campanhas'
 
 export const metadata = {
   title: 'Dízimos e ofertas',
@@ -27,34 +30,54 @@ export default async function ContribuirPage() {
   const { data: { user } } = await supabase.auth.getUser()
 
   const { data: profile } = user
-    ? await supabase.from('profiles').select('igreja_id').eq('id', user.id).single()
+    ? await supabase.from('profiles').select('igreja_id, role').eq('id', user.id).single()
     : { data: null }
 
   const admin = createAdminClient()
 
   const igrejaId = (profile as { igreja_id: string } | null)?.igreja_id ?? null
+  const colunas =
+    'id, nome, logo_url, pix_chave, pix_tipo, pix_nome, pix_cidade, contribuicao_texto, contribuicao_ativa, dados_bancarios, contribuicao_cor, contribuicao_cor_secundaria, contribuicao_fundo_tipo, contribuicao_fundo_imagem_url, contribuicao_fundo_opacidade'
+
   const { data: igrejaData } = igrejaId
-    ? await admin
-        .from('igrejas')
-        .select('nome, logo_url, pix_chave, pix_tipo, pix_nome, pix_cidade, contribuicao_texto, contribuicao_ativa, dados_bancarios')
-        .eq('id', igrejaId)
-        .maybeSingle()
-    : await admin
-        .from('igrejas')
-        .select('nome, logo_url, pix_chave, pix_tipo, pix_nome, pix_cidade, contribuicao_texto, contribuicao_ativa, dados_bancarios')
-        .limit(1)
-        .maybeSingle()
+    ? await admin.from('igrejas').select(colunas).eq('id', igrejaId).maybeSingle()
+    : await admin.from('igrejas').select(colunas).limit(1).maybeSingle()
 
   const igreja = igrejaData as {
-    nome: string; logo_url: string | null
+    id: string; nome: string; logo_url: string | null
     pix_chave: string | null; pix_tipo: string | null; pix_nome: string | null; pix_cidade: string | null
     contribuicao_texto: string | null; contribuicao_ativa: boolean | null; dados_bancarios: string | null
+    contribuicao_cor: string | null; contribuicao_cor_secundaria: string | null
+    contribuicao_fundo_tipo: string | null; contribuicao_fundo_imagem_url: string | null
+    contribuicao_fundo_opacidade: number | null
   } | null
 
+  const { data: campanhasRaw } = igreja
+    ? await admin
+        .from('campanhas_contribuicao')
+        .select('id, nome, descricao, centavos, ativa, ordem, criado_em')
+        .eq('igreja_id', igreja.id)
+        .eq('ativa', true)
+        .order('ordem')
+    : { data: null }
+
+  const campanhas = (campanhasRaw ?? []) as Campanha[]
+
   const pixPronto = Boolean(igreja?.contribuicao_ativa && igreja?.pix_chave && igreja?.pix_tipo)
+  const podeEditar = profile?.role === 'pastor' || profile?.role === 'admin'
 
   return (
     <div className="space-y-4 max-w-lg mx-auto pb-8">
+      {/* Fundo próprio da página — dedicado, não o mesmo da home. */}
+      <ContribuicaoFundo
+        cor={igreja?.contribuicao_cor ?? null}
+        corSecundaria={igreja?.contribuicao_cor_secundaria ?? null}
+        fundoTipo={igreja?.contribuicao_fundo_tipo ?? null}
+        fundoImagemUrl={igreja?.contribuicao_fundo_imagem_url ?? null}
+        fundoOpacidade={igreja?.contribuicao_fundo_opacidade ?? 100}
+        canEdit={podeEditar}
+      />
+
       <Button variant="ghost" size="sm" render={<Link href="/home" />} className="-ml-1">
         <ArrowLeft className="h-4 w-4" />
         Voltar
@@ -78,9 +101,12 @@ export default async function ContribuirPage() {
 
       {igreja?.contribuicao_texto && (
         <div className={PAINEL}>
-          <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
-            {igreja.contribuicao_texto}
-          </p>
+          {/* Mesma marcação e o mesmo HTML das aulas do Ensino — negrito,
+              título, citação, lista — em vez de texto corrido sem formatação. */}
+          <div
+            className="texto-rico text-sm text-muted-foreground"
+            dangerouslySetInnerHTML={{ __html: textoRicoParaHtml(igreja.contribuicao_texto) }}
+          />
         </div>
       )}
 
@@ -91,6 +117,7 @@ export default async function ContribuirPage() {
             tipo={igreja!.pix_tipo as TipoChavePix}
             nome={igreja!.pix_nome?.trim() || igreja!.nome}
             cidade={igreja!.pix_cidade}
+            campanhas={campanhas}
           />
         </div>
       ) : (

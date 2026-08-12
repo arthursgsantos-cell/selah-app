@@ -136,9 +136,17 @@ export type Database = {
           contribuicao_texto: string | null
           dados_bancarios: string | null
           contribuicao_ativa: boolean
+          contribuicao_cor: string | null
+          contribuicao_cor_secundaria: string | null
+          contribuicao_fundo_tipo: string | null
+          contribuicao_fundo_imagem_url: string | null
+          contribuicao_fundo_opacidade: number
           // Transmissão do culto. `ao_vivo_ativo` é chave de mão da liderança.
           ao_vivo_url: string | null
           ao_vivo_ativo: boolean
+          // Ordem e textos dos cartões institucionais da home — lib/home-secoes.ts.
+          home_secoes_ordem: string[] | null
+          home_secoes_textos: Record<string, { titulo?: string | null; subtitulo?: string | null }> | null
           // Aparência da página inicial. `fundo_tipo` nulo = fundo padrão do app.
           cor: string | null
           cor_secundaria: string | null
@@ -174,8 +182,15 @@ export type Database = {
           contribuicao_texto?: string | null
           dados_bancarios?: string | null
           contribuicao_ativa?: boolean
+          contribuicao_cor?: string | null
+          contribuicao_cor_secundaria?: string | null
+          contribuicao_fundo_tipo?: string | null
+          contribuicao_fundo_imagem_url?: string | null
+          contribuicao_fundo_opacidade?: number
           ao_vivo_url?: string | null
           ao_vivo_ativo?: boolean
+          home_secoes_ordem?: string[] | null
+          home_secoes_textos?: Record<string, { titulo?: string | null; subtitulo?: string | null }> | null
           cor?: string | null
           cor_secundaria?: string | null
           fundo_tipo?: string | null
@@ -210,8 +225,15 @@ export type Database = {
           contribuicao_texto?: string | null
           dados_bancarios?: string | null
           contribuicao_ativa?: boolean
+          contribuicao_cor?: string | null
+          contribuicao_cor_secundaria?: string | null
+          contribuicao_fundo_tipo?: string | null
+          contribuicao_fundo_imagem_url?: string | null
+          contribuicao_fundo_opacidade?: number
           ao_vivo_url?: string | null
           ao_vivo_ativo?: boolean
+          home_secoes_ordem?: string[] | null
+          home_secoes_textos?: Record<string, { titulo?: string | null; subtitulo?: string | null }> | null
           cor?: string | null
           cor_secundaria?: string | null
           fundo_tipo?: string | null
@@ -2146,6 +2168,39 @@ export type Database = {
           pauta?: string | null
           encaminhamentos?: string | null
           criado_por?: string | null
+          criado_em?: string
+        }
+        Relationships: []
+      }
+      campanhas_contribuicao: {
+        Row: {
+          id: string
+          igreja_id: string
+          nome: string
+          descricao: string | null
+          centavos: number
+          ativa: boolean
+          ordem: number
+          criado_em: string
+        }
+        Insert: {
+          id?: string
+          igreja_id: string
+          nome: string
+          descricao?: string | null
+          centavos: number
+          ativa?: boolean
+          ordem?: number
+          criado_em?: string
+        }
+        Update: {
+          id?: string
+          igreja_id?: string
+          nome?: string
+          descricao?: string | null
+          centavos?: number
+          ativa?: boolean
+          ordem?: number
           criado_em?: string
         }
         Relationships: []

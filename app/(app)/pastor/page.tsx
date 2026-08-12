@@ -12,6 +12,8 @@ import { ResumoCultoSection } from '@/components/pastor/resumo-culto-section'
 import { ImportacaoSection, type RegistroImportacao } from '@/components/pastor/importacao-section'
 import { IgrejaLogoUpload } from '@/components/pastor/igreja-logo-upload'
 import { IgrejaInfoForm } from '@/components/pastor/igreja-info-form'
+import { CampanhasSection } from '@/components/pastor/campanhas-section'
+import type { Campanha } from '@/app/actions/campanhas'
 import { SolicitacoesPanel } from '@/components/pastor/solicitacoes-panel'
 import { SolicitacoesGeralPanel, type SolicitacaoGeral } from '@/components/pastor/solicitacoes-geral-panel'
 import { GaleriaComunidadeSection } from '@/components/pastor/galeria-comunidade-section'
@@ -72,6 +74,7 @@ export default async function PastorPage({
     { data: encontroFotosData },
     { data: importacoesData },
     { data: pedidosData },
+    { data: campanhasData },
   ] = await Promise.all([
     supabase.from('igrejas').select('nome, logo_url, descricao, horario_culto, endereco, fundada_em, instagram_url, facebook_url, youtube_url, spotify_url, pastor_nome, pastor_titulo, pix_chave, pix_tipo, pix_nome, pix_cidade, contribuicao_texto, dados_bancarios, contribuicao_ativa, ao_vivo_url, ao_vivo_ativo').eq('id', profile.igreja_id).single(),
     supabase.from('redes').select('id, nome, descricao, cor').eq('igreja_id', profile.igreja_id).order('nome'),
@@ -126,7 +129,14 @@ export default async function PastorPage({
       .in('status', ['pendente', 'em_andamento'])
       .order('criado_em', { ascending: false })
       .limit(50),
+    admin
+      .from('campanhas_contribuicao')
+      .select('id, nome, descricao, centavos, ativa, ordem, criado_em')
+      .eq('igreja_id', profile.igreja_id)
+      .order('ordem'),
   ])
+
+  const campanhas = (campanhasData ?? []) as Campanha[]
 
   const pedidos = (pedidosData ?? []) as unknown as SolicitacaoGeral[]
   const pedidosNovos = pedidos.filter((p) => p.status === 'pendente').length
@@ -286,6 +296,9 @@ export default async function PastorPage({
           ao_vivo_ativo: (igreja as any)?.ao_vivo_ativo ?? false,
         }}
       />
+
+      {/* Campanhas de contribuição */}
+      <CampanhasSection campanhas={campanhas} />
 
       {/* Resumo do culto */}
       <ResumoCultoSection resumos={resumos} />

@@ -37,6 +37,15 @@ export function BotaoFlutuante({ id, children }: Props) {
   const inicio = useRef<{ ponteiroX: number; ponteiroY: number; x: number; y: number } | null>(null)
   const moveu = useRef(false)
 
+  /** Traz a posição de volta para dentro da tela atual. */
+  function reencaixar(p: Posicao, el: HTMLDivElement) {
+    const { width, height } = el.getBoundingClientRect()
+    return {
+      x: Math.min(Math.max(MARGEM, p.x), window.innerWidth - width - MARGEM),
+      y: Math.min(Math.max(MARGEM, p.y), window.innerHeight - height - MARGEM),
+    }
+  }
+
   useEffect(() => {
     setMontado(true)
     try {
@@ -47,23 +56,28 @@ export function BotaoFlutuante({ id, children }: Props) {
     }
   }, [chave])
 
-  // Reposiciona se a janela encolher e deixar o botão fora da área visível.
+  // A posição salva pode ter vindo de uma tela maior (o celular de outra vez,
+  // a janela redimensionada entre visitas) e apontar para fora da área
+  // visível de hoje — o botão "some" porque está renderizado a 400px da
+  // borda direita numa tela que só tem 380px. Reencaixa assim que o elemento
+  // existe para medir, e de novo se a janela mudar de tamanho depois.
   useEffect(() => {
     if (!pos) return
+    const el = ref.current
+    if (!el) return
+    const ajustada = reencaixar(pos, el)
+    if (ajustada.x !== pos.x || ajustada.y !== pos.y) setPos(ajustada)
+  }, [pos, montado])
+
+  useEffect(() => {
     function aoRedimensionar() {
       const el = ref.current
       if (!el) return
-      const { width, height } = el.getBoundingClientRect()
-      setPos((p) =>
-        p && {
-          x: Math.min(p.x, window.innerWidth - width - MARGEM),
-          y: Math.min(p.y, window.innerHeight - height - MARGEM),
-        }
-      )
+      setPos((p) => (p ? reencaixar(p, el) : p))
     }
     window.addEventListener('resize', aoRedimensionar)
     return () => window.removeEventListener('resize', aoRedimensionar)
-  }, [pos])
+  }, [])
 
   function aoPressionar(e: React.PointerEvent) {
     const el = ref.current

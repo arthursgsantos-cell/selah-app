@@ -68,6 +68,57 @@ export async function atualizarInfoIgrejaAction(
   return { sucesso: true }
 }
 
+/**
+ * Liga ou desliga a transmissão com um clique, direto da home.
+ *
+ * O caminho longo (abrir o painel, editar, achar o campo, salvar) existe para
+ * cadastrar o link — coisa que se faz uma vez. Ligar e desligar é o que se
+ * repete a cada culto, e pedir isso de novo é atrito toda semana. Por isso
+ * esta action só alterna o `ativo`; a URL continua vindo do cadastro feito
+ * antes no painel.
+ */
+export async function alternarAoVivoAction(
+  ativo: boolean
+): Promise<{ sucesso: boolean; erro?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { sucesso: false, erro: 'Não autenticado' }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role, igreja_id')
+    .eq('id', user.id)
+    .single()
+
+  if (!profile) return { sucesso: false, erro: 'Perfil não encontrado' }
+  if (!['pastor', 'admin'].includes(profile.role)) return { sucesso: false, erro: 'Sem permissão' }
+
+  const admin = createAdminClient()
+
+  if (ativo) {
+    const { data: igreja } = await admin
+      .from('igrejas')
+      .select('ao_vivo_url')
+      .eq('id', profile.igreja_id)
+      .single()
+    if (!igreja?.ao_vivo_url?.trim()) {
+      return { sucesso: false, erro: 'Cadastre o link da transmissão no painel antes de ativar.' }
+    }
+  }
+
+  const { error } = await admin
+    .from('igrejas')
+    .update({ ao_vivo_ativo: ativo })
+    .eq('id', profile.igreja_id)
+  if (error) return { sucesso: false, erro: error.message }
+
+  revalidatePath('/pastor')
+  revalidatePath('/')
+  revalidatePath('/home')
+
+  return { sucesso: true }
+}
+
 export async function uploadLogoIgrejaAction(igrejaId: string, formData: FormData): Promise<string> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

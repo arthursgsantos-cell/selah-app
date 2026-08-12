@@ -13,7 +13,10 @@ import { SolicitarCelulaDialog } from '@/components/home/solicitar-celula-dialog
 import { QueroServirDialog } from '@/components/home/quero-servir-dialog'
 import { QueroSerMembroDialog } from '@/components/home/quero-ser-membro-dialog'
 import { ContribuirCard } from '@/components/home/contribuir-card'
+import { SecoesHomeDialog } from '@/components/home/secoes-home-dialog'
+import { normalizarOrdemSecoes, type TextosSecoes } from '@/lib/home-secoes'
 import { CultoAoVivo } from '@/components/home/culto-ao-vivo'
+import { BotaoAoVivo } from '@/components/home/botao-ao-vivo'
 import { FotosComunidadeCarousel } from '@/components/home/fotos-comunidade-carousel'
 import { EncontroShareBtn } from '@/components/home/encontro-share-btn'
 import { PastoresCard, type PastorItem } from '@/components/home/pastores-card'
@@ -53,8 +56,8 @@ export default async function HomePage() {
 
   // Fetch church (with name for guest welcome)
   const { data: ig } = profile?.igreja_id
-    ? await supabase.from('igrejas').select('id, nome, logo_url, descricao, instagram_url, facebook_url, youtube_url, pastor_nome, pastor_titulo, pastor_foto_url, spotify_url, ao_vivo_url, ao_vivo_ativo, contribuicao_ativa, horario_culto, endereco, fundada_em, cor, cor_secundaria, fundo_tipo, fundo_imagem_url, fundo_opacidade, fundo_galeria, fundo_galeria_opacidade').eq('id', profile.igreja_id).single()
-    : await supabase.from('igrejas').select('id, nome, logo_url, descricao, instagram_url, facebook_url, youtube_url, pastor_nome, pastor_titulo, pastor_foto_url, spotify_url, ao_vivo_url, ao_vivo_ativo, contribuicao_ativa, horario_culto, endereco, fundada_em, cor, cor_secundaria, fundo_tipo, fundo_imagem_url, fundo_opacidade, fundo_galeria, fundo_galeria_opacidade').limit(1).single()
+    ? await supabase.from('igrejas').select('id, nome, logo_url, descricao, instagram_url, facebook_url, youtube_url, pastor_nome, pastor_titulo, pastor_foto_url, spotify_url, ao_vivo_url, ao_vivo_ativo, contribuicao_ativa, horario_culto, endereco, fundada_em, cor, cor_secundaria, fundo_tipo, fundo_imagem_url, fundo_opacidade, fundo_galeria, fundo_galeria_opacidade, home_secoes_ordem, home_secoes_textos').eq('id', profile.igreja_id).single()
+    : await supabase.from('igrejas').select('id, nome, logo_url, descricao, instagram_url, facebook_url, youtube_url, pastor_nome, pastor_titulo, pastor_foto_url, spotify_url, ao_vivo_url, ao_vivo_ativo, contribuicao_ativa, horario_culto, endereco, fundada_em, cor, cor_secundaria, fundo_tipo, fundo_imagem_url, fundo_opacidade, fundo_galeria, fundo_galeria_opacidade, home_secoes_ordem, home_secoes_textos').limit(1).single()
 
   const church = ig as any
   const igrejaId = church?.id ?? null
@@ -337,6 +340,16 @@ export default async function HomePage() {
   const contribuicaoNoAr = Boolean(church?.contribuicao_ativa)
 
   /**
+   * Ordem e textos dos cartões institucionais, escolhidos no painel "Seções".
+   * Valem para as duas versões da home — a do visitante e a de quem entrou —,
+   * senão o pastor reordenaria e a página pública continuaria como estava.
+   */
+  const ordemSecoes = normalizarOrdemSecoes(
+    (church?.home_secoes_ordem as string[] | null) ?? null
+  )
+  const textosSecoes = (church?.home_secoes_textos as TextosSecoes | null) ?? {}
+
+  /**
    * O fundo da home é um só, configurado pela liderança em `igrejas`.
    *
    * Vale igual para visitante, convidado e membro: quem edita muda a home
@@ -405,8 +418,6 @@ export default async function HomePage() {
             quando chega pelo link no domingo de manhã. */}
         {aoVivo && <CultoAoVivo url={aoVivo} igrejaNome={church?.nome} />}
 
-        {contribuicaoNoAr && <ContribuirCard />}
-
         {/* Cards dos pastores — baseado nos perfis com role='pastor' */}
         <PastoresCard
           pastores={(pastorProfiles ?? []) as unknown as PastorItem[]}
@@ -459,29 +470,52 @@ export default async function HomePage() {
           </div>
         )}
 
-        {/* CTA — Ensino. Sem login o middleware manda para o /login guardando o
-            destino, então o visitante volta para cá depois de entrar. */}
-        <Link
-          href="/ensino"
-          className="block rounded-2xl border border-blue-200 bg-gradient-to-br from-[#0B2447] to-[#0F52BA] p-5 text-white shadow-sm transition-opacity hover:opacity-95"
-        >
-          <div className="flex items-start gap-3">
-            <div className="p-2.5 rounded-xl bg-white/15 shrink-0 mt-0.5">
-              <GraduationCap className="h-5 w-5" />
-            </div>
-            <div className="flex-1">
-              <h2 className="font-bold text-base">Escola Bíblica</h2>
-              <p className="text-sm text-white/80 mt-1.5 leading-relaxed">
-                Cursos, turmas e materiais do Ensino da igreja. Veja as turmas abertas e faça sua
-                inscrição.
-              </p>
-              <span className="inline-flex items-center gap-1 text-sm font-semibold mt-3">
-                Ver cursos
-                <ChevronRight className="h-4 w-4" />
-              </span>
-            </div>
-          </div>
-        </Link>
+        {/* Cartões institucionais, na ordem escolhida no painel "Seções".
+            Mesma lista da home de quem entrou, com o visual próprio daqui. */}
+        {ordemSecoes.map((id) => {
+          if (id === 'contribuir') {
+            return contribuicaoNoAr ? (
+              <ContribuirCard
+                key={id}
+                titulo={textosSecoes.contribuir?.titulo}
+                subtitulo={textosSecoes.contribuir?.subtitulo}
+              />
+            ) : null
+          }
+          if (id === 'eventos') {
+            return eventos && eventos.length > 0 ? (
+              <section key={id} className={SECAO}>
+                <div className={SECAO_TITULO}>
+                  <Sparkles className="h-4 w-4 text-[#0F52BA]" />
+                  <h2 className="text-sm font-semibold">Próximos eventos</h2>
+                </div>
+                <div className="space-y-2">
+                  {eventos.map((evento) => {
+                    const p = presencasMap.get(evento.id) ?? { minhaResposta: null, totalVou: 0, totalLikes: 0, euCurtei: false }
+                    return <EventoCard key={evento.id} evento={evento} minhaResposta={p.minhaResposta} totalVou={p.totalVou} redeNome={(evento as { rede_id?: string | null }).rede_id ? redeNomeMap.get((evento as { rede_id: string }).rede_id) ?? null : null} totalLikes={p.totalLikes} euCurtei={p.euCurtei} />
+                  })}
+                </div>
+              </section>
+            ) : null
+          }
+          if (id === 'proximo_passo') {
+            return (
+              <SecaoProximoPassoVisitante
+                key={id}
+                titulo={textosSecoes.proximo_passo?.titulo}
+                subtitulo={textosSecoes.proximo_passo?.subtitulo}
+              />
+            )
+          }
+          // id === 'ensino'
+          return (
+            <SecaoEnsinoVisitante
+              key={id}
+              titulo={textosSecoes.ensino?.titulo}
+              subtitulo={textosSecoes.ensino?.subtitulo}
+            />
+          )
+        })}
 
         {/* CTA — quero uma célula */}
         <div className="rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50/60 p-5">
@@ -499,42 +533,6 @@ export default async function HomePage() {
           </div>
         </div>
 
-        {/* CTA — servir e membresia. Os dois juntos porque são a mesma
-            pergunta em graus diferentes: "quero fazer parte disso". */}
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <div className="flex items-start gap-3">
-            <div className="p-2.5 rounded-xl bg-primary/10 shrink-0 mt-0.5">
-              <HeartHandshake className="h-5 w-5 text-primary" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h2 className="font-bold text-base text-gray-900">Dê o próximo passo</h2>
-              <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
-                Sirva em um dos nossos ministérios ou comece o caminho para se tornar
-                membro da igreja.
-              </p>
-              <div className="flex flex-wrap gap-2 mt-3">
-                <QueroServirDialog email="" nomeInicial="" buttonClassName="" />
-                <QueroSerMembroDialog email="" nomeInicial="" buttonClassName="" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Próximos eventos */}
-        {eventos && eventos.length > 0 && (
-          <section className={SECAO}>
-            <div className={SECAO_TITULO}>
-              <Sparkles className="h-4 w-4 text-[#0F52BA]" />
-              <h2 className="text-sm font-semibold">Próximos eventos</h2>
-            </div>
-            <div className="space-y-2">
-              {eventos.map((evento) => {
-                const p = presencasMap.get(evento.id) ?? { minhaResposta: null, totalVou: 0, totalLikes: 0, euCurtei: false }
-                return <EventoCard key={evento.id} evento={evento} minhaResposta={p.minhaResposta} totalVou={p.totalVou} redeNome={(evento as { rede_id?: string | null }).rede_id ? redeNomeMap.get((evento as { rede_id: string }).rede_id) ?? null : null} totalLikes={p.totalLikes} euCurtei={p.euCurtei} />
-              })}
-            </div>
-          </section>
-        )}
 
         {/* Mapa */}
         <section className={SECAO}>
@@ -697,10 +695,23 @@ export default async function HomePage() {
         </div>
       </div>
 
+      {/* Botão rápido para pastor/admin ligarem a transmissão — sem passar
+          pelo formulário longo do painel, que é para cadastrar o link, não
+          para ligar e desligar toda semana. */}
+      {podeEditarHome && (
+        <BotaoAoVivo ativo={Boolean(church?.ao_vivo_ativo)} temUrl={Boolean(church?.ao_vivo_url?.trim())} />
+      )}
+
+      {/* Reordenar e renomear os cartões abaixo, direto da tela — sem abrir o
+          painel de administração para um ajuste rápido. */}
+      {podeEditarHome && (
+        <div className="flex justify-end">
+          <SecoesHomeDialog ordemInicial={ordemSecoes} textosInicial={textosSecoes} />
+        </div>
+      )}
+
       {/* Culto ao vivo — passa na frente de tudo enquanto está no ar */}
       {aoVivo && <CultoAoVivo url={aoVivo} igrejaNome={church?.nome} />}
-
-      {contribuicaoNoAr && <ContribuirCard />}
 
       {/* Liderança — logo abaixo da saudação */}
       <PastoresCard
@@ -717,8 +728,45 @@ export default async function HomePage() {
         }
       />
 
-      {/* Destaques escolhidos na página de cada evento */}
-      <EventosDestaque eventos={destaques} />
+      {/* Cartões institucionais, na ordem que a liderança escolheu no painel
+          "Seções" — dízimo, eventos, o convite para servir/ser membro e o
+          atalho do Ensino. Os quatro moram juntos aqui de propósito: só assim
+          dá para pôr um antes do outro. */}
+      {ordemSecoes.map((id) => {
+        if (id === 'contribuir') {
+          return contribuicaoNoAr ? (
+            <ContribuirCard
+              key={id}
+              titulo={textosSecoes.contribuir?.titulo}
+              subtitulo={textosSecoes.contribuir?.subtitulo}
+            />
+          ) : null
+        }
+        if (id === 'eventos') {
+          return <EventosDestaque key={id} eventos={destaques} />
+        }
+        if (id === 'proximo_passo') {
+          return (
+            <SecaoProximoPasso
+              key={id}
+              titulo={textosSecoes.proximo_passo?.titulo}
+              subtitulo={textosSecoes.proximo_passo?.subtitulo}
+              isMember={isMember}
+              email={user?.email ?? ''}
+              nomeInicial={profile?.nome ?? ''}
+              telefoneInicial={(profile as { telefone?: string | null })?.telefone ?? ''}
+            />
+          )
+        }
+        // id === 'ensino'
+        return (
+          <SecaoEnsino
+            key={id}
+            titulo={textosSecoes.ensino?.titulo}
+            subtitulo={textosSecoes.ensino?.subtitulo}
+          />
+        )
+      })}
 
       {/*
         Minha célula e o próximo encontro numa seção só.
@@ -827,61 +875,6 @@ export default async function HomePage() {
         </div>
       )}
 
-      {/* Servir e membresia. "Quero ser membro" só aparece para quem ainda não
-          é — oferecer membresia a quem já é seria estranho. */}
-      <section className={SECAO}>
-        <div className={SECAO_TITULO}>
-          <HeartHandshake className="h-4 w-4 text-primary" />
-          <h2 className="text-sm font-semibold">Dê o próximo passo</h2>
-        </div>
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          {isMember
-            ? 'Quer usar seus dons na igreja? Diga em qual área você gostaria de servir.'
-            : 'Sirva em um dos nossos ministérios ou comece o caminho para se tornar membro.'}
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <QueroServirDialog
-            email={user?.email ?? ''}
-            nomeInicial={profile?.nome ?? ''}
-            telefoneInicial={(profile as { telefone?: string | null })?.telefone ?? ''}
-            buttonClassName=""
-          />
-          {!isMember && (
-            <QueroSerMembroDialog
-              email={user?.email ?? ''}
-              nomeInicial={profile?.nome ?? ''}
-              telefoneInicial={(profile as { telefone?: string | null })?.telefone ?? ''}
-              buttonClassName=""
-            />
-          )}
-        </div>
-      </section>
-
-      {/* Atalho para o Ensino */}
-      <Link
-        href="/ensino"
-        className="group relative block overflow-hidden rounded-2xl bg-gradient-to-br from-[#0B2447] via-[#19376D] to-[#0F52BA] p-5 text-white shadow-md transition-shadow hover:shadow-lg"
-      >
-        <div
-          className="absolute inset-0 opacity-15"
-          style={{ backgroundImage: 'radial-gradient(circle at 85% 15%, white 0%, transparent 55%)' }}
-        />
-        <div className="relative flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15 backdrop-blur">
-            <GraduationCap className="h-6 w-6" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-white/70">
-              Escola Bíblica
-            </p>
-            <p className="text-base font-bold leading-tight mt-0.5">Ensino</p>
-            <p className="text-xs text-white/75 mt-1 leading-snug">
-              Cursos, turmas, materiais e sua frequência
-            </p>
-          </div>
-          <ChevronRight className="h-5 w-5 shrink-0 text-white/70 transition-transform group-hover:translate-x-0.5" />
-        </div>
-      </Link>
 
       {/* Aniversário próprio — destaque pessoal */}
       {meuAniversarioHoje && (
@@ -1253,5 +1246,138 @@ export default async function HomePage() {
       </footer>
 
     </div>
+  )
+}
+
+/**
+ * Atalho para o Ensino, versão do visitante.
+ *
+ * Markup próprio, e não o mesmo do membro: aqui o cartão precisa se explicar
+ * para quem nunca entrou ("veja as turmas abertas e faça sua inscrição"),
+ * enquanto para o membro basta o atalho.
+ */
+function SecaoEnsinoVisitante({ titulo, subtitulo }: { titulo?: string | null; subtitulo?: string | null }) {
+  return (
+    <Link
+      href="/ensino"
+      className="block rounded-2xl border border-blue-200 bg-gradient-to-br from-[#0B2447] to-[#0F52BA] p-5 text-white shadow-sm transition-opacity hover:opacity-95"
+    >
+      <div className="flex items-start gap-3">
+        <div className="p-2.5 rounded-xl bg-white/15 shrink-0 mt-0.5">
+          <GraduationCap className="h-5 w-5" />
+        </div>
+        <div className="flex-1">
+          <h2 className="font-bold text-base">{titulo || 'Escola Bíblica'}</h2>
+          <p className="text-sm text-white/80 mt-1.5 leading-relaxed">
+            {subtitulo || 'Cursos, turmas e materiais do Ensino da igreja. Veja as turmas abertas e faça sua inscrição.'}
+          </p>
+          <span className="inline-flex items-center gap-1 text-sm font-semibold mt-3">
+            Ver cursos
+            <ChevronRight className="h-4 w-4" />
+          </span>
+        </div>
+      </div>
+    </Link>
+  )
+}
+
+/** Servir e membresia, versão do visitante — os dois convites sempre juntos. */
+function SecaoProximoPassoVisitante({ titulo, subtitulo }: { titulo?: string | null; subtitulo?: string | null }) {
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5">
+      <div className="flex items-start gap-3">
+        <div className="p-2.5 rounded-xl bg-primary/10 shrink-0 mt-0.5">
+          <HeartHandshake className="h-5 w-5 text-primary" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h2 className="font-bold text-base text-gray-900">{titulo || 'Dê o próximo passo'}</h2>
+          <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
+            {subtitulo || 'Sirva em um dos nossos ministérios ou comece o caminho para se tornar membro da igreja.'}
+          </p>
+          <div className="flex flex-wrap gap-2 mt-3">
+            <QueroServirDialog email="" nomeInicial="" buttonClassName="" />
+            <QueroSerMembroDialog email="" nomeInicial="" buttonClassName="" />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Convite para servir ou se tornar membro.
+ *
+ * Extraído para virar uma das seções reordenáveis (`lib/home-secoes.ts`). O
+ * texto padrão já varia por `isMember` — o título trocado no painel "Seções"
+ * substitui os dois; sem substituição, cada um continua vendo a frase certa.
+ */
+function SecaoProximoPasso({
+  titulo, subtitulo, isMember, email, nomeInicial, telefoneInicial,
+}: {
+  titulo?: string | null
+  subtitulo?: string | null
+  isMember: boolean
+  email: string
+  nomeInicial: string
+  telefoneInicial: string
+}) {
+  return (
+    <section className={SECAO}>
+      <div className={SECAO_TITULO}>
+        <HeartHandshake className="h-4 w-4 text-primary" />
+        <h2 className="text-sm font-semibold">{titulo || 'Dê o próximo passo'}</h2>
+      </div>
+      <p className="text-sm text-muted-foreground leading-relaxed">
+        {subtitulo || (isMember
+          ? 'Quer usar seus dons na igreja? Diga em qual área você gostaria de servir.'
+          : 'Sirva em um dos nossos ministérios ou comece o caminho para se tornar membro.')}
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <QueroServirDialog
+          email={email}
+          nomeInicial={nomeInicial}
+          telefoneInicial={telefoneInicial}
+          buttonClassName=""
+        />
+        {!isMember && (
+          <QueroSerMembroDialog
+            email={email}
+            nomeInicial={nomeInicial}
+            telefoneInicial={telefoneInicial}
+            buttonClassName=""
+          />
+        )}
+      </div>
+    </section>
+  )
+}
+
+/** Atalho para o Ensino — outra das seções reordenáveis. */
+function SecaoEnsino({ titulo, subtitulo }: { titulo?: string | null; subtitulo?: string | null }) {
+  return (
+    <Link
+      href="/ensino"
+      className="group relative block overflow-hidden rounded-2xl bg-gradient-to-br from-[#0B2447] via-[#19376D] to-[#0F52BA] p-5 text-white shadow-md transition-shadow hover:shadow-lg"
+    >
+      <div
+        className="absolute inset-0 opacity-15"
+        style={{ backgroundImage: 'radial-gradient(circle at 85% 15%, white 0%, transparent 55%)' }}
+      />
+      <div className="relative flex items-center gap-4">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15 backdrop-blur">
+          <GraduationCap className="h-6 w-6" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-white/70">
+            {titulo || 'Escola Bíblica'}
+          </p>
+          <p className="text-base font-bold leading-tight mt-0.5">Ensino</p>
+          <p className="text-xs text-white/75 mt-1 leading-snug">
+            {subtitulo || 'Cursos, turmas, materiais e sua frequência'}
+          </p>
+        </div>
+        <ChevronRight className="h-5 w-5 shrink-0 text-white/70 transition-transform group-hover:translate-x-0.5" />
+      </div>
+    </Link>
   )
 }

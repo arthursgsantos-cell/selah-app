@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { atualizarInfoIgrejaAction } from '@/app/actions/pastor'
 import { Pencil, Check, X, Clock, MapPin, Calendar, HandCoins, Radio } from 'lucide-react'
+import { EditorTexto } from '@/components/shared/editor-texto'
 import { LABEL_TIPO_PIX } from '@/lib/pix'
 import type { TipoChavePix } from '@/lib/supabase/types'
 
@@ -225,14 +226,6 @@ export function IgrejaInfoForm({ igrejaId, info }: Props) {
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
           Informações da Igreja
         </p>
-        <div className="flex gap-1.5">
-          <Button variant="ghost" size="sm" onClick={cancelar} className="h-7 px-2.5 text-xs gap-1">
-            <X className="h-3 w-3" /> Cancelar
-          </Button>
-          <Button size="sm" onClick={salvar} disabled={salvando} className="h-7 px-3 text-xs gap-1">
-            <Check className="h-3 w-3" /> {salvando ? 'Salvando…' : 'Salvar'}
-          </Button>
-        </div>
       </div>
 
       <div className="space-y-4">
@@ -295,8 +288,8 @@ export function IgrejaInfoForm({ igrejaId, info }: Props) {
             <Radio className="h-3 w-3" /> Culto ao vivo
           </p>
           <p className="text-[10px] text-muted-foreground mb-2">
-            O card da transmissão só aparece na home quando &quot;está no ar&quot; estiver marcado.
-            Lembre de desmarcar quando o culto acabar.
+            Cadastre o link uma vez aqui. Ligar e desligar &quot;está no ar&quot; toda
+            semana é mais rápido pelo botão na tela inicial.
           </p>
           <div className="space-y-3">
             <Field
@@ -305,15 +298,6 @@ export function IgrejaInfoForm({ igrejaId, info }: Props) {
               onChange={(v) => set('ao_vivo_url', v)}
               placeholder="https://youtube.com/live/..."
             />
-            <label className="flex items-center gap-2 text-xs cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.ao_vivo_ativo}
-                onChange={(e) => set('ao_vivo_ativo', e.target.checked)}
-                className="accent-primary h-3.5 w-3.5"
-              />
-              Está no ar agora
-            </label>
           </div>
         </section>
 
@@ -342,12 +326,11 @@ export function IgrejaInfoForm({ igrejaId, info }: Props) {
             <Field label="Cidade do recebedor" value={form.pix_cidade} onChange={(v) => set('pix_cidade', v)} placeholder="Ex: Parnamirim" />
             <div className="space-y-1.5">
               <Label className="text-xs">Texto da página</Label>
-              <Textarea
+              <EditorTexto
                 value={form.contribuicao_texto}
-                onChange={(e) => set('contribuicao_texto', e.target.value)}
+                onChange={(v) => set('contribuicao_texto', v)}
                 placeholder="Uma palavra sobre a contribuição, versículo, etc."
-                className="text-sm resize-none"
-                rows={3}
+                minRows={4}
               />
             </div>
             <div className="space-y-1.5">
@@ -382,6 +365,18 @@ export function IgrejaInfoForm({ igrejaId, info }: Props) {
         </section>
 
         {erro && <p className="text-sm text-destructive">{erro}</p>}
+      </div>
+
+      {/* Barra de ação fixa — mesmo padrão do formulário de turma: acompanha a
+          rolagem num formulário longo, então o botão de salvar nunca fica a
+          uma rolagem de distância. */}
+      <div className="sticky bottom-0 -mx-4 -mb-4 mt-4 border-t bg-background/95 backdrop-blur px-4 py-3 rounded-b-2xl flex items-center gap-2">
+        <Button size="sm" onClick={salvar} disabled={salvando} className="gap-1.5">
+          <Check className="h-3.5 w-3.5" /> {salvando ? 'Salvando…' : 'Salvar'}
+        </Button>
+        <Button variant="ghost" size="sm" onClick={cancelar} disabled={salvando} className="gap-1.5">
+          <X className="h-3.5 w-3.5" /> Cancelar
+        </Button>
       </div>
     </div>
   )

@@ -2,34 +2,57 @@
 
 import { useMemo, useState } from 'react'
 import QRCode from 'react-qr-code'
-import { gerarPayloadPix, formatarChavePix, normalizarChavePix, LABEL_TIPO_PIX, type TipoChavePix } from '@/lib/pix'
+import {
+  gerarPayloadPix, formatarChavePix, normalizarChavePix, aplicarCentavosCampanha,
+  LABEL_TIPO_PIX, type TipoChavePix,
+} from '@/lib/pix'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Copy, Check, QrCode } from 'lucide-react'
+import { Copy, Check, QrCode, Target } from 'lucide-react'
+
+interface CampanhaResumo {
+  id: string
+  nome: string
+  descricao: string | null
+  centavos: number
+}
 
 interface Props {
   chave: string
   tipo: TipoChavePix
   nome: string
   cidade?: string | null
+  /** Destinos com final de centavos próprio — a construção da nova sede, etc. */
+  campanhas?: CampanhaResumo[]
 }
 
 /** Atalhos de valor. O primeiro é o padrão: quem contribui decide no banco. */
 const VALORES = [null, 20, 50, 100, 200] as const
 
-export function PixIgreja({ chave, tipo, nome, cidade }: Props) {
+export function PixIgreja({ chave, tipo, nome, cidade, campanhas = [] }: Props) {
   const [valor, setValor] = useState<number | null>(null)
   const [outro, setOutro] = useState('')
+  const [campanhaId, setCampanhaId] = useState<string | null>(null)
   const [copiado, setCopiado] = useState<'payload' | 'chave' | null>(null)
 
+  const campanha = campanhas.find((c) => c.id === campanhaId) ?? null
+
   // "12,50" e "12.50" vêm da mesma pessoa em teclados diferentes.
-  const valorFinal = useMemo(() => {
+  const valorDigitado = useMemo(() => {
     if (outro.trim()) {
       const n = parseFloat(outro.replace(/\./g, '').replace(',', '.'))
       return Number.isFinite(n) && n > 0 ? n : null
     }
     return valor
   }, [outro, valor])
+
+  // O final de centavos SUBSTITUI o que a pessoa escolheu, não soma — é a
+  // assinatura do destino no extrato. Sem valor nenhum não há onde marcar: a
+  // pessoa decide o quanto no banco, e aí não existe centavo para combinar.
+  const valorFinal = useMemo(
+    () => aplicarCentavosCampanha(valorDigitado, campanha?.centavos ?? null),
+    [valorDigitado, campanha]
+  )
 
   const payload = useMemo(
     () => gerarPayloadPix({ chave, tipo, nome, cidade: cidade ?? undefined, valor: valorFinal ?? undefined }),
@@ -74,6 +97,57 @@ export function PixIgreja({ chave, tipo, nome, cidade }: Props) {
           className="mt-2.5 h-9 text-sm"
         />
       </div>
+
+      {/* Destino — cada campanha tem um final de centavos próprio, e é assim
+          que a tesouraria separa no extrato o que foi para onde. */}
+      {campanhas.length > 0 && (
+        <div>
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2 flex items-center gap-1.5">
+            <Target className="h-3 w-3" />
+            Destino
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setCampanhaId(null)}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                campanhaId === null
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-background border-border text-muted-foreground hover:bg-muted'
+              }`}
+            >
+              Dízimo / oferta
+            </button>
+            {campanhas.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => setCampanhaId(c.id)}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                  campanhaId === c.id
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-background border-border text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                {c.nome}
+              </button>
+            ))}
+          </div>
+          {campanha && (
+            <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
+              {campanha.descricao && <>{campanha.descricao} — </>}
+              o valor termina em{' '}
+              <strong className="text-foreground">
+                ,{String(campanha.centavos).padStart(2, '0')}
+              </strong>{' '}
+              para a tesouraria identificar.
+              {valorDigitado != null && valorDigitado < 1 && (
+                <> Como o valor é menor que R$ 1, o final não muda.</>
+              )}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* QR */}
       <div className="flex flex-col items-center gap-3">

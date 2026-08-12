@@ -64,7 +64,7 @@ export default async function CelulaDetalhesPage({ params }: { params: { id: str
   ] = await Promise.all([
     admin
       .from('celulas')
-      .select('id, nome, descricao, logo_url, capa_url, cor, cor_secundaria, fundo_tipo, fundo_imagem_url, fundo_opacidade, fundo_galeria, fundo_galeria_opacidade, fundo_auto_cor, fundo_auto_cor_origem, capa_automatica, frequencia, local_padrao, dia_semana, horario, rede_id')
+      .select('id, nome, descricao, logo_url, capa_url, cor, cor_secundaria, fundo_tipo, fundo_imagem_url, fundo_opacidade, fundo_galeria, fundo_galeria_opacidade, fundo_auto_cor, fundo_auto_cor_origem, capa_automatica, frequencia, local_padrao, dia_semana, horario, rede_id, celula_mae_id, multiplicacao_prevista')
       .eq('id', params.id)
       .single(),
     admin
@@ -233,6 +233,10 @@ export default async function CelulaDetalhesPage({ params }: { params: { id: str
                   canDelete={true}
                   redeId={(celula as { rede_id?: string | null }).rede_id ?? null}
                   redes={canView ? redesDisponiveis : []}
+                  celulaMaeId={celula.celula_mae_id}
+                  multiplicacaoPrevista={celula.multiplicacao_prevista}
+                  celulasParaMae={(celulasDisponiveisData ?? [])
+                    .filter((c) => c.id !== params.id) as { id: string; nome: string }[]}
                 />
               </div>
               {celula.descricao && (
