@@ -8,6 +8,7 @@ import type {
   ModoTurma, ModoVideoChamada, StatusTurma, TipoInscricaoTurma,
 } from '@/lib/supabase/types'
 import { BUCKET_CAPAS, type ProfessorDaTurma, type ResultadoAcao } from '@/lib/ensino/tipos'
+import { lerTurmaParaPlanilha, registrarNaPlanilha } from '@/lib/planilha-ensino'
 
 /**
  * Sobe a capa de um curso ou turma para o bucket público `ensino-capas` e
@@ -201,6 +202,10 @@ export async function criarTurmaAction(dados: DadosTurma): Promise<
   const admin = createAdminClient()
   await admin.from('ensino_turma_professores').insert(linhasDeProfessores(data.id, professores))
 
+  // Depois da equipe entrar: a linha da planilha traz os professores, e ler
+  // antes mandaria a turma sem ninguém.
+  await registrarNaPlanilha(await lerTurmaParaPlanilha(data.id), 'criada', acesso.nome)
+
   revalidatePath('/ensino')
   revalidatePath('/ensino/professor')
   return { ok: true, id: data.id }
@@ -279,6 +284,8 @@ export async function editarTurmaAction(
       .insert(linhasDeProfessores(id, dados.professores!))
   }
 
+  await registrarNaPlanilha(await lerTurmaParaPlanilha(id), 'editada', acesso.nome)
+
   revalidatePath('/ensino')
   revalidatePath(`/ensino/turma/${id}`)
   revalidatePath('/ensino/professor')
@@ -295,7 +302,7 @@ export async function alternarDestaqueTurmaAction(
   destaque: boolean
 ): Promise<ResultadoAcao> {
   const acesso = await acessoEnsino()
-  if (!(await podeLecionar(acesso, id))) {
+  if (!acesso || !(await podeLecionar(acesso, id))) {
     return { ok: false, erro: 'Você não administra esta turma.' }
   }
 
@@ -307,6 +314,8 @@ export async function alternarDestaqueTurmaAction(
 
   if (error) return { ok: false, erro: error.message }
 
+  await registrarNaPlanilha(await lerTurmaParaPlanilha(id), 'editada', acesso.nome)
+
   revalidatePath('/home')
   revalidatePath(`/ensino/turma/${id}`)
   return { ok: true }
@@ -316,10 +325,16 @@ export async function excluirTurmaAction(id: string): Promise<ResultadoAcao> {
   const acesso = await acessoEnsino()
   if (!acesso?.coordenador) return { ok: false, erro: 'Só a coordenação pode excluir turmas.' }
 
+  // A leitura vem antes do delete: depois não há mais o que contar para a
+  // planilha, e a linha ficaria sem saber qual turma saiu.
+  const linha = await lerTurmaParaPlanilha(id)
+
   const supabase = await createClient()
   const { error } = await supabase.from('ensino_turmas').delete().eq('id', id)
 
   if (error) return { ok: false, erro: error.message }
+
+  await registrarNaPlanilha(linha, 'excluida', acesso.nome)
 
   // A turma podia estar em destaque na home e na lista de quem cursava — as
   // duas telas mostrariam um cartão que não abre mais.
