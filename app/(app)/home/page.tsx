@@ -95,14 +95,19 @@ export default async function HomePage() {
   const admin = createAdminClient()
 
   const [{ data: eventos }, { data: profilesIgreja }, { data: ultimosEncontrosCelula }, { data: ultimosEventosPast }, { data: pastorProfiles }, { data: fotosComunidade }, { data: encontroFotos }, { data: destaquesData }] = await Promise.all([
-    supabase
+    // Estas quatro consultas rodam também para o visitante não logado, que é
+    // quem vê a home pública. Vão pela service role de propósito: o que a
+    // página publica para quem não entrou é decisão do servidor, e não de uma
+    // policy que precisaria abrir `eventos` e `profiles` para o anônimo — o
+    // que valeria para a igreja inteira, não só para o que esta tela mostra.
+    admin
       .from('eventos')
       .select('id, slug, titulo, descricao, data_hora, local, tipo, imagem_url, rede_id, tipo_inscricao, whatsapp_inscricao, pix_chave, pix_tipo, pix_nome, pix_valor, formulario_id, link_inscricao_url, data_hora_fim')
       .eq('igreja_id', igrejaId ?? '')
       .gte('data_hora', new Date().toISOString())
       .order('data_hora', { ascending: true })
       .limit(4),
-    supabase
+    admin
       .from('profiles')
       .select('id, nome, avatar_url, data_nascimento_1')
       .eq('igreja_id', igrejaId ?? '')
@@ -117,7 +122,7 @@ export default async function HomePage() {
           .order('data_hora', { ascending: false })
           .limit(3)
       : Promise.resolve({ data: [] }),
-    supabase
+    admin
       .from('eventos')
       .select('id, slug, titulo, data_hora, local, tipo, imagem_url, tipo_inscricao, whatsapp_inscricao, pix_chave, pix_tipo, pix_nome, pix_valor, formulario_id, link_inscricao_url, data_hora_fim')
       .eq('igreja_id', igrejaId ?? '')
@@ -125,7 +130,7 @@ export default async function HomePage() {
       .order('data_hora', { ascending: false })
       .limit(3),
     igrejaId
-      ? supabase
+      ? admin
           .from('profiles')
           .select('id, nome, avatar_url, titulo')
           .eq('igreja_id', igrejaId)
