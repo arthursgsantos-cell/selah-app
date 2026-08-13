@@ -19,6 +19,7 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import type { FuncaoEscala } from '@/lib/supabase/types'
 import { buscarPresencasEncontroAction, buscarMinhaPresencaAction } from '@/app/actions/presenca'
+import { roteiroDoPeriodo } from '@/lib/encontro-roteiro'
 import { FUNCOES_ESCALA as funcoes } from '@/lib/escala-funcoes'
 
 const statusConfig = {
@@ -165,6 +166,11 @@ export default async function EncontroPage({ params }: { params: { id: string } 
     autor: r.publicado_por?.trim() || (r.created_by ? nomeDoAutor.get(r.created_by) ?? null : null),
   }))
 
+  // O roteiro cuja validade cobre o dia do encontro. Vale quando ninguém
+  // vinculou nada à mão — que é o caso comum, já que a célula se reúne toda
+  // semana e o roteiro muda junto.
+  const resumoAutomatico = roteiroDoPeriodo(encontro.data_hora, resumos)
+
   const isMember = !!membroCelula
   const isLider = membroCelula?.papel === 'lider'
   const isAdminRole = profile?.role === 'supervisor' || profile?.role === 'pastor' || profile?.role === 'admin'
@@ -304,29 +310,31 @@ export default async function EncontroPage({ params }: { params: { id: string } 
             edificacaoResumo={encontro.edificacao_resumo}
             resumosDisponiveis={resumos}
             resumoCultoId={encontro.resumo_culto_id ?? null}
+            resumoAutomaticoId={resumoAutomatico?.id ?? null}
             currentUserId={user.id}
             conjugeNome={conjugeNome}
           />
         </CardContent>
       </Card>
 
-      {/* Lista de lanche */}
-      <Card>
-        <CardHeader className="border-b pb-3">
-          <CardTitle>Lista de lanche</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-4">
-          <LancheSection
-            encontroId={params.id}
-            lanches={lancheData ?? []}
-            currentUserId={user.id}
-            canEdit={canEdit}
-            conjugeNome={conjugeNome}
-            sugestoes={sugestoesDedupadas}
-          />
-        </CardContent>
-      </Card>
           </>
+        }
+        lanche={
+          <Card>
+            <CardHeader className="border-b pb-3">
+              <CardTitle>Lista de lanche</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-4">
+              <LancheSection
+                encontroId={params.id}
+                lanches={lancheData ?? []}
+                currentUserId={user.id}
+                canEdit={canEdit}
+                conjugeNome={conjugeNome}
+                sugestoes={sugestoesDedupadas}
+              />
+            </CardContent>
+          </Card>
         }
         registro={
           <>

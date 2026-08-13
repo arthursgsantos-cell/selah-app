@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Check, X, Loader2, Phone, Mail, Award, Users, Clock, Pencil, Trash2, UserPlus,
+  ChevronLeft, ChevronRight, Search,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,6 +18,7 @@ import {
   removerAlunoManualAction,
 } from '@/app/actions/ensino/alunos-manuais'
 import { AdicionarAluno } from '@/components/ensino/adicionar-aluno'
+import { ImportarAlunos } from '@/components/ensino/importar-alunos'
 import type { OrigemInscricaoEnsino, StatusInscricaoEnsino } from '@/lib/supabase/types'
 
 export interface AlunoInscrito {
@@ -55,6 +57,24 @@ function dataHoraBr(iso: string): string {
   }).replace(', ', ' às ')
 }
 
+/**
+ * Alunos por página.
+ *
+ * Vinte cabe numa rolagem e ainda deixa a turma inteira visível na maioria dos
+ * casos — a paginação só aparece quando passa disso.
+ */
+const POR_PAGINA = 20
+
+type FiltroAluno = 'todos' | 'cursando' | 'concluidos' | 'faltando' | 'sem_conta'
+
+const FILTROS: { valor: FiltroAluno; label: string }[] = [
+  { valor: 'todos', label: 'Todos' },
+  { valor: 'cursando', label: 'Cursando' },
+  { valor: 'concluidos', label: 'Concluídos' },
+  { valor: 'faltando', label: 'Frequência baixa' },
+  { valor: 'sem_conta', label: 'Sem conta no app' },
+]
+
 function rotuloDecisao(status: StatusInscricaoEnsino): string {
   if (status === 'recusada') return 'Recusada'
   if (status === 'cancelada') return 'Cancelada'
@@ -78,9 +98,34 @@ export function AlunosGestao({
   const [agindoEm, setAgindoEm] = useState<string | null>(null)
   const [editando, setEditando] = useState<string | null>(null)
 
+  const [busca, setBusca] = useState('')
+  const [filtro, setFiltro] = useState<FiltroAluno>('todos')
+  const [pagina, setPagina] = useState(0)
+
   const pendentes = alunos.filter((a) => a.status === 'pendente')
-  const ativos = alunos.filter((a) => a.status === 'aprovada' || a.status === 'concluida')
+  const ativosTodos = alunos.filter((a) => a.status === 'aprovada' || a.status === 'concluida')
   const recusados = alunos.filter((a) => a.status === 'recusada' || a.status === 'cancelada')
+
+  // Busca e filtro valem só sobre a lista da turma — pendentes e recusados são
+  // filas curtas, e escondê-las atrás de um filtro faria a pessoa perder o
+  // pedido que precisa responder.
+  const ativos = useMemo(() => {
+    const termo = busca.trim().toLowerCase()
+    return ativosTodos.filter((a) => {
+      if (termo && !a.nome.toLowerCase().includes(termo)) return false
+      if (filtro === 'concluidos') return a.status === 'concluida'
+      if (filtro === 'cursando') return a.status === 'aprovada'
+      if (filtro === 'sem_conta') return !a.temConta
+      // "Faltando" só faz sentido depois de haver aula realizada: sem isso,
+      // todo mundo teria 0% e a lista inteira apareceria como problema.
+      if (filtro === 'faltando') return a.percentual !== null && a.percentual < 75
+      return true
+    })
+  }, [ativosTodos, busca, filtro])
+
+  const totalPaginas = Math.max(1, Math.ceil(ativos.length / POR_PAGINA))
+  const paginaAtual = Math.min(pagina, totalPaginas - 1)
+  const ativosVisiveis = ativos.slice(paginaAtual * POR_PAGINA, (paginaAtual + 1) * POR_PAGINA)
 
   function decidir(id: string, decisao: 'aprovada' | 'recusada') {
     setErro(null)
@@ -105,7 +150,12 @@ export function AlunosGestao({
   }
 
   function remover(aluno: AlunoInscrito) {
-    if (!confirm(`Remover ${aluno.nome} da turma? As presenças dele também serão apagadas.`)) return
+    // Quem veio do link pode pedir de novo depois; quem foi digitado pelo
+    // professor some de vez. A confirmação diz qual dos dois é o caso.
+    const consequencia = aluno.origem === 'manual'
+      ? 'O cadastro dele nesta turma e as presenças serão apagados.'
+      : 'As presenças serão apagadas. Ele poderá se inscrever de novo pelo link.'
+    if (!confirm(`Remover ${aluno.nome} da turma?\n\n${consequencia}`)) return
     setErro(null)
     setAgindoEm(aluno.id)
     startTransition(async () => {
@@ -126,8 +176,9 @@ export function AlunosGestao({
             Compartilhe o link da turma para que se inscrevam pelo app — ou cadastre você mesmo
             quem já está na sala.
           </p>
-          <div className="mt-4 flex justify-center">
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
             <AdicionarAluno turmaId={turmaId} />
+            <ImportarAlunos turmaId={turmaId} />
           </div>
         </div>
       </div>
@@ -138,9 +189,12 @@ export function AlunosGestao({
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground">
-          {ativos.length} {ativos.length === 1 ? 'aluno na turma' : 'alunos na turma'}
+          {ativosTodos.length} {ativosTodos.length === 1 ? 'aluno na turma' : 'alunos na turma'}
         </p>
-        <AdicionarAluno turmaId={turmaId} />
+        <div className="flex flex-wrap items-center gap-2">
+          <ImportarAlunos turmaId={turmaId} />
+          <AdicionarAluno turmaId={turmaId} />
+        </div>
       </div>
 
       {erro && <p className="text-sm text-destructive">{erro}</p>}
@@ -191,13 +245,50 @@ export function AlunosGestao({
 
       <section>
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
-          Alunos da turma ({ativos.length})
+          Alunos da turma ({ativosTodos.length})
         </p>
-        {ativos.length === 0 ? (
+
+        {/* Busca e filtros só aparecem quando há gente o bastante para se
+            perder na lista — numa turma de oito nomes eles seriam ruído. */}
+        {ativosTodos.length > 8 && (
+          <div className="mb-3 space-y-2">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={busca}
+                onChange={(e) => { setBusca(e.target.value); setPagina(0) }}
+                placeholder="Buscar aluno pelo nome..."
+                className="pl-8 h-9"
+              />
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {FILTROS.map((f) => (
+                <button
+                  key={f.valor}
+                  type="button"
+                  onClick={() => { setFiltro(f.valor); setPagina(0) }}
+                  className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
+                    filtro === f.valor
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border text-muted-foreground hover:bg-muted'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {ativosTodos.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nenhum aluno aprovado ainda.</p>
+        ) : ativos.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Nenhum aluno com esse nome ou filtro.
+          </p>
         ) : (
           <div className="space-y-2">
-            {ativos.map((a) => (
+            {ativosVisiveis.map((a) => (
               <Cartao
                 key={a.id}
                 aluno={a}
@@ -205,9 +296,10 @@ export function AlunosGestao({
                 emEdicao={editando === a.id}
                 onFecharEdicao={() => setEditando(null)}
               >
-                {/* Corrigir e remover só valem para quem o professor digitou:
-                    onde há perfil, o nome é da pessoa, e um pedido feito por
-                    ela vira "recusado", não desaparece. */}
+                {/* Corrigir só vale para quem o professor digitou: onde há
+                    perfil, o nome é da pessoa e quem edita é ela. Remover vale
+                    para todos — a turma precisa de saída para quem desistiu ou
+                    se inscreveu por engano. */}
                 {a.origem === 'manual' && !a.temConta && (
                   <button
                     type="button"
@@ -219,21 +311,19 @@ export function AlunosGestao({
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
                 )}
-                {a.origem === 'manual' && (
-                  <button
-                    type="button"
-                    onClick={() => remover(a)}
-                    disabled={isPending}
-                    aria-label={`Remover ${a.nome} da turma`}
-                    className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-destructive hover:border-destructive/40 transition-colors disabled:opacity-50"
-                  >
-                    {agindoEm === a.id && isPending ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-3.5 w-3.5" />
-                    )}
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => remover(a)}
+                  disabled={isPending}
+                  aria-label={`Remover ${a.nome} da turma`}
+                  className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-destructive hover:border-destructive/40 transition-colors disabled:opacity-50"
+                >
+                  {agindoEm === a.id && isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-3.5 w-3.5" />
+                  )}
+                </button>
                 {a.status === 'aprovada' && (
                   <button
                     type="button"
@@ -251,6 +341,38 @@ export function AlunosGestao({
                 )}
               </Cartao>
             ))}
+
+            {totalPaginas > 1 && (
+              <div className="flex items-center justify-between pt-2">
+                <p className="text-xs text-muted-foreground">
+                  {paginaAtual * POR_PAGINA + 1}–
+                  {Math.min((paginaAtual + 1) * POR_PAGINA, ativos.length)} de {ativos.length}
+                </p>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setPagina(paginaAtual - 1)}
+                    disabled={paginaAtual === 0}
+                    aria-label="Página anterior"
+                    className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted disabled:opacity-30"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <span className="text-xs tabular-nums text-muted-foreground">
+                    {paginaAtual + 1}/{totalPaginas}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPagina(paginaAtual + 1)}
+                    disabled={paginaAtual >= totalPaginas - 1}
+                    aria-label="Próxima página"
+                    className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted disabled:opacity-30"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </section>

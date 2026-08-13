@@ -484,6 +484,17 @@ export async function editarAlunoManualAction(params: {
  * O pré-cadastro sobrevive à remoção: a pessoa continua existindo para a
  * igreja, ainda que não para esta turma.
  */
+/**
+ * Tira o aluno da turma, tenha ele chegado pela mão do professor ou pelo link.
+ *
+ * A versão anterior recusava quem veio do app, com o argumento de que um
+ * pedido feito pela pessoa vira "recusado" em vez de sumir. O argumento vale
+ * para o histórico, mas deixava a turma sem saída para o caso trivial: alguém
+ * se inscreveu por engano, ou desistiu, e o nome fica na chamada para sempre.
+ *
+ * As presenças vão junto pelo `on delete cascade` — é o que a confirmação na
+ * tela avisa antes.
+ */
 export async function removerAlunoManualAction(inscricaoId: string): Promise<ResultadoAcao> {
   const acesso = await acessoEnsino()
   if (!acesso) return { ok: false, erro: 'Não autenticado.' }
@@ -491,7 +502,7 @@ export async function removerAlunoManualAction(inscricaoId: string): Promise<Res
   const admin = createAdminClient()
   const { data: inscricao } = await admin
     .from('ensino_inscricoes')
-    .select('id, turma_id, origem')
+    .select('id, turma_id')
     .eq('id', inscricaoId)
     .maybeSingle()
 
@@ -499,14 +510,71 @@ export async function removerAlunoManualAction(inscricaoId: string): Promise<Res
   if (!(await podeLecionar(acesso, inscricao.turma_id))) {
     return { ok: false, erro: 'Você não administra esta turma.' }
   }
-  if (inscricao.origem !== 'manual') {
-    return { ok: false, erro: 'Só dá para remover aluno que foi cadastrado pelo professor.' }
-  }
 
-  // As presenças vão junto pelo `on delete cascade`.
   const { error } = await admin.from('ensino_inscricoes').delete().eq('id', inscricao.id)
   if (error) return { ok: false, erro: error.message }
 
   revalidarTurma(inscricao.turma_id)
   return { ok: true }
+}
+
+export interface ResultadoImportacao {
+  importados: number
+  jaEstavam: number
+  falhas: { linha: number; nome: string; motivo: string }[]
+}
+
+/**
+ * Importa a lista da planilha, linha por linha.
+ *
+ * Reaproveita `cadastrarAlunoManualAction` de propósito, em vez de inserir
+ * direto: é ela que sabe casar o e-mail com um perfil que já existe, respeitar
+ * o limite de vagas e criar o pré-cadastro de quem ainda não usa o app. Uma
+ * inserção paralela aqui duplicaria essas regras — e elas divergiriam na
+ * primeira mudança.
+ *
+ * Uma linha que falha não derruba as outras: o relatório volta dizendo o que
+ * entrou e o que precisa de conserto, porque numa lista de quarenta nomes
+ * abortar tudo por causa de um e-mail repetido seria pior que importar
+ * trinta e nove.
+ */
+export async function importarAlunosAction(
+  turmaId: string,
+  linhas: { linha: number; nome: string; telefone: string | null; email: string | null }[]
+): Promise<{ ok: true; resultado: ResultadoImportacao } | { ok: false; erro: string }> {
+  const acesso = await acessoEnsino()
+  if (!acesso) return { ok: false, erro: 'Não autenticado.' }
+  if (!(await podeLecionar(acesso, turmaId))) {
+    return { ok: false, erro: 'Você não administra esta turma.' }
+  }
+  if (linhas.length === 0) return { ok: false, erro: 'Nada para importar.' }
+  // Teto de segurança: a turma é uma sala de aula, não uma migração de base.
+  if (linhas.length > 500) {
+    return { ok: false, erro: 'São muitas linhas de uma vez. Divida em partes de até 500.' }
+  }
+
+  const resultado: ResultadoImportacao = { importados: 0, jaEstavam: 0, falhas: [] }
+
+  for (const l of linhas) {
+    const r = await cadastrarAlunoManualAction({
+      turmaId,
+      nome: l.nome,
+      telefone: l.telefone,
+      email: l.email,
+      observacao: 'Importado de planilha',
+    })
+
+    if (r.ok) {
+      resultado.importados += 1
+    } else if (/já está|ja esta|já inscrit/i.test(r.erro)) {
+      // Quem já estava na turma não é erro — é a segunda importação da mesma
+      // lista, que precisa ser inofensiva.
+      resultado.jaEstavam += 1
+    } else {
+      resultado.falhas.push({ linha: l.linha, nome: l.nome, motivo: r.erro })
+    }
+  }
+
+  revalidarTurma(turmaId)
+  return { ok: true, resultado }
 }

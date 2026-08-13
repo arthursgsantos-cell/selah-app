@@ -42,6 +42,11 @@ interface Props {
   edificacaoResumo: string | null
   resumosDisponiveis: ResumoDisponivel[]
   resumoCultoId: string | null
+  /**
+   * Roteiro cuja validade cobre o dia do encontro. Entra quando ninguém
+   * vinculou nada à mão — ver `lib/encontro-roteiro.ts`.
+   */
+  resumoAutomaticoId: string | null
   currentUserId: string
   conjugeNome: string | null
 }
@@ -65,6 +70,7 @@ export function EscalaSection({
   edificacaoResumo,
   resumosDisponiveis,
   resumoCultoId,
+  resumoAutomaticoId,
   currentUserId,
   conjugeNome,
 }: Props) {
@@ -73,7 +79,11 @@ export function EscalaSection({
   const [selectedId, setSelectedId] = useState<string>('')
   const [editComConjuge, setEditComConjuge] = useState(false)
   const [editResumo, setEditResumo] = useState(false)
-  const [selectedResumoId, setSelectedResumoId] = useState<string>(resumoCultoId ?? '')
+  // Abrir a edição já com o que está em tela — inclusive o vindo do período,
+  // para "trocar" não começar do zero.
+  const [selectedResumoId, setSelectedResumoId] = useState<string>(
+    resumoCultoId ?? resumoAutomaticoId ?? ''
+  )
 
   function startEdit(escala: EscalaItem) {
     setEditFuncao(escala.funcao)
@@ -108,9 +118,16 @@ export function EscalaSection({
     })
   }
 
-  const resumoVinculado = resumosDisponiveis.find(
-    (r) => r.id === (editResumo ? selectedResumoId : resumoCultoId)
-  ) ?? null
+  // A escolha manual ganha do automático: ela existe justamente para a célula
+  // atrasada que quer estudar o roteiro da semana anterior.
+  const idExibido = editResumo
+    ? selectedResumoId
+    : resumoCultoId ?? resumoAutomaticoId
+
+  const resumoVinculado = resumosDisponiveis.find((r) => r.id === idExibido) ?? null
+
+  /** Veio pelo período, não por alguém ter escolhido. */
+  const vindoDoPeriodo = !editResumo && !resumoCultoId && !!resumoVinculado
 
   return (
     <div className="space-y-4">
@@ -231,7 +248,7 @@ export function EscalaSection({
                         {isPending ? 'Salvando...' : 'Salvar'}
                       </Button>
                       <Button size="sm" variant="ghost" onClick={() => {
-                        setSelectedResumoId(resumoCultoId ?? '')
+                        setSelectedResumoId(resumoCultoId ?? resumoAutomaticoId ?? '')
                         setEditResumo(false)
                       }}>
                         Cancelar
@@ -239,7 +256,15 @@ export function EscalaSection({
                     </div>
                   </div>
                 ) : resumoVinculado ? (
-                  <ResumoCard resumo={resumoVinculado} />
+                  <>
+                    <ResumoCard resumo={resumoVinculado} />
+                    {vindoDoPeriodo && (
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        Vinculado pela data — este encontro cai dentro da validade
+                        do roteiro.
+                      </p>
+                    )}
+                  </>
                 ) : (
                   <p className="text-sm text-muted-foreground">
                     {canEdit ? (

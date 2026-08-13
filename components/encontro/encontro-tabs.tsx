@@ -6,8 +6,11 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 interface Props {
   /** Informações + presença — o que se olha antes do encontro. */
   encontro: ReactNode
-  /** Escala e lista de lanche — quem faz o quê. */
+  /** Escala e roteiro — quem faz o quê. */
   programacao: ReactNode
+  /** O que cada um leva. Saiu da Programação: é a parte que mais gente mexe,
+   *  e era a última coisa da aba, embaixo de uma escala inteira. */
+  lanche: ReactNode
   /** Fotos e compartilhamento — depois que aconteceu. */
   registro: ReactNode
   /** Contadores discretos ajudam a ver onde há coisa pendente. */
@@ -22,6 +25,7 @@ const triggerCls =
 export function EncontroTabs({
   encontro,
   programacao,
+  lanche,
   registro,
   totalEscalados,
   totalLanches,
@@ -36,9 +40,17 @@ export function EncontroTabs({
           </TabsTrigger>
           <TabsTrigger value="programacao" className={triggerCls}>
             Programação
-            {totalEscalados + totalLanches > 0 && (
+            {totalEscalados > 0 && (
               <span className="ml-1.5 text-[10px] text-muted-foreground tabular-nums">
-                {totalEscalados + totalLanches}
+                {totalEscalados}
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="lanche" className={triggerCls}>
+            Lanche
+            {totalLanches > 0 && (
+              <span className="ml-1.5 text-[10px] text-muted-foreground tabular-nums">
+                {totalLanches}
               </span>
             )}
           </TabsTrigger>
@@ -58,6 +70,9 @@ export function EncontroTabs({
       </TabsContent>
       <TabsContent value="programacao" className="mt-4 space-y-4">
         {programacao}
+      </TabsContent>
+      <TabsContent value="lanche" className="mt-4 space-y-4">
+        {lanche}
       </TabsContent>
       <TabsContent value="registro" className="mt-4 space-y-4">
         {registro}
