@@ -9,10 +9,15 @@ import { ptBR } from 'date-fns/locale'
 export type FotoLightbox = {
   url: string
   legenda?: string | null
-  /** Nome da célula, para a marca d'água. */
+  /** Linha grande da marca d'água — o nome da célula, ou o da turma. */
   celula?: string | null
-  /** Nome da rede a que a célula pertence. */
+  /** Nome da rede a que a célula pertence. Vira "Rede X" na marca d'água. */
   rede?: string | null
+  /**
+   * Substitui a linha "Rede X" por um texto próprio, quando a foto não é de
+   * uma rede — o registro de uma turma põe o nome do curso aqui.
+   */
+  contexto?: string | null
   /** ISO da data em que a foto foi publicada. */
   data?: string | null
 }
@@ -45,7 +50,7 @@ type CaixaFoto = { left: number; width: number; bottom: number }
  * desaparece.
  */
 function MarcaDagua({ foto, caixa }: { foto: FotoLightbox; caixa: CaixaFoto | null }) {
-  const temTexto = foto.celula || foto.rede || foto.data
+  const temTexto = foto.celula || foto.rede || foto.contexto || foto.data
   if (!temTexto || !caixa) return null
 
   return (
@@ -53,9 +58,9 @@ function MarcaDagua({ foto, caixa }: { foto: FotoLightbox; caixa: CaixaFoto | nu
       style={{ left: caixa.left, width: caixa.width, bottom: caixa.bottom }}
       className="pointer-events-none absolute rounded-b-lg bg-gradient-to-t from-black/70 via-black/35 to-transparent px-4 pb-3 pt-10"
     >
-      {foto.rede && (
+      {(foto.contexto || foto.rede) && (
         <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/70 drop-shadow">
-          Rede {foto.rede}
+          {foto.contexto ?? `Rede ${foto.rede}`}
         </p>
       )}
       {foto.celula && (

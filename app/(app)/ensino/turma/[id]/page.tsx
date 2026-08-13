@@ -22,6 +22,7 @@ import { TurmaFundo } from '@/components/ensino/turma-fundo'
 import { TurmaCapa } from '@/components/ensino/turma-capa'
 import { FundoGaleria } from '@/components/shared/fundo-galeria'
 import { MateriaisLista, type MaterialItem } from '@/components/ensino/materiais-lista'
+import { RegistroAulas, type FotoRegistro } from '@/components/ensino/registro-aulas'
 import { BotaoVideoChamada } from '@/components/ensino/botao-videochamada'
 import { linkDaVideoChamada } from '@/lib/ensino/videochamada'
 import { RedeShareButton } from '@/components/rede/rede-share-button'
@@ -159,7 +160,7 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
   const inscrito =
     minhaInscricao !== null && ['aprovada', 'concluida'].includes(minhaInscricao.status)
 
-  const [aulasRes, materiaisRes] = await Promise.all([
+  const [aulasRes, materiaisRes, registroRes] = await Promise.all([
     inscrito || leciona
       ? supabase
           .from('ensino_aulas')
@@ -173,6 +174,14 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
       .eq('turma_id', turma.id)
       .order('ordem')
       .order('criado_em', { ascending: false }),
+    // Fotos do registro. A RLS já limita a quem está na turma ou a leciona.
+    inscrito || leciona
+      ? supabase
+          .from('ensino_aula_fotos')
+          .select('id, url, legenda, criado_em, aula_id, ensino_aulas(numero, titulo, data)')
+          .eq('turma_id', turma.id)
+          .order('criado_em', { ascending: false })
+      : Promise.resolve({ data: [] }),
   ])
 
   const aulas = (aulasRes.data ?? []) as {
@@ -195,6 +204,19 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
     publico: m.publico,
     criadoEm: m.criado_em,
     aulaNumero: m.ensino_aulas?.numero ?? null,
+  }))
+
+  const fotosRegistro: FotoRegistro[] = ((registroRes.data ?? []) as unknown as {
+    id: string; url: string; legenda: string | null; criado_em: string
+    ensino_aulas: { numero: number; titulo: string | null; data: string } | null
+  }[]).map((f) => ({
+    id: f.id,
+    url: f.url,
+    legenda: f.legenda,
+    criadoEm: f.criado_em,
+    aulaNumero: f.ensino_aulas?.numero ?? null,
+    aulaTitulo: f.ensino_aulas?.titulo ?? null,
+    aulaData: f.ensino_aulas?.data ?? null,
   }))
 
   const restantes = vagasRestantes(turma.vagas, aprovados)
@@ -533,6 +555,24 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
             )}
           </div>
         </section>
+      )}
+
+      {/* Registro — as fotos do que aconteceu. Antes dos materiais porque é
+          memória da turma, não conteúdo de estudo. */}
+      {(inscrito || leciona) && (fotosRegistro.length > 0 || leciona) && (
+        <RegistroAulas
+          turmaId={turma.id}
+          turmaNome={turma.nome}
+          cursoNome={turma.ensino_cursos?.nome ?? 'Ensino'}
+          fotos={fotosRegistro}
+          aulas={aulas.map((a) => ({
+            id: a.id,
+            numero: a.numero,
+            titulo: a.titulo ?? `Aula ${a.numero}`,
+            data: a.data,
+          }))}
+          canEdit={leciona}
+        />
       )}
 
       {/* Materiais */}

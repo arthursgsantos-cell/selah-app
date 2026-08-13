@@ -2172,6 +2172,36 @@ export type Database = {
         }
         Relationships: []
       }
+      ensino_aula_fotos: {
+        Row: {
+          id: string
+          turma_id: string
+          aula_id: string | null
+          url: string
+          legenda: string | null
+          criado_por: string | null
+          criado_em: string
+        }
+        Insert: {
+          id?: string
+          turma_id: string
+          aula_id?: string | null
+          url: string
+          legenda?: string | null
+          criado_por?: string | null
+          criado_em?: string
+        }
+        Update: {
+          id?: string
+          turma_id?: string
+          aula_id?: string | null
+          url?: string
+          legenda?: string | null
+          criado_por?: string | null
+          criado_em?: string
+        }
+        Relationships: []
+      }
       campanhas_contribuicao: {
         Row: {
           id: string
