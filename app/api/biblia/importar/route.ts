@@ -45,6 +45,30 @@ interface CorpoImportacao {
 
 const LOTE = 2000
 
+/**
+ * Apelidos de sigla que os arquivos por aí usam.
+ *
+ * Não há padrão: o mesmo livro aparece como `at`, `atos` ou `act` conforme o
+ * repositório. Normalizar aqui evita editar o JSON à mão a cada importação —
+ * e um livro que não casasse sumiria em silêncio no relatório de ignorados,
+ * que é o pior desfecho possível para Atos.
+ */
+const APELIDOS: Record<string, string> = {
+  atos: 'at', act: 'at', acts: 'at',
+  job: 'jó', jó: 'jó', jo_: 'jó',
+  cant: 'ct', cantares: 'ct', ct: 'ct',
+  ap: 'ap', apoc: 'ap', re: 'ap', rev: 'ap',
+  ecl: 'ec', prov: 'pv', sal: 'sl', salmos: 'sl',
+  fl: 'fp', filipenses: 'fp',
+  '1ss': '1ts', '2ss': '2ts',
+}
+
+/** A sigla como está em `biblia_livros`, ou a original se não houver apelido. */
+function normalizarSigla(bruta: string): string {
+  const limpa = (bruta ?? '').trim().toLowerCase()
+  return APELIDOS[limpa] ?? limpa
+}
+
 export async function POST(request: Request) {
   // Quem autoriza é o cliente do usuário: a rota só segue se o perfil de quem
   // chamou for pastor ou admin.
@@ -105,7 +129,7 @@ export async function POST(request: Request) {
   const ignorados: string[] = []
 
   for (const livro of corpo.livros) {
-    const registro = porSigla.get((livro.abbrev ?? '').toLowerCase())
+    const registro = porSigla.get(normalizarSigla(livro.abbrev))
     if (!registro) {
       ignorados.push(livro.abbrev)
       continue
