@@ -39,6 +39,22 @@ export default async function AlunosEnsinoPage() {
     pendentes: a.pendentes,
     percentual: a.percentual,
     registros: a.registros,
+    // O que a carteirinha abre ao clicar na linha. `listarAlunos` já traz tudo
+    // isto, então não custa uma consulta a mais.
+    email: a.email,
+    telefone: a.telefone,
+    presentes: a.presentes,
+    celulas: a.celulas.map((c) => ({ nome: c.nome, papel: c.papel, redeNome: c.redeNome })),
+    matriculas: a.matriculas.map((m) => ({
+      turmaId: m.turmaId,
+      turmaNome: m.turmaNome,
+      cursoNome: m.cursoNome,
+      status: m.status,
+      modo: m.modo,
+      presentes: m.presentes,
+      registros: m.registros,
+      percentual: m.percentual,
+    })),
   }))
 
   const presentes = alunos.reduce((s, a) => s + a.presentes, 0)

@@ -108,6 +108,55 @@ export type CampoFormulario = {
   maxRepeticoes?: number
 }
 
+/**
+ * Os três tipos de atividade.
+ *
+ * `tarefa` é a livre ("faça as questões do livro X") — o aluno marca feito e
+ * comenta. `leitura` gera um cronograma de capítulos que ele vai riscando.
+ * `quiz` é a prova, com perguntas e correção.
+ */
+export type TipoAtividade = 'tarefa' | 'leitura' | 'quiz'
+
+/**
+ * `entregue` é o aluno terminando; `corrigida` é o professor devolvendo.
+ * O quiz só de marcar pula direto para `corrigida`, porque o app já sabe a nota.
+ */
+export type StatusEntrega = 'pendente' | 'entregue' | 'corrigida'
+
+/** Blocos que o professor arrasta para montar a página da atividade. */
+export type TipoSecaoAtividade = 'texto' | 'imagem' | 'video' | 'perguntas'
+
+/** `unica`/`multipla` o app corrige sozinho; `texto`/`longo` esperam leitura. */
+export type TipoPergunta = 'unica' | 'multipla' | 'texto' | 'longo'
+
+export interface OpcaoPergunta {
+  id: string
+  texto: string
+  /** Nunca chega à tela do aluno antes da correção. */
+  correta: boolean
+}
+
+/** Um pedaço de Bíblia: "Tiago 1 a 5", "Mateus inteiro". */
+export interface TrechoLeitura {
+  livroId: number
+  capituloInicio: number
+  capituloFim: number
+}
+
+/**
+ * A receita do plano de leitura — o que gerou o cronograma, não o cronograma.
+ *
+ * `repeticoes`: ler o mesmo trecho N vezes até o prazo (as 30 voltas em Tiago).
+ * `percurso`: atravessar os trechos uma vez só (Mateus a Apocalipse até o dia X).
+ */
+export interface ConfigLeitura {
+  modo: 'repeticoes' | 'percurso'
+  trechos: TrechoLeitura[]
+  repeticoes: number
+}
+
+export type Testamento = 'AT' | 'NT'
+
 export type Database = {
   public: {
     Tables: {
@@ -2199,6 +2248,354 @@ export type Database = {
           legenda?: string | null
           criado_por?: string | null
           criado_em?: string
+        }
+        Relationships: []
+      }
+      ensino_atividades: {
+        Row: {
+          id: string
+          turma_id: string
+          tipo: TipoAtividade
+          titulo: string
+          descricao: string | null
+          capa_url: string | null
+          fundo_url: string | null
+          fundo_opacidade: number
+          cor: string | null
+          video_url: string | null
+          abre_em: string | null
+          prazo: string | null
+          publicada: boolean
+          ordem: number
+          leitura: ConfigLeitura | null
+          criado_por: string | null
+          criado_em: string
+          atualizado_em: string
+        }
+        Insert: {
+          id?: string
+          turma_id: string
+          tipo: TipoAtividade
+          titulo: string
+          descricao?: string | null
+          capa_url?: string | null
+          fundo_url?: string | null
+          fundo_opacidade?: number
+          cor?: string | null
+          video_url?: string | null
+          abre_em?: string | null
+          prazo?: string | null
+          publicada?: boolean
+          ordem?: number
+          leitura?: ConfigLeitura | null
+          criado_por?: string | null
+          criado_em?: string
+          atualizado_em?: string
+        }
+        Update: {
+          id?: string
+          turma_id?: string
+          tipo?: TipoAtividade
+          titulo?: string
+          descricao?: string | null
+          capa_url?: string | null
+          fundo_url?: string | null
+          fundo_opacidade?: number
+          cor?: string | null
+          video_url?: string | null
+          abre_em?: string | null
+          prazo?: string | null
+          publicada?: boolean
+          ordem?: number
+          leitura?: ConfigLeitura | null
+          criado_por?: string | null
+          criado_em?: string
+          atualizado_em?: string
+        }
+        Relationships: []
+      }
+      ensino_atividade_secoes: {
+        Row: {
+          id: string
+          atividade_id: string
+          tipo: TipoSecaoAtividade
+          titulo: string | null
+          conteudo: string | null
+          midia_url: string | null
+          video_url: string | null
+          ordem: number
+          criado_em: string
+        }
+        Insert: {
+          id?: string
+          atividade_id: string
+          tipo: TipoSecaoAtividade
+          titulo?: string | null
+          conteudo?: string | null
+          midia_url?: string | null
+          video_url?: string | null
+          ordem?: number
+          criado_em?: string
+        }
+        Update: {
+          id?: string
+          atividade_id?: string
+          tipo?: TipoSecaoAtividade
+          titulo?: string | null
+          conteudo?: string | null
+          midia_url?: string | null
+          video_url?: string | null
+          ordem?: number
+          criado_em?: string
+        }
+        Relationships: []
+      }
+      ensino_atividade_perguntas: {
+        Row: {
+          id: string
+          atividade_id: string
+          secao_id: string | null
+          ordem: number
+          enunciado: string
+          tipo: TipoPergunta
+          opcoes: OpcaoPergunta[]
+          resposta_esperada: string | null
+          pontos: number
+          obrigatoria: boolean
+          midia_url: string | null
+          midia_tipo: 'imagem' | 'video' | null
+          criado_em: string
+        }
+        Insert: {
+          id?: string
+          atividade_id: string
+          secao_id?: string | null
+          ordem?: number
+          enunciado: string
+          tipo: TipoPergunta
+          opcoes?: OpcaoPergunta[]
+          resposta_esperada?: string | null
+          pontos?: number
+          obrigatoria?: boolean
+          midia_url?: string | null
+          midia_tipo?: 'imagem' | 'video' | null
+          criado_em?: string
+        }
+        Update: {
+          id?: string
+          atividade_id?: string
+          secao_id?: string | null
+          ordem?: number
+          enunciado?: string
+          tipo?: TipoPergunta
+          opcoes?: OpcaoPergunta[]
+          resposta_esperada?: string | null
+          pontos?: number
+          obrigatoria?: boolean
+          midia_url?: string | null
+          midia_tipo?: 'imagem' | 'video' | null
+          criado_em?: string
+        }
+        Relationships: []
+      }
+      ensino_atividade_entregas: {
+        Row: {
+          id: string
+          atividade_id: string
+          inscricao_id: string
+          status: StatusEntrega
+          concluida: boolean
+          comentario: string | null
+          nota: number | null
+          observacao: string | null
+          entregue_em: string | null
+          corrigida_em: string | null
+          corrigida_por: string | null
+          atualizado_em: string
+        }
+        Insert: {
+          id?: string
+          atividade_id: string
+          inscricao_id: string
+          status?: StatusEntrega
+          concluida?: boolean
+          comentario?: string | null
+          nota?: number | null
+          observacao?: string | null
+          entregue_em?: string | null
+          corrigida_em?: string | null
+          corrigida_por?: string | null
+          atualizado_em?: string
+        }
+        Update: {
+          id?: string
+          atividade_id?: string
+          inscricao_id?: string
+          status?: StatusEntrega
+          concluida?: boolean
+          comentario?: string | null
+          nota?: number | null
+          observacao?: string | null
+          entregue_em?: string | null
+          corrigida_em?: string | null
+          corrigida_por?: string | null
+          atualizado_em?: string
+        }
+        Relationships: []
+      }
+      ensino_atividade_respostas: {
+        Row: {
+          id: string
+          entrega_id: string
+          pergunta_id: string
+          opcoes: string[]
+          texto: string | null
+          correta: boolean | null
+          pontos: number | null
+          atualizado_em: string
+        }
+        Insert: {
+          id?: string
+          entrega_id: string
+          pergunta_id: string
+          opcoes?: string[]
+          texto?: string | null
+          correta?: boolean | null
+          pontos?: number | null
+          atualizado_em?: string
+        }
+        Update: {
+          id?: string
+          entrega_id?: string
+          pergunta_id?: string
+          opcoes?: string[]
+          texto?: string | null
+          correta?: boolean | null
+          pontos?: number | null
+          atualizado_em?: string
+        }
+        Relationships: []
+      }
+      ensino_leitura_itens: {
+        Row: {
+          id: string
+          atividade_id: string
+          inscricao_id: string
+          ordem: number
+          rotulo: string
+          livro_id: number | null
+          capitulo_inicio: number | null
+          capitulo_fim: number | null
+          rodada: number
+          data_prevista: string | null
+          feito: boolean
+          feito_em: string | null
+        }
+        Insert: {
+          id?: string
+          atividade_id: string
+          inscricao_id: string
+          ordem: number
+          rotulo: string
+          livro_id?: number | null
+          capitulo_inicio?: number | null
+          capitulo_fim?: number | null
+          rodada?: number
+          data_prevista?: string | null
+          feito?: boolean
+          feito_em?: string | null
+        }
+        Update: {
+          id?: string
+          atividade_id?: string
+          inscricao_id?: string
+          ordem?: number
+          rotulo?: string
+          livro_id?: number | null
+          capitulo_inicio?: number | null
+          capitulo_fim?: number | null
+          rodada?: number
+          data_prevista?: string | null
+          feito?: boolean
+          feito_em?: string | null
+        }
+        Relationships: []
+      }
+      biblia_livros: {
+        Row: {
+          id: number
+          sigla: string
+          nome: string
+          testamento: Testamento
+          capitulos: number
+        }
+        Insert: {
+          id: number
+          sigla: string
+          nome: string
+          testamento: Testamento
+          capitulos: number
+        }
+        Update: {
+          id?: number
+          sigla?: string
+          nome?: string
+          testamento?: Testamento
+          capitulos?: number
+        }
+        Relationships: []
+      }
+      biblia_versoes: {
+        Row: {
+          id: string
+          nome: string
+          abreviacao: string
+          ano: number | null
+          dominio_publico: boolean
+          fonte: string | null
+          ordem: number
+        }
+        Insert: {
+          id: string
+          nome: string
+          abreviacao: string
+          ano?: number | null
+          dominio_publico?: boolean
+          fonte?: string | null
+          ordem?: number
+        }
+        Update: {
+          id?: string
+          nome?: string
+          abreviacao?: string
+          ano?: number | null
+          dominio_publico?: boolean
+          fonte?: string | null
+          ordem?: number
+        }
+        Relationships: []
+      }
+      biblia_versiculos: {
+        Row: {
+          versao_id: string
+          livro_id: number
+          capitulo: number
+          versiculo: number
+          texto: string
+        }
+        Insert: {
+          versao_id: string
+          livro_id: number
+          capitulo: number
+          versiculo: number
+          texto: string
+        }
+        Update: {
+          versao_id?: string
+          livro_id?: number
+          capitulo?: number
+          versiculo?: number
+          texto?: string
         }
         Relationships: []
       }

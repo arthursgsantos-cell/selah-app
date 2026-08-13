@@ -82,11 +82,13 @@ O endereço usa o **número**, não o UUID da aula. `unique (turma_id, numero)` 
 garante unicidade dentro da turma, o caminho diz de que turma se trata, e o
 link sobrevive a um recadastro da aula.
 
-O vídeo sai de um material de `tipo = 'video'` vinculado àquela aula, resolvido
-por `lib/video-embed.ts`. É a única tela do módulo onde a URL do material
-aparece no HTML — é o preço de tocar dentro da página, e só chega ali quem a
-policy já deixou ver o material. Vídeo que não vira embed (Drive, por exemplo)
-cai na lista de materiais como link.
+O vídeo sai de um material vinculado àquela aula, resolvido por
+`lib/video-embed.ts`. Vale tanto o `tipo = 'video'` quanto o `tipo = 'link'`
+que aponta para um: quem cola o endereço de uma aula do YouTube no campo de
+link não quis um item na lista de downloads, quis a aula. É a única tela do
+módulo onde a URL do material aparece no HTML — é o preço de tocar dentro da
+página, e só chega ali quem a policy já deixou ver o material. Vídeo que não
+vira embed (Drive, por exemplo) cai na lista de materiais como link.
 
 ## Materiais
 
@@ -327,3 +329,8 @@ ser preenchida no cadastro. Só vira problema no dia em que incomodar.
 Localização na presença, validação por horário/geocerca, emissão de certificado,
 CREICER infantil, exportação para Excel e notificações. Nada disso tem coluna
 reservada — quando entrarem, entram como migração nova.
+
+## Atividades
+
+O que a turma faz entre um encontro e outro — tarefa, desafio de leitura
+bíblica e prova — vive em `docs/modulo-atividades.md`, com a Bíblia junto.

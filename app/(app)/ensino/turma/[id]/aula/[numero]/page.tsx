@@ -155,10 +155,20 @@ export default async function AulaPage({
     criado_em: string
   }[]
 
-  // O endereço do vídeo aparece no HTML — é o preço de tocar dentro da página,
-  // e só chega aqui quem a policy já deixou ver o material.
+  /**
+   * O que toca no topo da página.
+   *
+   * Vale tanto o material cadastrado como `video` quanto o `link` que aponta
+   * para um: quem cola o endereço de uma aula do YouTube no campo de link não
+   * quis um item na lista de downloads, quis a aula. `resolverVideo` é quem
+   * decide — Drive, Dropbox e site qualquer devolvem `null` e continuam
+   * descendo para a lista de materiais como link.
+   *
+   * O endereço do vídeo aparece no HTML — é o preço de tocar dentro da página,
+   * e só chega aqui quem a policy já deixou ver o material.
+   */
   const players = materiais
-    .filter((m) => m.tipo === 'video')
+    .filter((m) => m.tipo === 'video' || m.tipo === 'link')
     .map((m) => ({ material: m, embed: resolverVideo(m.url) }))
     .filter((v) => v.embed !== null)
 

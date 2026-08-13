@@ -1,9 +1,9 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import Link from 'next/link'
 import { Search, X, ChevronRight, Users } from 'lucide-react'
 import { corFrequencia } from '@/lib/ensino/turma'
+import { AlunoCarteirinha, type MatriculaCartao } from '@/components/ensino/aluno-carteirinha'
 
 export interface AlunoLinha {
   slug: string
@@ -18,6 +18,14 @@ export interface AlunoLinha {
   pendentes: number
   percentual: number | null
   registros: number
+  /* A partir daqui, o que só a carteirinha usa. Vem junto da lista em vez de
+     por uma busca ao abrir: são dezenas de alunos e a consulta que monta a
+     tabela já trouxe tudo isso do banco. */
+  email: string | null
+  telefone: string | null
+  presentes: number
+  celulas: { nome: string; papel: string; redeNome: string | null }[]
+  matriculas: MatriculaCartao[]
 }
 
 type Ordem = 'nome' | 'frequencia' | 'cursos'
@@ -49,6 +57,7 @@ export function AlunosTabela({ alunos }: { alunos: AlunoLinha[] }) {
   const [busca, setBusca] = useState('')
   const [curso, setCurso] = useState('')
   const [ordem, setOrdem] = useState<Ordem>('nome')
+  const [aberto, setAberto] = useState<AlunoLinha | null>(null)
 
   const cursos = useMemo(
     () => [...new Set(alunos.flatMap((a) => a.cursos))].sort((a, b) => a.localeCompare(b, 'pt-BR')),
@@ -179,10 +188,11 @@ export function AlunosTabela({ alunos }: { alunos: AlunoLinha[] }) {
 
           <div className="divide-y">
             {filtrados.map((a) => (
-              <Link
+              <button
                 key={a.slug}
-                href={`/ensino/alunos/${a.slug}`}
-                className="flex items-center gap-3 px-3 py-2.5 hover:bg-accent transition-colors"
+                type="button"
+                onClick={() => setAberto(a)}
+                className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-accent transition-colors"
               >
                 <div className="flex items-center gap-2.5 min-w-0 flex-1">
                   <div className="h-8 w-8 shrink-0 rounded-full bg-muted text-muted-foreground overflow-hidden flex items-center justify-center text-[11px] font-bold">
@@ -240,11 +250,13 @@ export function AlunosTabela({ alunos }: { alunos: AlunoLinha[] }) {
                 </span>
 
                 <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-              </Link>
+              </button>
             ))}
           </div>
         </div>
       )}
+
+      <AlunoCarteirinha aluno={aberto} onFechar={() => setAberto(null)} />
     </div>
   )
 }

@@ -4,6 +4,7 @@ import type { Metadata } from 'next'
 import {
   ArrowLeft, CalendarDays, MapPin, Users, GraduationCap, ClipboardList,
   BookOpen, FolderOpen, MessageCircle, ChevronRight, Pencil, Check, Video,
+  ListChecks, CalendarClock,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/server'
@@ -160,7 +161,7 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
   const inscrito =
     minhaInscricao !== null && ['aprovada', 'concluida'].includes(minhaInscricao.status)
 
-  const [aulasRes, materiaisRes, registroRes] = await Promise.all([
+  const [aulasRes, materiaisRes, registroRes, atividadesRes] = await Promise.all([
     inscrito || leciona
       ? supabase
           .from('ensino_aulas')
@@ -181,6 +182,16 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
           .select('id, url, legenda, criado_em, aula_id, ensino_aulas(numero, titulo, data)')
           .eq('turma_id', turma.id)
           .order('criado_em', { ascending: false })
+      : Promise.resolve({ data: [] }),
+    // Atividades. A policy já esconde o rascunho de quem é só aluno, então a
+    // mesma consulta serve às duas visões.
+    inscrito || leciona
+      ? supabase
+          .from('ensino_atividades')
+          .select('id, tipo, titulo, prazo, publicada')
+          .eq('turma_id', turma.id)
+          .order('ordem')
+          .order('criado_em')
       : Promise.resolve({ data: [] }),
   ])
 
@@ -208,16 +219,24 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
 
   const fotosRegistro: FotoRegistro[] = ((registroRes.data ?? []) as unknown as {
     id: string; url: string; legenda: string | null; criado_em: string
+    aula_id: string | null
     ensino_aulas: { numero: number; titulo: string | null; data: string } | null
   }[]).map((f) => ({
     id: f.id,
     url: f.url,
     legenda: f.legenda,
     criadoEm: f.criado_em,
+    aulaId: f.aula_id,
     aulaNumero: f.ensino_aulas?.numero ?? null,
     aulaTitulo: f.ensino_aulas?.titulo ?? null,
     aulaData: f.ensino_aulas?.data ?? null,
   }))
+
+  const atividades = (atividadesRes.data ?? []) as {
+    id: string; tipo: 'tarefa' | 'leitura' | 'quiz'; titulo: string
+    prazo: string | null; publicada: boolean
+  }[]
+  const atividadesCount = atividades.length
 
   const restantes = vagasRestantes(turma.vagas, aprovados)
   const disponivel = inscricoesDisponiveis(turma, aprovados)
@@ -480,6 +499,16 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
               titulo="Frequência"
               descricao="Histórico de presenças"
             />
+            <AtalhoGestao
+              href={`/ensino/turma/${chave}/atividades`}
+              icone={<ListChecks className="h-5 w-5" />}
+              titulo="Atividades"
+              descricao={
+                atividadesCount > 0
+                  ? `${atividadesCount} ${atividadesCount === 1 ? 'atividade' : 'atividades'}`
+                  : 'Tarefas, leitura e provas'
+              }
+            />
           </div>
         </section>
       )}
@@ -553,6 +582,62 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
             {linkDaVideoChamada(turma, proximaAula) && (
               <BotaoVideoChamada url={linkDaVideoChamada(turma, proximaAula)!} />
             )}
+          </div>
+        </section>
+      )}
+
+      {/* Atividades da turma. Antes do registro porque é o que tem prazo —
+          o aluno que abre a turma quer saber o que deve fazer. */}
+      {(inscrito || leciona) && atividades.length > 0 && (
+        <section className={SECAO}>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+              Atividades
+            </p>
+            {leciona && (
+              <Link
+                href={`/ensino/turma/${chave}/atividades`}
+                className="text-xs font-medium text-primary hover:underline"
+              >
+                Gerenciar
+              </Link>
+            )}
+          </div>
+          <div className={`${CARTAO_ANINHADO} divide-y overflow-hidden p-0`}>
+            {atividades.map((a) => (
+              <Link
+                key={a.id}
+                href={`/ensino/atividade/${a.id}`}
+                className="flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-accent"
+              >
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  {a.tipo === 'leitura' ? (
+                    <BookOpen className="h-4 w-4" />
+                  ) : a.tipo === 'quiz' ? (
+                    <ClipboardList className="h-4 w-4" />
+                  ) : (
+                    <ListChecks className="h-4 w-4" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium leading-tight">
+                    {a.titulo}
+                    {!a.publicada && (
+                      <span className="ml-1.5 align-middle text-[10px] text-muted-foreground">
+                        rascunho
+                      </span>
+                    )}
+                  </p>
+                  {a.prazo && (
+                    <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                      <CalendarClock className="h-2.5 w-2.5" />
+                      até {dataBr(a.prazo)}
+                    </p>
+                  )}
+                </div>
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+              </Link>
+            ))}
           </div>
         </section>
       )}

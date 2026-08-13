@@ -1,11 +1,11 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
-import { ArrowLeft, Check, X, Minus } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { loginCom } from '@/lib/destino-login'
 import { acessoEnsino, podeLecionar } from '@/lib/ensino/permissoes'
-import { corFrequencia, dataBr } from '@/lib/ensino/turma'
 import { porSlugOuId } from '@/lib/slug-ou-id'
+import { PresencasTabela } from '@/components/ensino/presencas-tabela'
 import type { StatusAula } from '@/lib/supabase/types'
 
 export const metadata = { title: 'Frequência da turma · Ensino IBZS' }
@@ -62,11 +62,12 @@ export default async function PresencasTurmaPage({ params }: { params: { id: str
     .select('aula_id, inscricao_id, presente')
     .in('aula_id', aulas.length > 0 ? aulas.map((a) => a.id) : ['-'])
 
-  // Chave "aula|inscrição" → presente. Um Map plano evita um objeto aninhado
-  // que a tabela teria de navegar a cada célula.
-  const mapa = new Map<string, boolean>()
+  // Chave "aula|inscrição" → presente. Um objeto plano evita um aninhado que a
+  // tabela teria de navegar a cada célula, e atravessa para o cliente — um Map
+  // não sobrevive à serialização do componente de servidor.
+  const marcacoes: Record<string, boolean> = {}
   for (const p of presencas ?? []) {
-    mapa.set(`${p.aula_id}|${p.inscricao_id}`, p.presente)
+    marcacoes[`${p.aula_id}|${p.inscricao_id}`] = p.presente
   }
 
   // Só as realizadas contam: incluir aulas futuras faria todo mundo aparecer
@@ -74,8 +75,8 @@ export default async function PresencasTurmaPage({ params }: { params: { id: str
   const realizadas = aulas.filter((a) => a.status === 'realizada')
 
   const linhas = alunos.map((aluno) => {
-    const marcadas = realizadas.filter((a) => mapa.has(`${a.id}|${aluno.id}`))
-    const presentes = marcadas.filter((a) => mapa.get(`${a.id}|${aluno.id}`) === true).length
+    const marcadas = realizadas.filter((a) => `${a.id}|${aluno.id}` in marcacoes)
+    const presentes = marcadas.filter((a) => marcacoes[`${a.id}|${aluno.id}`] === true).length
     const percentual = marcadas.length > 0 ? Math.round((presentes / marcadas.length) * 100) : null
     return { ...aluno, presentes, total: marcadas.length, percentual }
   })
@@ -112,74 +113,17 @@ export default async function PresencasTurmaPage({ params }: { params: { id: str
       <Voltar turmaId={params.id} nome={turma.nome} />
       <Cabecalho turma={turma} />
 
-      <p className="text-xs text-muted-foreground">
-        {realizadas.length} de {aulas.length} aulas realizadas · percentual calculado só sobre as
-        realizadas
-      </p>
-
-      {/* A tabela rola sozinha na horizontal: com 12 aulas ela não cabe na tela
-          do celular, e deixar a página inteira rolar de lado atrapalharia. */}
-      <div className="overflow-x-auto rounded-2xl border border-border">
-        <table className="w-full text-sm border-collapse">
-          <thead>
-            <tr className="bg-muted/50">
-              <th className="sticky left-0 z-10 bg-muted/50 text-left font-medium px-3 py-2 min-w-[10rem]">
-                Aluno
-              </th>
-              {aulas.map((a) => (
-                <th key={a.id} className="px-2 py-2 font-medium text-center min-w-[3rem]">
-                  <div className="text-xs">{a.numero}</div>
-                  <div className="text-[10px] font-normal text-muted-foreground">
-                    {dataBr(a.data).slice(0, 5)}
-                  </div>
-                </th>
-              ))}
-              <th className="px-3 py-2 font-medium text-right min-w-[5rem]">Frequência</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {linhas.map((linha) => (
-              <tr key={linha.id}>
-                <td className="sticky left-0 z-10 bg-background px-3 py-2 truncate max-w-[12rem]">
-                  {linha.nome}
-                </td>
-                {aulas.map((a) => {
-                  const valor = mapa.get(`${a.id}|${linha.id}`)
-                  return (
-                    <td key={a.id} className="px-2 py-2 text-center">
-                      {valor === true ? (
-                        <Check className="h-4 w-4 text-green-600 mx-auto" />
-                      ) : valor === false ? (
-                        <X className="h-4 w-4 text-red-500 mx-auto" />
-                      ) : (
-                        <Minus className="h-3 w-3 text-muted-foreground/30 mx-auto" />
-                      )}
-                    </td>
-                  )
-                })}
-                <td className={`px-3 py-2 text-right font-semibold ${corFrequencia(linha.percentual)}`}>
-                  {linha.percentual === null ? '—' : `${linha.percentual}%`}
-                  <span className="block text-[10px] font-normal text-muted-foreground">
-                    {linha.presentes}/{linha.total}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1">
-          <Check className="h-3.5 w-3.5 text-green-600" /> presente
-        </span>
-        <span className="flex items-center gap-1">
-          <X className="h-3.5 w-3.5 text-red-500" /> falta
-        </span>
-        <span className="flex items-center gap-1">
-          <Minus className="h-3 w-3 text-muted-foreground/40" /> sem registro
-        </span>
-      </div>
+      <PresencasTabela
+        aulas={aulas.map((a) => ({ id: a.id, numero: a.numero, data: a.data, status: a.status }))}
+        linhas={linhas.map((l) => ({
+          id: l.id,
+          nome: l.nome,
+          presentes: l.presentes,
+          total: l.total,
+          percentual: l.percentual,
+        }))}
+        marcacoes={marcacoes}
+      />
     </div>
   )
 }

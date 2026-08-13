@@ -11,6 +11,8 @@ import {
   HandCoins,
   HeartHandshake,
   ListFilter,
+  BookOpen,
+  ListChecks,
   type LucideIcon,
 } from 'lucide-react'
 import type { Role } from '@/lib/supabase/types'
@@ -43,6 +45,11 @@ export const NAV_SECTIONS: NavSection[] = [
       // Aberto a todos: é por aqui que o membro descobre as turmas e pede
       // inscrição. Professor e coordenação chegam aos painéis pelo hub.
       { href: '/ensino',      label: 'Ensino',      icon: GraduationCap,  minRole: null },
+      // Fora do hub do Ensino de propósito: quem tem tarefa para entregar abre
+      // o app por causa dela, e não deve ter de passar pela lista de turmas.
+      // A própria página se vira quando não há nada — mostra o estado vazio.
+      { href: '/ensino/atividades', label: 'Atividades', icon: ListChecks, minRole: null },
+      { href: '/biblia',      label: 'Bíblia',      icon: BookOpen,       minRole: null },
       { href: '/historico',   label: 'Histórico',   icon: History,        minRole: null },
       { href: '/formularios', label: 'Formulários', icon: ClipboardList,  minRole: 'lider' as Role },
     ],

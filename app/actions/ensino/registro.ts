@@ -75,6 +75,59 @@ export async function publicarFotoAulaAction(
   return { ok: true }
 }
 
+/**
+ * Troca (ou tira) a aula de uma foto já publicada.
+ *
+ * Na prática ninguém escolhe a aula certa no momento do envio: as fotos do
+ * semestre sobem de uma vez, do rolo do celular, e só depois se separa o que é
+ * de cada encontro. Sem isto, corrigir uma etiqueta errada exigia apagar a foto
+ * e enviá-la de novo.
+ *
+ * `aulaId` nulo devolve a foto à turma, que é o estado de quem não pertence a
+ * um encontro específico — a confraternização, a foto da turma inteira.
+ */
+export async function definirAulaDaFotoAction(
+  fotoId: string,
+  aulaId: string | null
+): Promise<ResultadoAcao> {
+  const acesso = await acessoEnsino()
+  if (!acesso) return { ok: false, erro: 'Não autenticado.' }
+
+  const admin = createAdminClient()
+  const { data: foto } = await admin
+    .from('ensino_aula_fotos')
+    .select('id, turma_id')
+    .eq('id', fotoId)
+    .maybeSingle()
+
+  if (!foto) return { ok: false, erro: 'Foto não encontrada.' }
+  if (!(await podeLecionar(acesso, foto.turma_id))) {
+    return { ok: false, erro: 'Você não administra esta turma.' }
+  }
+
+  // Mesma checagem do envio: a aula tem de ser desta turma, senão a foto
+  // apareceria no registro de outra e a data da tag viria errada.
+  if (aulaId) {
+    const { data: aula } = await admin
+      .from('ensino_aulas')
+      .select('turma_id')
+      .eq('id', aulaId)
+      .maybeSingle()
+    if (!aula || aula.turma_id !== foto.turma_id) {
+      return { ok: false, erro: 'Esta aula não é da turma.' }
+    }
+  }
+
+  const { error } = await admin
+    .from('ensino_aula_fotos')
+    .update({ aula_id: aulaId })
+    .eq('id', fotoId)
+  if (error) return { ok: false, erro: error.message }
+
+  revalidatePath(`/ensino/turma/${foto.turma_id}`)
+  return { ok: true }
+}
+
 export async function removerFotoAulaAction(fotoId: string): Promise<ResultadoAcao> {
   const acesso = await acessoEnsino()
   if (!acesso) return { ok: false, erro: 'Não autenticado.' }
