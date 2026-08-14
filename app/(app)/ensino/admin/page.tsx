@@ -1,6 +1,10 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { ArrowLeft, Settings, Users, GraduationCap, ClipboardCheck, ChevronRight, Banknote } from 'lucide-react'
+import {
+  ArrowLeft, Settings, Users, GraduationCap, ClipboardCheck, ChevronRight, Banknote,
+  BookOpen,
+} from 'lucide-react'
+import { PainelAbas } from '@/components/shared/painel-abas'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { loginCom } from '@/lib/destino-login'
 import { acessoEnsino } from '@/lib/ensino/permissoes'
@@ -151,6 +155,51 @@ export default async function AdminEnsinoPage() {
   const mediaGeral =
     totalRegistros > 0 ? Math.round((totalPresentes / totalRegistros) * 100) : null
 
+  const conteudoTurmas =
+    turmas.length === 0 ? (
+      <div className="rounded-2xl border border-dashed border-border py-10 text-center">
+        <p className="text-sm text-muted-foreground">Nenhuma turma criada ainda.</p>
+      </div>
+    ) : (
+      <div className={`${PAINEL} p-0 overflow-hidden`}>
+        <div className="divide-y">
+          {turmas.map((t) => {
+            const r = porTurma.get(t.id)!
+            const media = r.registros > 0 ? Math.round((r.presentes / r.registros) * 100) : null
+            return (
+              <Link
+                key={t.id}
+                href={`/ensino/turma/${t.slug ?? t.id}`}
+                className="flex items-center gap-3 px-4 py-3 hover:bg-accent transition-colors"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium leading-tight truncate">{t.nome}</p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {t.ensino_cursos?.nome} · {r.aprovados}{' '}
+                    {r.aprovados === 1 ? 'aluno' : 'alunos'}
+                    {r.pendentes > 0 && (
+                      <span className="text-amber-600 font-medium"> · {r.pendentes} pendentes</span>
+                    )}
+                  </p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className={`text-sm font-semibold ${corFrequencia(media)}`}>
+                    {media === null ? '—' : `${media}%`}
+                  </p>
+                  <span
+                    className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${STATUS_TURMA[t.status].classe}`}
+                  >
+                    {STATUS_TURMA[t.status].label}
+                  </span>
+                </div>
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+              </Link>
+            )
+          })}
+        </div>
+      </div>
+    )
+
   return (
     <div className="space-y-6 max-w-2xl mx-auto pb-6">
       <Link
@@ -191,128 +240,102 @@ export default async function AdminEnsinoPage() {
         />
       </div>
 
-      {/* Ficha dos alunos — a visão por pessoa, que as telas de turma não dão */}
-      <Link
-        href="/ensino/alunos"
-        className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3.5 shadow-sm transition-colors hover:bg-accent"
-      >
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-          <Users className="h-4 w-4" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold leading-tight">Ver alunos</p>
-          <p className="truncate text-xs text-muted-foreground">
-            {totalPessoas === 0
-              ? 'Ninguém inscrito ainda'
-              : `${totalPessoas} ${totalPessoas === 1 ? 'pessoa' : 'pessoas'} · cursos, frequência e ficha completa`}
-          </p>
-        </div>
-        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-      </Link>
-
-      {/* Cursos */}
-      <section>
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
-          Cursos
-        </p>
-        <CursosGestao cursos={cursos} podeExcluir />
-      </section>
-
-      {/* Equipe */}
-      <section>
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
-          Professores
-        </p>
-        <EquipeGestao equipe={equipe} meuId={acesso.userId} />
-      </section>
-
-      {/* Pagamentos — só as turmas que cobram */}
-      {financeiro.length > 0 && (
-        <section>
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
-            Pagamentos
-          </p>
-          <div className={`${PAINEL} p-0 overflow-hidden`}>
-            <div className="divide-y">
-              {financeiro.map((f) => (
+      <PainelAbas
+        abas={[
+          {
+            id: 'turmas',
+            titulo: 'Turmas',
+            descricao: 'Cada turma, com quantos alunos e como está a presença.',
+            icone: <GraduationCap className="h-5 w-5" />,
+            aviso: totalPendentes,
+            conteudo: (
+              <>
+                {/* Ficha dos alunos — a visão por pessoa, que as telas de turma
+                    não dão */}
                 <Link
-                  key={f.id}
-                  href={`/ensino/turma/${f.chave}/financeiro`}
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-accent transition-colors"
+                  href="/ensino/alunos"
+                  className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3.5 shadow-sm transition-colors hover:bg-accent"
                 >
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <Banknote className="h-4 w-4" />
+                    <Users className="h-4 w-4" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium leading-tight truncate">{f.nome}</p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {f.alunos} {f.alunos === 1 ? 'aluno' : 'alunos'} · recebido{' '}
-                      {formatarBRL(f.recebido)} de {formatarBRL(f.previsto)}
+                    <p className="text-sm font-semibold leading-tight">Ver alunos</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {totalPessoas === 0
+                        ? 'Ninguém inscrito ainda'
+                        : `${totalPessoas} ${totalPessoas === 1 ? 'pessoa' : 'pessoas'} · cursos, frequência e ficha completa`}
                     </p>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <p className={`text-sm font-semibold tabular-nums ${f.falta > 0 ? 'text-amber-600' : 'text-green-600'}`}>
-                      {f.falta > 0 ? formatarBRL(f.falta) : 'em dia'}
-                    </p>
-                    {f.falta > 0 && <p className="text-[10px] text-muted-foreground">a receber</p>}
                   </div>
                   <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                 </Link>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Relatório por turma */}
-      <section>
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
-          Turmas
-        </p>
-        {turmas.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-border py-10 text-center">
-            <p className="text-sm text-muted-foreground">Nenhuma turma criada ainda.</p>
-          </div>
-        ) : (
-          <div className={`${PAINEL} p-0 overflow-hidden`}>
-            <div className="divide-y">
-              {turmas.map((t) => {
-                const r = porTurma.get(t.id)!
-                const media = r.registros > 0 ? Math.round((r.presentes / r.registros) * 100) : null
-                return (
-                  <Link
-                    key={t.id}
-                    href={`/ensino/turma/${t.slug ?? t.id}`}
-                    className="flex items-center gap-3 px-4 py-3 hover:bg-accent transition-colors"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium leading-tight truncate">{t.nome}</p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {t.ensino_cursos?.nome} · {r.aprovados}{' '}
-                        {r.aprovados === 1 ? 'aluno' : 'alunos'}
-                        {r.pendentes > 0 && (
-                          <span className="text-amber-600 font-medium"> · {r.pendentes} pendentes</span>
-                        )}
-                      </p>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <p className={`text-sm font-semibold ${corFrequencia(media)}`}>
-                        {media === null ? '—' : `${media}%`}
-                      </p>
-                      <span
-                        className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${STATUS_TURMA[t.status].classe}`}
+                {conteudoTurmas}
+              </>
+            ),
+          },
+          {
+            id: 'cursos',
+            titulo: 'Cursos',
+            descricao: 'Os cursos que a igreja oferece.',
+            icone: <BookOpen className="h-5 w-5" />,
+            conteudo: <CursosGestao cursos={cursos} podeExcluir />,
+          },
+          {
+            id: 'professores',
+            titulo: 'Professores',
+            descricao: 'Quem dá aula e quem coordena.',
+            icone: <Users className="h-5 w-5" />,
+            conteudo: <EquipeGestao equipe={equipe} meuId={acesso.userId} />,
+          },
+          {
+            id: 'pagamentos',
+            titulo: 'Pagamentos',
+            descricao: 'Só as turmas que cobram — quanto entrou e quanto falta.',
+            icone: <Banknote className="h-5 w-5" />,
+            conteudo:
+              financeiro.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-border py-10 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    Nenhuma turma com valor definido.
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    O valor é definido dentro da turma, em &ldquo;Pagamentos&rdquo;.
+                  </p>
+                </div>
+              ) : (
+                <div className={`${PAINEL} p-0 overflow-hidden`}>
+                  <div className="divide-y">
+                    {financeiro.map((f) => (
+                      <Link
+                        key={f.id}
+                        href={`/ensino/turma/${f.chave}/financeiro`}
+                        className="flex items-center gap-3 px-4 py-3 hover:bg-accent transition-colors"
                       >
-                        {STATUS_TURMA[t.status].label}
-                      </span>
-                    </div>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  </Link>
-                )
-              })}
-            </div>
-          </div>
-        )}
-      </section>
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                          <Banknote className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium leading-tight truncate">{f.nome}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {f.alunos} {f.alunos === 1 ? 'aluno' : 'alunos'} · recebido{' '}
+                            {formatarBRL(f.recebido)} de {formatarBRL(f.previsto)}
+                          </p>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className={`text-sm font-semibold tabular-nums ${f.falta > 0 ? 'text-amber-600' : 'text-green-600'}`}>
+                            {f.falta > 0 ? formatarBRL(f.falta) : 'em dia'}
+                          </p>
+                          {f.falta > 0 && <p className="text-[10px] text-muted-foreground">a receber</p>}
+                        </div>
+                        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              ),
+          },
+        ]}
+      />
     </div>
   )
 }

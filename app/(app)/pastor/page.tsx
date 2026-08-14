@@ -5,7 +5,11 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
-import { ArrowLeft, Church } from 'lucide-react'
+import {
+  ArrowLeft, BookOpen, ChevronRight, Church, ClipboardList, Coins, Images, Inbox,
+  Settings, Table, Users,
+} from 'lucide-react'
+import { PainelAbas } from '@/components/shared/painel-abas'
 import { CriarRedeDialog } from '@/components/pastor/criar-rede-dialog'
 import { CriarEventoDialog } from '@/components/shared/criar-evento-dialog'
 import { ResumoCultoSection } from '@/components/pastor/resumo-culto-section'
@@ -187,13 +191,20 @@ export default async function PastorPage({
     carregarSupervisoes(redeIds),
   ])
 
+  const solicitacoesCelula = (solicitacoesData ?? []) as Parameters<
+    typeof SolicitacoesPanel
+  >[0]['solicitacoes']
+  const celulaPendentes = solicitacoesCelula.filter((s) => s.status === 'pendente').length
+
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
+    <div className="space-y-5 max-w-2xl mx-auto pb-6">
       <Button variant="ghost" size="sm" render={<Link href="/home" />} className="-ml-1">
         <ArrowLeft className="h-4 w-4" />
         Voltar
       </Button>
-      {/* Header */}
+
+      {/* Cabeçalho fora das abas: a identidade da igreja fica visível seja qual
+          for a aba aberta. */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <IgrejaLogoUpload
@@ -203,7 +214,7 @@ export default async function PastorPage({
           />
           <div className="min-w-0">
             <h1 className="text-xl font-bold truncate">{igreja?.nome ?? 'Painel da igreja'}</h1>
-            <p className="text-xs text-muted-foreground mt-0.5">Visão geral</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Painel da liderança</p>
           </div>
         </div>
         <div className="flex gap-2 shrink-0">
@@ -212,8 +223,16 @@ export default async function PastorPage({
         </div>
       </div>
 
-      {/* Métricas */}
-      <div className="grid grid-cols-3 gap-3">
+      <PainelAbas
+        abas={[
+          {
+            id: 'visao',
+            titulo: 'Início',
+            descricao: 'Como está a igreja hoje.',
+            icone: <Church className="h-5 w-5" />,
+            conteudo: (
+              <>
+                <div className="grid grid-cols-3 gap-3">
         <Card>
           <CardContent className="pt-4 pb-4 text-center">
             <p className="text-2xl font-bold text-primary">{totalRedes}</p>
@@ -234,44 +253,135 @@ export default async function PastorPage({
         </Card>
       </div>
 
-      {/* Saúde da rede — a igreja inteira, não uma rede só */}
-      <section>
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
-          Precisam de atenção
-        </p>
-        <SaudeAlertas
-          inatingiveis={saude.inatingiveis}
-          semSupervisao={saude.semSupervisao}
-          multiplicandoEmBreve={saude.multiplicandoEmBreve}
-          totalCelulas={saude.celulas.length}
-        />
-      </section>
+                <Link
+                  href="/usuarios"
+                  className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3.5 transition-colors hover:bg-accent"
+                >
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <Users className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold leading-tight">Membros</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      Cargos, células e mudanças em massa
+                    </p>
+                  </div>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </Link>
 
-      <section>
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
-          Histórico
-        </p>
-        <PresencaHistorico serie={saude.serie} granularidade={periodo} basePath="/pastor" />
-      </section>
+                {/* Saúde da rede — a igreja inteira, não uma rede só */}
+                <section>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
+                    Precisam de atenção
+                  </p>
+                  <SaudeAlertas
+                    inatingiveis={saude.inatingiveis}
+                    semSupervisao={saude.semSupervisao}
+                    multiplicandoEmBreve={saude.multiplicandoEmBreve}
+                    totalCelulas={saude.celulas.length}
+                  />
+                </section>
 
-      {/* Reuniões de supervisão de toda a igreja */}
-      <section>
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-            Supervisões
-          </p>
-          <RegistrarSupervisao
-            redes={(redes ?? []).map((r) => ({ id: r.id, nome: r.nome }))}
-            celulas={celulas
-              .filter((c) => c.ativa)
-              .map((c) => ({ id: c.id, nome: c.nome, redeId: c.rede_id }))}
-          />
-        </div>
-        <SupervisoesHistorico supervisoes={supervisoes} podeExcluir />
-      </section>
+                <section>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
+                    Histórico de presença
+                  </p>
+                  <PresencaHistorico serie={saude.serie} granularidade={periodo} basePath="/pastor" />
+                </section>
 
-      {/* Informações da igreja */}
-      <IgrejaInfoForm
+                {/* Reuniões de supervisão de toda a igreja */}
+                <section>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+                      Supervisões
+                    </p>
+                    <RegistrarSupervisao
+                      redes={(redes ?? []).map((r) => ({ id: r.id, nome: r.nome }))}
+                      celulas={celulas
+                        .filter((c) => c.ativa)
+                        .map((c) => ({ id: c.id, nome: c.nome, redeId: c.rede_id }))}
+                    />
+                  </div>
+                  <SupervisoesHistorico supervisoes={supervisoes} podeExcluir />
+                </section>
+              </>
+            ),
+          },
+          {
+            id: 'pedidos',
+            titulo: 'Pedidos',
+            descricao: 'Quem pediu célula, quer servir ou quer ser membro.',
+            icone: <Inbox className="h-5 w-5" />,
+            aviso: celulaPendentes + pedidosNovos,
+            conteudo: (
+              <>
+                <section>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+                      Querem entrar numa célula
+                      {celulaPendentes > 0 && (
+                        <span className="ml-2 bg-yellow-100 text-yellow-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                          {celulaPendentes} {celulaPendentes === 1 ? 'nova' : 'novas'}
+                        </span>
+                      )}
+                    </p>
+                    {solicitacoesCelula.length > 0 && (
+                      <Link href="/solicitacoes" className="text-xs text-primary hover:underline font-medium">
+                        Ver todas ({solicitacoesCelula.length})
+                      </Link>
+                    )}
+                  </div>
+                  <SolicitacoesPanel
+                    solicitacoes={solicitacoesCelula.slice(0, 3)}
+                    lideres={(lideresData ?? []) as { id: string; nome: string }[]}
+                  />
+                  {solicitacoesCelula.length > 3 && (
+                    <Link
+                      href="/solicitacoes"
+                      className="mt-2 flex w-full items-center justify-center py-2.5 rounded-xl border border-border text-xs font-medium text-muted-foreground hover:bg-muted transition-colors"
+                    >
+                      Ver mais {solicitacoesCelula.length - 3} pedidos
+                    </Link>
+                  )}
+                </section>
+
+                <section>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
+                    Querem servir ou ser membro
+                    {pedidosNovos > 0 && (
+                      <span className="ml-2 bg-yellow-100 text-yellow-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                        {pedidosNovos} {pedidosNovos === 1 ? 'novo' : 'novos'}
+                      </span>
+                    )}
+                  </p>
+                  <SolicitacoesGeralPanel solicitacoes={pedidos} />
+                </section>
+
+                <Link
+                  href="/pendencias"
+                  className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3.5 transition-colors hover:bg-accent"
+                >
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <ClipboardList className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold leading-tight">Outras pendências</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      Pedidos de cargo e gente da lista esperando conta
+                    </p>
+                  </div>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </Link>
+              </>
+            ),
+          },
+          {
+            id: 'igreja',
+            titulo: 'A igreja',
+            descricao: 'Nome, horários, contatos, PIX e transmissão.',
+            icone: <Settings className="h-5 w-5" />,
+            conteudo: (
+              <IgrejaInfoForm
         igrejaId={profile.igreja_id}
         info={{
           nome: igreja?.nome ?? '',
@@ -294,79 +404,56 @@ export default async function PastorPage({
           contribuicao_ativa: (igreja as any)?.contribuicao_ativa ?? false,
           ao_vivo_url: (igreja as any)?.ao_vivo_url ?? null,
           ao_vivo_ativo: (igreja as any)?.ao_vivo_ativo ?? false,
-        }}
+                }}
+              />
+            ),
+          },
+          {
+            id: 'campanhas',
+            titulo: 'Campanhas',
+            descricao: 'Destinos da contribuição, com card, imagem e vídeo.',
+            icone: <Coins className="h-5 w-5" />,
+            conteudo: <CampanhasSection campanhas={campanhas} />,
+          },
+          {
+            id: 'culto',
+            titulo: 'Culto',
+            descricao: 'O resumo que a igreja lê durante a semana.',
+            icone: <BookOpen className="h-5 w-5" />,
+            conteudo: <ResumoCultoSection resumos={resumos} />,
+          },
+          {
+            id: 'fotos',
+            titulo: 'Fotos',
+            descricao: 'A galeria que aparece na tela inicial.',
+            icone: <Images className="h-5 w-5" />,
+            conteudo: (
+              <GaleriaComunidadeSection
+                // Achata o `celulas(nome, redes(nome))` da consulta para a
+                // assinatura que a marca d'água usa.
+                fotosInit={((fotosData ?? []) as unknown as {
+                  id: string; url: string; criado_em: string
+                  celulas: { nome: string; redes: { nome: string } | null } | null
+                }[]).map((f) => ({
+                  id: f.id,
+                  url: f.url,
+                  criado_em: f.criado_em,
+                  celula: f.celulas?.nome ?? null,
+                  rede: f.celulas?.redes?.nome ?? null,
+                }))}
+                fotosEncontro={(encontroFotosData ?? []).filter((e) => e.card_imagem_url).map((e) => ({ url: e.card_imagem_url!, criado_em: e.data_hora }))}
+              />
+            ),
+          },
+          {
+            id: 'planilha',
+            titulo: 'Planilha',
+            descricao: 'O que veio da planilha da igreja — roteiros, fotos e eventos.',
+            icone: <Table className="h-5 w-5" />,
+            conteudo: <ImportacaoSection registros={(importacoesData ?? []) as RegistroImportacao[]} />,
+          },
+        ]}
       />
-
-      {/* Campanhas de contribuição */}
-      <CampanhasSection campanhas={campanhas} />
-
-      {/* Resumo do culto */}
-      <ResumoCultoSection resumos={resumos} />
-
-      {/* Importação de roteiros, fotos e eventos a partir da planilha */}
-      <ImportacaoSection registros={(importacoesData ?? []) as RegistroImportacao[]} />
-
-      {/* Solicitações de célula */}
-      <section>
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-            Solicitações de célula
-            {(solicitacoesData ?? []).filter(s => s.status === 'pendente').length > 0 && (
-              <span className="ml-2 bg-yellow-100 text-yellow-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                {(solicitacoesData ?? []).filter(s => s.status === 'pendente').length} novas
-              </span>
-            )}
-          </p>
-          {(solicitacoesData ?? []).length > 0 && (
-            <Link href="/solicitacoes" className="text-xs text-primary hover:underline font-medium">
-              Ver todas ({(solicitacoesData ?? []).length})
-            </Link>
-          )}
-        </div>
-        <SolicitacoesPanel
-          solicitacoes={(solicitacoesData ?? []).slice(0, 3) as Parameters<typeof SolicitacoesPanel>[0]['solicitacoes']}
-          lideres={(lideresData ?? []) as { id: string; nome: string }[]}
-        />
-        {(solicitacoesData ?? []).length > 3 && (
-          <Link
-            href="/solicitacoes"
-            className="mt-2 flex w-full items-center justify-center py-2.5 rounded-xl border border-border text-xs font-medium text-muted-foreground hover:bg-muted transition-colors"
-          >
-            Ver mais {(solicitacoesData ?? []).length - 3} solicitações
-          </Link>
-        )}
-      </section>
-
-      {/* Voluntariado e membresia */}
-      <section>
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
-          Voluntariado e membresia
-          {pedidosNovos > 0 && (
-            <span className="ml-2 bg-yellow-100 text-yellow-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-              {pedidosNovos} {pedidosNovos === 1 ? 'novo' : 'novos'}
-            </span>
-          )}
-        </p>
-        <SolicitacoesGeralPanel solicitacoes={pedidos} />
-      </section>
-
-      {/* Galeria da comunidade */}
-      <GaleriaComunidadeSection
-        // Achata o `celulas(nome, redes(nome))` da consulta para a assinatura
-        // que a marca d'água usa.
-        fotosInit={((fotosData ?? []) as unknown as {
-          id: string; url: string; criado_em: string
-          celulas: { nome: string; redes: { nome: string } | null } | null
-        }[]).map((f) => ({
-          id: f.id,
-          url: f.url,
-          criado_em: f.criado_em,
-          celula: f.celulas?.nome ?? null,
-          rede: f.celulas?.redes?.nome ?? null,
-        }))}
-        fotosEncontro={(encontroFotosData ?? []).filter((e) => e.card_imagem_url).map((e) => ({ url: e.card_imagem_url!, criado_em: e.data_hora }))}
-      />
-
     </div>
   )
 }
