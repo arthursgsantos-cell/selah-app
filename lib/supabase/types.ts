@@ -315,6 +315,7 @@ export type Database = {
           endereco_complemento: string | null
           endereco_latitude: number | null
           endereco_longitude: number | null
+          perfil_completado_em: string | null
           created_at: string
           updated_at: string
         }
@@ -336,6 +337,7 @@ export type Database = {
           endereco_complemento?: string | null
           endereco_latitude?: number | null
           endereco_longitude?: number | null
+          perfil_completado_em?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -357,6 +359,7 @@ export type Database = {
           endereco_complemento?: string | null
           endereco_latitude?: number | null
           endereco_longitude?: number | null
+          perfil_completado_em?: string | null
           created_at?: string
           updated_at?: string
         }

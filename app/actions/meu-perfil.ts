@@ -41,6 +41,9 @@ export async function updateMeuPerfilAction(data: {
       data_casamento: data.data_casamento || null,
       endereco: data.endereco?.trim() || null,
       endereco_maps: data.endereco_maps?.trim() || null,
+      // A pessoa passou pela tela de perfil: o convite de boas-vindas não
+      // aparece mais. Ver `supabase/migrations/profiles_perfil_completado.sql`.
+      perfil_completado_em: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }).eq('id', user.id),
     admin.from('profiles').select('conjuge_id').eq('id', user.id).single(),
@@ -60,6 +63,9 @@ export async function updateMeuPerfilAction(data: {
   revalidatePath('/perfil')
   revalidatePath('/celula')
   revalidatePath('/home')
+  // O layout é quem decide mostrar o convite de boas-vindas; sem invalidar,
+  // ele reapareceria na próxima navegação mesmo com o perfil já salvo.
+  revalidatePath('/', 'layout')
 }
 
 export async function uploadAvatarAdminAction(userId: string, formData: FormData): Promise<string> {

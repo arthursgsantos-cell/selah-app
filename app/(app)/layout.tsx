@@ -1,12 +1,17 @@
+import { Suspense } from 'react'
 import { createClient, getAuthUser } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Header } from '@/components/shared/header'
 import { RetomarDestino } from '@/components/auth/retomar-destino'
+import { BoasVindasPerfil } from '@/components/auth/boas-vindas-perfil'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await getAuthUser()
 
-  let profile: { nome: string; role: string; avatar_url: string | null; igreja_id: string } | null = null
+  let profile: {
+    nome: string; role: string; avatar_url: string | null; igreja_id: string
+    perfil_completado_em: string | null
+  } | null = null
   let churchLogoUrl: string | null = null
   let churchName: string | null = null
   let notificacoesNaoLidas = 0
@@ -16,7 +21,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     const supabase = await createClient()
     const { data } = await supabase
       .from('profiles')
-      .select('nome, role, avatar_url, igreja_id')
+      .select('nome, role, avatar_url, igreja_id, perfil_completado_em')
       .eq('id', user.id)
       .single()
 
@@ -57,6 +62,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="flex h-[100dvh] overflow-hidden">
       {/* Só para quem entrou: um visitante na home não tem destino a retomar. */}
       {user && <RetomarDestino />}
+
+      {/* Primeiro acesso: o convite para completar o perfil, com o caminho de
+          volta para onde a pessoa estava indo. */}
+      {profile && !profile.perfil_completado_em && (
+        <Suspense fallback={null}>
+          <BoasVindasPerfil primeiroNome={profile.nome.split(' ')[0] ?? ''} />
+        </Suspense>
+      )}
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header
           userName={profile?.nome}

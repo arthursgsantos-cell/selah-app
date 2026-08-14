@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { updateMeuPerfilAction, uploadAvatarAction } from '@/app/actions/meu-perfil'
 import { salvarDependentesAction, type DependenteItem } from '@/app/actions/dependentes'
 import { Button } from '@/components/ui/button'
@@ -28,6 +29,12 @@ interface Props {
   enderecoMaps: string | null
   dependentesInit: DependenteItem[]
   conjugeFilhos?: Array<{ nome: string; data_nascimento: string | null }>
+  /**
+   * Para onde voltar depois de salvar. Vem do `?retorno=` que o convite de
+   * primeiro acesso põe na URL — quem foi interrompido no meio de uma
+   * inscrição volta para ela, e não para a home.
+   */
+  retorno?: string | null
 }
 
 export function EditarPerfilForm({
@@ -44,7 +51,9 @@ export function EditarPerfilForm({
   enderecoMaps: endMapsInit,
   dependentesInit,
   conjugeFilhos = [],
+  retorno = null,
 }: Props) {
+  const router = useRouter()
   const [nome, setNome] = useState(nomeInit)
   const [titulo, setTitulo] = useState(tituloInit ?? '')
   const [telefone, setTelefone] = useState(telefoneInit ?? '')
@@ -105,6 +114,12 @@ export function EditarPerfilForm({
           salvarDependentesAction(dependentes),
         ])
         setSaved(true)
+        // Veio do convite de primeiro acesso: devolve a pessoa ao que ela
+        // estava tentando acessar, sem passar pela home.
+        if (retorno) {
+          router.push(retorno)
+          return
+        }
         setTimeout(() => setSaved(false), 2500)
       } catch (err) {
         setErro(err instanceof Error ? err.message : 'Erro ao salvar')

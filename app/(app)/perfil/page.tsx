@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { EditarPerfilForm } from '@/components/perfil/editar-perfil-form'
@@ -27,6 +28,24 @@ type Profile = {
 }
 
 export default function PerfilPage() {
+  // `useSearchParams` exige fronteira de Suspense na build estática do Next.
+  return (
+    <Suspense fallback={null}>
+      <PerfilConteudo />
+    </Suspense>
+  )
+}
+
+function PerfilConteudo() {
+  const searchParams = useSearchParams()
+  // Só caminho interno: um `retorno` apontando para fora viraria
+  // redirecionamento aberto a partir da query.
+  const retornoBruto = searchParams.get('retorno')
+  const retorno =
+    retornoBruto && retornoBruto.startsWith('/') && !retornoBruto.startsWith('//')
+      ? retornoBruto
+      : null
+
   const [profile, setProfile] = useState<Profile | null>(null)
   const [dependentes, setDependentes] = useState<DependenteItem[]>([])
   const [conjugeFilhos, setConjugeFilhos] = useState<Array<{ nome: string; data_nascimento: string | null }>>([])
@@ -108,6 +127,18 @@ export default function PerfilPage() {
         <h1 className="text-xl font-bold">Meu perfil</h1>
         <p className="text-sm text-muted-foreground mt-0.5">Gerencie suas informações pessoais</p>
       </div>
+
+      {/* Veio do convite de primeiro acesso: a pessoa precisa saber que salvar
+          aqui a devolve para onde ela estava indo. */}
+      {retorno && (
+        <div className="rounded-xl border border-primary/30 bg-primary/5 px-4 py-3">
+          <p className="text-sm font-medium">Complete seus dados</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Ao salvar, você volta automaticamente para onde estava.
+          </p>
+        </div>
+      )}
+
       <MinhasInscricoes inscricoes={inscricoes} />
 
       <EditarPerfilForm
@@ -124,6 +155,7 @@ export default function PerfilPage() {
         enderecoMaps={profile.endereco_maps}
         dependentesInit={dependentes}
         conjugeFilhos={conjugeFilhos}
+        retorno={retorno}
       />
       <div className="rounded-xl border border-border bg-card p-4">
         <ConjugeVinculoSection />
