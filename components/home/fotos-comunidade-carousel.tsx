@@ -33,8 +33,11 @@ export function FotosComunidadeCarousel({ fotos }: Props) {
     scrollRef.current?.scrollBy({ left: dir === 'left' ? -220 : 220, behavior: 'smooth' })
   }
 
+  // A classe é gancho de CSS: dentro de uma seção com proporção fixa
+  // (`.secao-formatada`, em globals.css) a faixa horizontal vira um mosaico
+  // que preenche o cartão, em vez de flutuar no meio do espaço vazio.
   return (
-    <div className="relative -mx-4">
+    <div className="galeria-comunidade relative -mx-4">
       {/* left arrow */}
       <button
         type="button"
@@ -51,6 +54,7 @@ export function FotosComunidadeCarousel({ fotos }: Props) {
       {/* scroll container */}
       <div
         ref={scrollRef}
+        data-trilho
         className="flex gap-2 overflow-x-auto no-scrollbar px-4 pb-1"
       >
         {fotos.map((foto, i) => (

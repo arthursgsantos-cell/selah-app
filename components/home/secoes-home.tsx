@@ -301,13 +301,16 @@ function MolduraSecao({
     ? 'ring-2 ring-primary ring-offset-2 ring-offset-background rounded-2xl'
     : ''
   // A proporção é piso, não teto: `min-height: fit-content` deixa o conteúdo
-  // maior crescer em vez de ser cortado. O `flex` centra o cartão quando sobra
-  // espaço dentro da proporção.
+  // maior crescer em vez de ser cortado.
   const proporcao = ALTURA_PROPORCAO[cfg.altura]
   const formato = proporcao
     ? { aspectRatio: proporcao, minHeight: 'fit-content' as const }
     : undefined
-  const esticado = proporcao ? 'flex flex-col justify-center [&>*]:w-full' : ''
+  // `secao-formatada` está em globals.css: é o que faz o conteúdo se acomodar
+  // ao formato escolhido — cabeçalho em cima, corpo ocupando o resto, e a
+  // galeria trocando a faixa horizontal por um mosaico. Sem isso, escolher uma
+  // proporção só esticava a moldura e deixava o conteúdo boiando no meio.
+  const esticado = proporcao ? 'secao-formatada flex flex-col [&>*]:w-full' : ''
 
   if (cfg.estilo === 'padrao') {
     return (

@@ -362,3 +362,63 @@
   color: #0f172a !important;
   border-color: rgba(15, 23, 42, 0.15) !important;
 }
+
+/* ============================================================
+   SEÇÃO COM PROPORÇÃO FIXA
+   ============================================================
+   Escolher 6:4 ou 9:16 estica a moldura, e só isso deixava o conteúdo do mesmo
+   tamanho boiando no meio de um cartão enorme — o caso da galeria da
+   comunidade, uma faixa de fotos de 7rem de altura dentro de um cartão de 25.
+
+   Aqui o conteúdo passa a se acomodar ao formato: cabeçalho em cima, o corpo
+   ocupando o que sobra. A galeria vai além e troca de forma — de faixa que rola
+   de lado para mosaico que preenche o cartão, que é o que faz sentido quando há
+   altura de sobra.
+   ============================================================ */
+.secao-formatada > * {
+  height: 100%;
+}
+
+.secao-formatada > section,
+.secao-formatada > div {
+  display: flex;
+  flex-direction: column;
+}
+
+/* O último bloco é sempre o corpo (a lista, a galeria, o mapa): fica com o
+   espaço que sobrou depois do título. `min-height: 0` é o que permite ele
+   encolher dentro do flex em vez de estourar a proporção. */
+.secao-formatada > section > :last-child,
+.secao-formatada > div > :last-child {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* ── Galeria: faixa vira mosaico ── */
+.secao-formatada .galeria-comunidade {
+  height: 100%;
+  margin-inline: 0;
+}
+.secao-formatada .galeria-comunidade > [data-trilho] {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(5rem, 1fr));
+  grid-auto-rows: 1fr;
+  gap: 0.5rem;
+  height: 100%;
+  padding: 0;
+  /* Mosaico não rola: quem quiser ver o resto abre a galeria completa. */
+  overflow: hidden;
+}
+.secao-formatada .galeria-comunidade > [data-trilho] > button {
+  width: 100%;
+  height: 100%;
+}
+.secao-formatada .galeria-comunidade img {
+  width: 100%;
+  height: 100%;
+}
+/* As setas de rolar não fazem sentido num mosaico. */
+.secao-formatada .galeria-comunidade > button {
+  display: none;
+}
