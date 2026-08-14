@@ -442,58 +442,6 @@ export default async function HomePage() {
             quando chega pelo link no domingo de manhã. */}
         {aoVivo && <CultoAoVivo url={aoVivo} igrejaNome={church?.nome} />}
 
-        {/* Cards dos pastores — baseado nos perfis com role='pastor' */}
-        <PastoresCard
-          pastores={(pastorProfiles ?? []) as unknown as PastorItem[]}
-          igrejaNome={church?.nome ?? 'Igreja Batista Zona Sul'}
-          fallback={
-            church?.pastor_nome
-              ? {
-                  nome: church.pastor_nome as string,
-                  titulo: (church.pastor_titulo as string | null) ?? null,
-                  fotoUrl: (church.pastor_foto_url as string | null) ?? null,
-                }
-              : null
-          }
-        />
-
-        {/* Info rápida — cultos e endereço */}
-        {(church?.horario_culto || church?.endereco) && (
-          <div className="grid grid-cols-2 gap-2.5">
-            {church?.horario_culto && (
-              <div className="rounded-2xl border border-blue-100 bg-blue-50/50 p-3.5 flex items-start gap-2.5">
-                <div className="p-1.5 rounded-lg bg-[#0B2447]/10 shrink-0 mt-0.5">
-                  <CalendarDays className="h-3.5 w-3.5 text-[#0B2447]" />
-                </div>
-                <div>
-                  <p className="text-[10px] font-bold text-[#0B2447]/60 uppercase tracking-wider">Cultos</p>
-                  <p className="text-xs font-semibold text-gray-800 mt-0.5 leading-snug">{church.horario_culto ?? 'Nove horas, 11 horas, 17 horas'}</p>
-                </div>
-              </div>
-            )}
-            {church?.endereco && (
-              <div className="rounded-2xl border border-blue-100 bg-blue-50/50 p-3.5 flex items-start gap-2.5">
-                <div className="p-1.5 rounded-lg bg-[#0B2447]/10 shrink-0 mt-0.5">
-                  <MapPin className="h-3.5 w-3.5 text-[#0B2447]" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] font-bold text-[#0B2447]/60 uppercase tracking-wider">Endereço</p>
-                  <p className="text-xs font-semibold text-gray-800 mt-0.5 leading-snug line-clamp-3">{church.endereco}</p>
-                  <a
-                    href="https://www.google.com/maps/place/Igreja+Batista+Zona+Sul/@-5.8897497,-35.2019375,230m/data=!3m1!1e3!4m6!3m5!1s0x7b2f8bc8265d247:0xfd5ac94ff0adde02!8m2!3d-5.8897333!4d-35.2013972!16s%2Fg%2F119x5pn_w?entry=ttu&g_ep=EgoyMDI2MDUxMy4wIKXMDSoASAFQAw%3D%3D"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 mt-2 text-[10px] font-semibold text-[#0B2447] hover:text-[#0F52BA] transition-colors"
-                  >
-                    <MapPin className="h-3 w-3" />
-                    Ver no mapa
-                  </a>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Cartões institucionais, na ordem e no desenho escolhidos no editor
             de seções. Mesma grade da home de quem entrou; o que muda é o
             conteúdo de cada cartão, feito para quem ainda não tem conta. */}
@@ -540,6 +488,91 @@ export default async function HomePage() {
                 subtitulo={textosSecoes.ensino?.subtitulo}
               />
             ),
+            pastores: (
+              <PastoresCard
+                pastores={(pastorProfiles ?? []) as unknown as PastorItem[]}
+                igrejaNome={church?.nome ?? 'Igreja Batista Zona Sul'}
+                fallback={
+                  church?.pastor_nome
+                    ? {
+                        nome: church.pastor_nome as string,
+                        titulo: (church.pastor_titulo as string | null) ?? null,
+                        fotoUrl: (church.pastor_foto_url as string | null) ?? null,
+                      }
+                    : null
+                }
+              />
+            ),
+            info_igreja: (
+              <>
+            {/* Info rápida — cultos e endereço */}
+            {(church?.horario_culto || church?.endereco) && (
+              <div className="grid grid-cols-2 gap-2.5">
+                {church?.horario_culto && (
+                  <div className="rounded-2xl border border-blue-100 bg-blue-50/50 p-3.5 flex items-start gap-2.5">
+                    <div className="p-1.5 rounded-lg bg-[#0B2447]/10 shrink-0 mt-0.5">
+                      <CalendarDays className="h-3.5 w-3.5 text-[#0B2447]" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-[#0B2447]/60 uppercase tracking-wider">Cultos</p>
+                      <p className="text-xs font-semibold text-gray-800 mt-0.5 leading-snug">{church.horario_culto ?? 'Nove horas, 11 horas, 17 horas'}</p>
+                    </div>
+                  </div>
+                )}
+                {church?.endereco && (
+                  <div className="rounded-2xl border border-blue-100 bg-blue-50/50 p-3.5 flex items-start gap-2.5">
+                    <div className="p-1.5 rounded-lg bg-[#0B2447]/10 shrink-0 mt-0.5">
+                      <MapPin className="h-3.5 w-3.5 text-[#0B2447]" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-bold text-[#0B2447]/60 uppercase tracking-wider">Endereço</p>
+                      <p className="text-xs font-semibold text-gray-800 mt-0.5 leading-snug line-clamp-3">{church.endereco}</p>
+                      <a
+                        href="https://www.google.com/maps/place/Igreja+Batista+Zona+Sul/@-5.8897497,-35.2019375,230m/data=!3m1!1e3!4m6!3m5!1s0x7b2f8bc8265d247:0xfd5ac94ff0adde02!8m2!3d-5.8897333!4d-35.2013972!16s%2Fg%2F119x5pn_w?entry=ttu&g_ep=EgoyMDI2MDUxMy4wIKXMDSoASAFQAw%3D%3D"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 mt-2 text-[10px] font-semibold text-[#0B2447] hover:text-[#0F52BA] transition-colors"
+                      >
+                        <MapPin className="h-3 w-3" />
+                        Ver no mapa
+                      </a>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+              </>
+            ),
+            mapa: (
+              <>
+            {/* Mapa */}
+            <section className={SECAO}>
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Como nos encontrar</p>
+              <div className="rounded-2xl overflow-hidden border border-blue-100 relative">
+                <iframe
+                  src="https://maps.google.com/maps?q=-5.8897333,-35.2013972&z=17&output=embed"
+                  width="100%"
+                  height="220"
+                  style={{ border: 0, display: 'block' }}
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  title="Localização da Igreja Batista Zona Sul"
+                />
+                <div className="absolute bottom-3 right-3">
+                  <a
+                    href="https://www.google.com/maps/place/Igreja+Batista+Zona+Sul/@-5.8897497,-35.2019375,230m/data=!3m1!1e3!4m6!3m5!1s0x7b2f8bc8265d247:0xfd5ac94ff0adde02!8m2!3d-5.8897333!4d-35.2013972!16s%2Fg%2F119x5pn_w?entry=ttu&g_ep=EgoyMDI2MDUxMy4wIKXMDSoASAFQAw%3D%3D"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white shadow-md text-xs font-semibold text-[#0B2447] hover:bg-blue-50 transition-colors"
+                  >
+                    <MapPin className="h-3.5 w-3.5" />
+                    Abrir no mapa
+                  </a>
+                </div>
+              </div>
+            </section>
+              </>
+            ),
           }}
         />
 
@@ -559,33 +592,6 @@ export default async function HomePage() {
           </div>
         </div>
 
-
-        {/* Mapa */}
-        <section className={SECAO}>
-          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Como nos encontrar</p>
-          <div className="rounded-2xl overflow-hidden border border-blue-100 relative">
-            <iframe
-              src="https://maps.google.com/maps?q=-5.8897333,-35.2013972&z=17&output=embed"
-              width="100%"
-              height="220"
-              style={{ border: 0, display: 'block' }}
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-              title="Localização da Igreja Batista Zona Sul"
-            />
-            <div className="absolute bottom-3 right-3">
-              <a
-                href="https://www.google.com/maps/place/Igreja+Batista+Zona+Sul/@-5.8897497,-35.2019375,230m/data=!3m1!1e3!4m6!3m5!1s0x7b2f8bc8265d247:0xfd5ac94ff0adde02!8m2!3d-5.8897333!4d-35.2013972!16s%2Fg%2F119x5pn_w?entry=ttu&g_ep=EgoyMDI2MDUxMy4wIKXMDSoASAFQAw%3D%3D"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white shadow-md text-xs font-semibold text-[#0B2447] hover:bg-blue-50 transition-colors"
-              >
-                <MapPin className="h-3.5 w-3.5" />
-                Abrir no mapa
-              </a>
-            </div>
-          </div>
-        </section>
 
         {/* Rodapé */}
         <footer className="-mx-4 -mb-4 md:-mx-6 md:-mb-6 bg-[#0B2447] text-white px-6 pt-8 pb-10 rounded-t-3xl mt-2">
@@ -679,114 +685,10 @@ export default async function HomePage() {
   // membro de fato — a galeria da comunidade fica reservada para quem é.
   const isMember = profile.role !== 'convidado'
 
-  return (
-    <div className="space-y-6 max-w-2xl mx-auto pb-6">
-
-      {/* Fundo da página inicial — configurado pela liderança e guardado em
-          `igrejas`. Sem `fundo_tipo` a home mantém o fundo padrão do app.
-          A cascata de fotos é a única parte que o convidado não vê. */}
-      <FundoGaleria
-        fotos={galleryPhotos.map((f) => f.url)}
-        opacidade={church?.fundo_galeria_opacidade ?? 35}
-        ativo={isMember && (church?.fundo_galeria ?? false)}
-      />
-      {/* A camada de cor sai do mesmo componente do painel de edição, e por
-          isso era renderizada só para quem podia editar: membro e convidado
-          ficavam sem o fundo que a liderança escolheu. */}
-      {podeEditarHome ? (
-        <div className="flex justify-end -mb-2">
-          <HomeFundo {...fundoHome} canEdit />
-        </div>
-      ) : (
-        <HomeFundo {...fundoHome} canEdit={false} />
-      )}
-
-      {/* Hero — boas-vindas pessoal */}
-      <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-[#0B2447] via-[#19376D] to-[#0F52BA] p-6 text-white shadow-lg">
-        <div className="absolute inset-0 opacity-10"
-          style={{ backgroundImage: 'radial-gradient(circle at 80% 20%, white 0%, transparent 60%)' }}
-        />
-        <div className="relative flex items-center gap-4">
-          <Avatar className="h-16 w-16 ring-2 ring-white/40 shadow-xl shrink-0">
-            <AvatarImage src={profile.avatar_url ?? undefined} alt={primeiroNome} />
-            <AvatarFallback className="bg-white/20 text-white text-xl font-bold">{iniciais}</AvatarFallback>
-          </Avatar>
-          <div>
-            <p className="text-white/70 text-sm">{saudacao},</p>
-            <h1 className="text-2xl font-bold leading-tight">{primeiroNome} 👋</h1>
-            <span className="inline-block mt-1 text-xs font-medium px-2.5 py-0.5 rounded-full bg-white/20 text-white">
-              {roleLabels[profile.role] ?? profile.role}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Botão rápido para pastor/admin ligarem a transmissão — sem passar
-          pelo formulário longo do painel, que é para cadastrar o link, não
-          para ligar e desligar toda semana. */}
-      {podeEditarHome && (
-        <BotaoAoVivo ativo={Boolean(church?.ao_vivo_ativo)} temUrl={Boolean(church?.ao_vivo_url?.trim())} />
-      )}
-
-      {/* Culto ao vivo — passa na frente de tudo enquanto está no ar */}
-      {aoVivo && <CultoAoVivo url={aoVivo} igrejaNome={church?.nome} />}
-
-      {/* Liderança — logo abaixo da saudação */}
-      <PastoresCard
-        pastores={(pastorProfiles ?? []) as unknown as PastorItem[]}
-        igrejaNome={church?.nome ?? 'Igreja Batista Zona Sul'}
-        fallback={
-          church?.pastor_nome
-            ? {
-                nome: church.pastor_nome as string,
-                titulo: (church.pastor_titulo as string | null) ?? null,
-                fotoUrl: (church.pastor_foto_url as string | null) ?? null,
-              }
-            : null
-        }
-      />
-
-      {/* Cartões institucionais — dízimo, eventos, o convite para servir/ser
-          membro e o atalho do Ensino. Os quatro moram juntos aqui de propósito:
-          é o que permite reordenar, redimensionar e pôr dois lado a lado no
-          editor de seções, sem sair da própria home. */}
-      <SecoesHome
-        ordem={ordemSecoes}
-        layout={layoutSecoes}
-        textos={textosSecoes}
-        podeEditar={podeEditarHome}
-        conteudos={{
-          contribuir: contribuicaoNoAr ? (
-            <div className="space-y-3">
-              <ContribuirCard
-                titulo={textosSecoes.contribuir?.titulo}
-                subtitulo={textosSecoes.contribuir?.subtitulo}
-              />
-              {campanhasDestaque.map((c) => (
-                <CampanhaDestaqueCard key={c.id} campanha={c} />
-              ))}
-            </div>
-          ) : null,
-          eventos: <EventosDestaque eventos={destaques} />,
-          proximo_passo: (
-            <SecaoProximoPasso
-              titulo={textosSecoes.proximo_passo?.titulo}
-              subtitulo={textosSecoes.proximo_passo?.subtitulo}
-              isMember={isMember}
-              email={user?.email ?? ''}
-              nomeInicial={profile?.nome ?? ''}
-              telefoneInicial={(profile as { telefone?: string | null })?.telefone ?? ''}
-            />
-          ),
-          ensino: (
-            <SecaoEnsino
-              titulo={textosSecoes.ensino?.titulo}
-              subtitulo={textosSecoes.ensino?.subtitulo}
-            />
-          ),
-        }}
-      />
-
+  /* Cada bloco da home vira conteúdo de uma seção da grade: é o que
+     permite reordenar, redimensionar e pintar qualquer um deles no editor. */
+  const secaoMinhaCelula = (
+    <>
       {/*
         Minha célula e o próximo encontro numa seção só.
         Eram dois cartões distantes um do outro na página, e o membro tinha de
@@ -893,28 +795,19 @@ export default async function HomePage() {
           <SolicitarCelulaDialog email={user?.email ?? ''} nomeInicial={profile?.nome ?? ''} />
         </div>
       )}
+    </>
+  )
 
-
-      {/* Aniversário próprio — destaque pessoal */}
-      {meuAniversarioHoje && (
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-rose-500 via-pink-500 to-rose-400 p-5 text-white shadow-lg">
-          <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 80% 20%, white, transparent 60%)' }} />
-          <div className="relative flex items-center gap-4">
-            <span className="text-5xl select-none">🎂</span>
-            <div>
-              <p className="font-bold text-lg leading-tight">Feliz aniversário, {primeiroNome}! 🎉</p>
-              <p className="text-sm text-white/80 mt-0.5">Que Deus te abençoe abundantemente hoje e sempre!</p>
-            </div>
-          </div>
-        </div>
-      )}
-
+  const secaoEventosIgreja = (
+    <>
       {/* Eventos da igreja */}
       {eventos && eventos.length > 0 && (
         <section className={SECAO}>
           <div className={SECAO_TITULO}>
             <Sparkles className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-semibold text-foreground">Eventos da igreja</h2>
+            <h2 className="text-sm font-semibold text-foreground">
+              {textosSecoes.eventos_igreja?.titulo || 'Eventos da igreja'}
+            </h2>
           </div>
           <div className="space-y-2">
             {eventos.map((evento) => {
@@ -924,7 +817,13 @@ export default async function HomePage() {
           </div>
         </section>
       )}
+    </>
+  )
 
+  /* Os de hoje e os do mês juntos: são a mesma pergunta ("quem faz
+     aniversário?"), e separá-los deixava o cartão do mês órfão de contexto. */
+  const secaoAniversariantes = (
+    <>
       {/* Aniversariantes de hoje — destaque para toda a igleja */}
       {aniversariantesHoje.filter((p) => p.id !== profile.id).length > 0 && (
         <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-rose-50 via-pink-50 to-rose-50 border border-rose-200 p-4 shadow-sm">
@@ -958,6 +857,329 @@ export default async function HomePage() {
             })}
           </div>
         </section>
+      )}
+
+
+      {/* Aniversariantes do mês */}
+      {aniversariantesMes.length > 0 && (
+        <section className={SECAO}>
+          <div className={SECAO_TITULO}>
+            <Cake className="h-4 w-4 text-rose-500" />
+            <h2 className="text-sm font-semibold text-foreground">
+              {textosSecoes.aniversariantes?.titulo || `Aniversariantes de ${nomeMesCapitalizado}`}
+            </h2>
+          </div>
+          <div className="rounded-2xl overflow-hidden border border-rose-100 divide-y divide-rose-50">
+            {aniversariantesMes.map((p) => {
+              const ini = p.nome.split(' ').slice(0, 2).map((n: string) => n[0]).join('').toUpperCase()
+              const dia = parseInt(p.data_nascimento_1!.slice(8, 10), 10)
+              const isPast = p.daysUntil > 300
+              const isToday = p.daysUntil === 0
+              const label = isToday ? 'Hoje! 🎉' : p.daysUntil === 1 ? 'Amanhã' : isPast ? `Dia ${dia}` : `Em ${p.daysUntil} dias`
+              return (
+                <div
+                  key={p.id}
+                  className={`flex items-center gap-3 px-4 py-3 ${
+                    isToday
+                      ? 'bg-gradient-to-r from-rose-50 to-pink-50'
+                      : isPast
+                      ? 'bg-white opacity-45'
+                      : 'bg-white'
+                  }`}
+                >
+                  <div className={`h-9 w-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0 overflow-hidden ring-2 ${isToday ? 'ring-rose-300 bg-rose-100 text-rose-600' : 'ring-transparent bg-muted text-muted-foreground'}`}>
+                    {p.avatar_url ? <img referrerPolicy="no-referrer" src={p.avatar_url} alt={p.nome} className="h-full w-full object-cover" /> : ini}
+                  </div>
+                  <p className={`text-sm flex-1 min-w-0 truncate ${isToday ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'}`}>{p.nome}</p>
+                  <span className={`text-xs font-semibold shrink-0 px-2 py-0.5 rounded-full ${
+                    isToday
+                      ? 'bg-rose-100 text-rose-600'
+                      : isPast
+                      ? 'text-muted-foreground'
+                      : p.daysUntil <= 3
+                      ? 'bg-orange-50 text-orange-500'
+                      : 'text-rose-400'
+                  }`}>
+                    {label}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
+    </>
+  )
+
+  const secaoHistorico = (
+    <>
+      {/* Histórico */}
+      {historico.length > 0 && (
+        <section className={SECAO}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <History className="h-4 w-4 text-muted-foreground" />
+              <h2 className="text-sm font-semibold text-foreground">
+                {textosSecoes.historico?.titulo || 'Histórico'}
+              </h2>
+            </div>
+            <Link href="/historico" className="text-xs text-primary font-medium hover:underline">Ver tudo →</Link>
+          </div>
+          <div className="space-y-2 opacity-75">
+            {historico.map((item) => (
+              <div key={item.id} className="flex gap-3 p-3 rounded-2xl border border-border bg-card">
+                {item.img ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={item.img} alt={item.titulo} className="h-10 w-10 rounded-lg object-cover shrink-0" />
+                ) : (
+                  <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                    {item.tipo === 'celula' ? <Users className="h-4 w-4 text-muted-foreground" /> : <Sparkles className="h-4 w-4 text-muted-foreground" />}
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium capitalize truncate">{item.titulo}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {format(new Date(item.data_hora), "d 'de' MMM 'de' yyyy", { locale: ptBR })}
+                    {item.local && ` · ${item.local}`}
+                  </p>
+                </div>
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full self-start mt-0.5 shrink-0 ${item.tipo === 'celula' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'}`}>
+                  {item.tipo === 'celula' ? 'Célula' : 'Evento'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+    </>
+  )
+
+  const secaoComunidade = (
+    <>
+      {/* Fotos — Nossa comunidade. Restrita a quem já é membro: convidado
+          ainda não entrou pra célula, então não faz parte dessas fotos. */}
+      {isMember && (
+        <section className={SECAO}>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+              {textosSecoes.comunidade?.titulo || 'Nossa comunidade'}
+            </p>
+            <Link href="/galeria" className="text-[11px] font-medium text-primary hover:underline">
+              Ver galeria
+            </Link>
+          </div>
+          <FotosComunidadeCarousel fotos={galleryPhotos} />
+        </section>
+      )}
+    </>
+  )
+
+  const secaoInfoIgreja = (
+    <>
+      {/* Info da igreja — cultos, endereço, redes sociais */}
+      {(church?.horario_culto || church?.endereco || church?.instagram_url || church?.facebook_url || church?.youtube_url) && (
+        <div className="space-y-2.5">
+          {(church?.horario_culto || church?.endereco) && (
+            <div className="grid grid-cols-2 gap-2.5">
+              {church?.horario_culto && (
+                <div className="rounded-2xl border border-blue-100 bg-blue-50/50 p-3.5 flex items-start gap-2.5">
+                  <div className="p-1.5 rounded-lg bg-[#0B2447]/10 shrink-0 mt-0.5">
+                    <CalendarDays className="h-3.5 w-3.5 text-[#0B2447]" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold text-[#0B2447]/60 uppercase tracking-wider">Cultos</p>
+                    <p className="text-xs font-semibold text-gray-800 mt-0.5 leading-snug">{church.horario_culto}</p>
+                  </div>
+                </div>
+              )}
+              {church?.endereco && (
+                <div className="rounded-2xl border border-blue-100 bg-blue-50/50 p-3.5 flex items-start gap-2.5">
+                  <div className="p-1.5 rounded-lg bg-[#0B2447]/10 shrink-0 mt-0.5">
+                    <MapPin className="h-3.5 w-3.5 text-[#0B2447]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-bold text-[#0B2447]/60 uppercase tracking-wider">Endereço</p>
+                    <p className="text-xs font-semibold text-gray-800 mt-0.5 leading-snug line-clamp-3">{church.endereco}</p>
+                    <a
+                      href="https://www.google.com/maps/place/Igreja+Batista+Zona+Sul/@-5.8897497,-35.2019375,230m/data=!3m1!1e3!4m6!3m5!1s0x7b2f8bc8265d247:0xfd5ac94ff0adde02!8m2!3d-5.8897333!4d-35.2013972!16s%2Fg%2F119x5pn_w?entry=ttu&g_ep=EgoyMDI2MDUxMy4wIKXMDSoASAFQAw%3D%3D"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 mt-2 text-[10px] font-semibold text-[#0B2447] hover:text-[#0F52BA] transition-colors"
+                    >
+                      <MapPin className="h-3 w-3" />
+                      Ver no mapa
+                    </a>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+        </div>
+      )}
+    </>
+  )
+
+  const secaoMapa = (
+    <>
+      {/* Mapa */}
+      <section className={SECAO}>
+        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Como nos encontrar</p>
+        <div className="rounded-2xl overflow-hidden border border-blue-100 relative">
+          <iframe
+            src="https://maps.google.com/maps?q=-5.8897333,-35.2013972&z=17&output=embed"
+            width="100%"
+            height="220"
+            style={{ border: 0, display: 'block' }}
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+            title="Localização da Igreja Batista Zona Sul"
+          />
+          <div className="absolute bottom-3 right-3">
+            <a
+              href="https://www.google.com/maps/place/Igreja+Batista+Zona+Sul/@-5.8897497,-35.2019375,230m/data=!3m1!1e3!4m6!3m5!1s0x7b2f8bc8265d247:0xfd5ac94ff0adde02!8m2!3d-5.8897333!4d-35.2013972!16s%2Fg%2F119x5pn_w?entry=ttu&g_ep=EgoyMDI2MDUxMy4wIKXMDSoASAFQAw%3D%3D"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white shadow-md text-xs font-semibold text-[#0B2447] hover:bg-blue-50 transition-colors"
+            >
+              <MapPin className="h-3.5 w-3.5" />
+              Abrir no mapa
+            </a>
+          </div>
+        </div>
+      </section>
+    </>
+  )
+
+  return (
+    <div className="space-y-6 max-w-2xl mx-auto pb-6">
+
+      {/* Fundo da página inicial — configurado pela liderança e guardado em
+          `igrejas`. Sem `fundo_tipo` a home mantém o fundo padrão do app.
+          A cascata de fotos é a única parte que o convidado não vê. */}
+      <FundoGaleria
+        fotos={galleryPhotos.map((f) => f.url)}
+        opacidade={church?.fundo_galeria_opacidade ?? 35}
+        ativo={isMember && (church?.fundo_galeria ?? false)}
+      />
+      {/* A camada de cor sai do mesmo componente do painel de edição, e por
+          isso era renderizada só para quem podia editar: membro e convidado
+          ficavam sem o fundo que a liderança escolheu. */}
+      {podeEditarHome ? (
+        <div className="flex justify-end -mb-2">
+          <HomeFundo {...fundoHome} canEdit />
+        </div>
+      ) : (
+        <HomeFundo {...fundoHome} canEdit={false} />
+      )}
+
+      {/* Hero — boas-vindas pessoal */}
+      <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-[#0B2447] via-[#19376D] to-[#0F52BA] p-6 text-white shadow-lg">
+        <div className="absolute inset-0 opacity-10"
+          style={{ backgroundImage: 'radial-gradient(circle at 80% 20%, white 0%, transparent 60%)' }}
+        />
+        <div className="relative flex items-center gap-4">
+          <Avatar className="h-16 w-16 ring-2 ring-white/40 shadow-xl shrink-0">
+            <AvatarImage src={profile.avatar_url ?? undefined} alt={primeiroNome} />
+            <AvatarFallback className="bg-white/20 text-white text-xl font-bold">{iniciais}</AvatarFallback>
+          </Avatar>
+          <div>
+            <p className="text-white/70 text-sm">{saudacao},</p>
+            <h1 className="text-2xl font-bold leading-tight">{primeiroNome} 👋</h1>
+            <span className="inline-block mt-1 text-xs font-medium px-2.5 py-0.5 rounded-full bg-white/20 text-white">
+              {roleLabels[profile.role] ?? profile.role}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Botão rápido para pastor/admin ligarem a transmissão — sem passar
+          pelo formulário longo do painel, que é para cadastrar o link, não
+          para ligar e desligar toda semana. */}
+      {podeEditarHome && (
+        <BotaoAoVivo ativo={Boolean(church?.ao_vivo_ativo)} temUrl={Boolean(church?.ao_vivo_url?.trim())} />
+      )}
+
+      {/* Culto ao vivo — passa na frente de tudo enquanto está no ar */}
+      {aoVivo && <CultoAoVivo url={aoVivo} igrejaNome={church?.nome} />}
+
+      {/* A página inteira abaixo da saudação é a grade de seções: liderança,
+          dízimo, eventos, célula, aniversariantes, fotos, mapa. Todas moram
+          aqui de propósito — é o que permite reordenar, redimensionar, pôr
+          duas lado a lado e pintar qualquer uma delas sem sair da home. */}
+      <SecoesHome
+        ordem={ordemSecoes}
+        layout={layoutSecoes}
+        textos={textosSecoes}
+        podeEditar={podeEditarHome}
+        conteudos={{
+          pastores: (
+            <PastoresCard
+              pastores={(pastorProfiles ?? []) as unknown as PastorItem[]}
+              igrejaNome={church?.nome ?? 'Igreja Batista Zona Sul'}
+              fallback={
+                church?.pastor_nome
+                  ? {
+                      nome: church.pastor_nome as string,
+                      titulo: (church.pastor_titulo as string | null) ?? null,
+                      fotoUrl: (church.pastor_foto_url as string | null) ?? null,
+                    }
+                  : null
+              }
+            />
+          ),
+          contribuir: contribuicaoNoAr ? (
+            <div className="space-y-3">
+              <ContribuirCard
+                titulo={textosSecoes.contribuir?.titulo}
+                subtitulo={textosSecoes.contribuir?.subtitulo}
+              />
+              {campanhasDestaque.map((c) => (
+                <CampanhaDestaqueCard key={c.id} campanha={c} />
+              ))}
+            </div>
+          ) : null,
+          eventos: <EventosDestaque eventos={destaques} />,
+          proximo_passo: (
+            <SecaoProximoPasso
+              titulo={textosSecoes.proximo_passo?.titulo}
+              subtitulo={textosSecoes.proximo_passo?.subtitulo}
+              isMember={isMember}
+              email={user?.email ?? ''}
+              nomeInicial={profile?.nome ?? ''}
+              telefoneInicial={(profile as { telefone?: string | null })?.telefone ?? ''}
+            />
+          ),
+          ensino: (
+            <SecaoEnsino
+              titulo={textosSecoes.ensino?.titulo}
+              subtitulo={textosSecoes.ensino?.subtitulo}
+            />
+          ),
+          minha_celula: secaoMinhaCelula,
+          eventos_igreja: secaoEventosIgreja,
+          aniversariantes: secaoAniversariantes,
+          historico: secaoHistorico,
+          comunidade: secaoComunidade,
+          info_igreja: secaoInfoIgreja,
+          mapa: secaoMapa,
+        }}
+      />
+
+      {/* Fora da grade de propósito: são avisos pessoais e temporários,
+          que aparecem no meio da página conforme a situação de quem entrou. */}
+      {/* Aniversário próprio — destaque pessoal */}
+      {meuAniversarioHoje && (
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-rose-500 via-pink-500 to-rose-400 p-5 text-white shadow-lg">
+          <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 80% 20%, white, transparent 60%)' }} />
+          <div className="relative flex items-center gap-4">
+            <span className="text-5xl select-none">🎂</span>
+            <div>
+              <p className="font-bold text-lg leading-tight">Feliz aniversário, {primeiroNome}! 🎉</p>
+              <p className="text-sm text-white/80 mt-0.5">Que Deus te abençoe abundantemente hoje e sempre!</p>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* CTA célula — visível para membros sem célula */}
@@ -1022,174 +1244,6 @@ export default async function HomePage() {
           )}
         </section>
       )}
-
-      {/* Aniversariantes do mês */}
-      {aniversariantesMes.length > 0 && (
-        <section className={SECAO}>
-          <div className={SECAO_TITULO}>
-            <Cake className="h-4 w-4 text-rose-500" />
-            <h2 className="text-sm font-semibold text-foreground">Aniversariantes de {nomeMesCapitalizado}</h2>
-          </div>
-          <div className="rounded-2xl overflow-hidden border border-rose-100 divide-y divide-rose-50">
-            {aniversariantesMes.map((p) => {
-              const ini = p.nome.split(' ').slice(0, 2).map((n: string) => n[0]).join('').toUpperCase()
-              const dia = parseInt(p.data_nascimento_1!.slice(8, 10), 10)
-              const isPast = p.daysUntil > 300
-              const isToday = p.daysUntil === 0
-              const label = isToday ? 'Hoje! 🎉' : p.daysUntil === 1 ? 'Amanhã' : isPast ? `Dia ${dia}` : `Em ${p.daysUntil} dias`
-              return (
-                <div
-                  key={p.id}
-                  className={`flex items-center gap-3 px-4 py-3 ${
-                    isToday
-                      ? 'bg-gradient-to-r from-rose-50 to-pink-50'
-                      : isPast
-                      ? 'bg-white opacity-45'
-                      : 'bg-white'
-                  }`}
-                >
-                  <div className={`h-9 w-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0 overflow-hidden ring-2 ${isToday ? 'ring-rose-300 bg-rose-100 text-rose-600' : 'ring-transparent bg-muted text-muted-foreground'}`}>
-                    {p.avatar_url ? <img referrerPolicy="no-referrer" src={p.avatar_url} alt={p.nome} className="h-full w-full object-cover" /> : ini}
-                  </div>
-                  <p className={`text-sm flex-1 min-w-0 truncate ${isToday ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'}`}>{p.nome}</p>
-                  <span className={`text-xs font-semibold shrink-0 px-2 py-0.5 rounded-full ${
-                    isToday
-                      ? 'bg-rose-100 text-rose-600'
-                      : isPast
-                      ? 'text-muted-foreground'
-                      : p.daysUntil <= 3
-                      ? 'bg-orange-50 text-orange-500'
-                      : 'text-rose-400'
-                  }`}>
-                    {label}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
-        </section>
-      )}
-
-      {/* Histórico */}
-      {historico.length > 0 && (
-        <section className={SECAO}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <History className="h-4 w-4 text-muted-foreground" />
-              <h2 className="text-sm font-semibold text-foreground">Histórico</h2>
-            </div>
-            <Link href="/historico" className="text-xs text-primary font-medium hover:underline">Ver tudo →</Link>
-          </div>
-          <div className="space-y-2 opacity-75">
-            {historico.map((item) => (
-              <div key={item.id} className="flex gap-3 p-3 rounded-2xl border border-border bg-card">
-                {item.img ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={item.img} alt={item.titulo} className="h-10 w-10 rounded-lg object-cover shrink-0" />
-                ) : (
-                  <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                    {item.tipo === 'celula' ? <Users className="h-4 w-4 text-muted-foreground" /> : <Sparkles className="h-4 w-4 text-muted-foreground" />}
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium capitalize truncate">{item.titulo}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {format(new Date(item.data_hora), "d 'de' MMM 'de' yyyy", { locale: ptBR })}
-                    {item.local && ` · ${item.local}`}
-                  </p>
-                </div>
-                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full self-start mt-0.5 shrink-0 ${item.tipo === 'celula' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'}`}>
-                  {item.tipo === 'celula' ? 'Célula' : 'Evento'}
-                </span>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-
-      {/* Fotos — Nossa comunidade. Restrita a quem já é membro: convidado
-          ainda não entrou pra célula, então não faz parte dessas fotos. */}
-      {isMember && (
-        <section className={SECAO}>
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Nossa comunidade</p>
-            <Link href="/galeria" className="text-[11px] font-medium text-primary hover:underline">
-              Ver galeria
-            </Link>
-          </div>
-          <FotosComunidadeCarousel fotos={galleryPhotos} />
-        </section>
-      )}
-
-      {/* Info da igreja — cultos, endereço, redes sociais */}
-      {(church?.horario_culto || church?.endereco || church?.instagram_url || church?.facebook_url || church?.youtube_url) && (
-        <div className="space-y-2.5">
-          {(church?.horario_culto || church?.endereco) && (
-            <div className="grid grid-cols-2 gap-2.5">
-              {church?.horario_culto && (
-                <div className="rounded-2xl border border-blue-100 bg-blue-50/50 p-3.5 flex items-start gap-2.5">
-                  <div className="p-1.5 rounded-lg bg-[#0B2447]/10 shrink-0 mt-0.5">
-                    <CalendarDays className="h-3.5 w-3.5 text-[#0B2447]" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold text-[#0B2447]/60 uppercase tracking-wider">Cultos</p>
-                    <p className="text-xs font-semibold text-gray-800 mt-0.5 leading-snug">{church.horario_culto}</p>
-                  </div>
-                </div>
-              )}
-              {church?.endereco && (
-                <div className="rounded-2xl border border-blue-100 bg-blue-50/50 p-3.5 flex items-start gap-2.5">
-                  <div className="p-1.5 rounded-lg bg-[#0B2447]/10 shrink-0 mt-0.5">
-                    <MapPin className="h-3.5 w-3.5 text-[#0B2447]" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[10px] font-bold text-[#0B2447]/60 uppercase tracking-wider">Endereço</p>
-                    <p className="text-xs font-semibold text-gray-800 mt-0.5 leading-snug line-clamp-3">{church.endereco}</p>
-                    <a
-                      href="https://www.google.com/maps/place/Igreja+Batista+Zona+Sul/@-5.8897497,-35.2019375,230m/data=!3m1!1e3!4m6!3m5!1s0x7b2f8bc8265d247:0xfd5ac94ff0adde02!8m2!3d-5.8897333!4d-35.2013972!16s%2Fg%2F119x5pn_w?entry=ttu&g_ep=EgoyMDI2MDUxMy4wIKXMDSoASAFQAw%3D%3D"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 mt-2 text-[10px] font-semibold text-[#0B2447] hover:text-[#0F52BA] transition-colors"
-                    >
-                      <MapPin className="h-3 w-3" />
-                      Ver no mapa
-                    </a>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-        </div>
-      )}
-
-      {/* Mapa */}
-      <section className={SECAO}>
-        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Como nos encontrar</p>
-        <div className="rounded-2xl overflow-hidden border border-blue-100 relative">
-          <iframe
-            src="https://maps.google.com/maps?q=-5.8897333,-35.2013972&z=17&output=embed"
-            width="100%"
-            height="220"
-            style={{ border: 0, display: 'block' }}
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
-            title="Localização da Igreja Batista Zona Sul"
-          />
-          <div className="absolute bottom-3 right-3">
-            <a
-              href="https://www.google.com/maps/place/Igreja+Batista+Zona+Sul/@-5.8897497,-35.2019375,230m/data=!3m1!1e3!4m6!3m5!1s0x7b2f8bc8265d247:0xfd5ac94ff0adde02!8m2!3d-5.8897333!4d-35.2013972!16s%2Fg%2F119x5pn_w?entry=ttu&g_ep=EgoyMDI2MDUxMy4wIKXMDSoASAFQAw%3D%3D"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white shadow-md text-xs font-semibold text-[#0B2447] hover:bg-blue-50 transition-colors"
-            >
-              <MapPin className="h-3.5 w-3.5" />
-              Abrir no mapa
-            </a>
-          </div>
-        </div>
-      </section>
 
       {/* Rodapé */}
       <footer className="-mx-4 -mb-6 md:-mx-6 bg-[#0B2447] text-white px-6 pt-8 pb-10 rounded-t-3xl mt-2">

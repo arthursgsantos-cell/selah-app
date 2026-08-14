@@ -11,23 +11,56 @@
  * liderança escolher.
  */
 
-export const SECAO_IDS = ['contribuir', 'eventos', 'proximo_passo', 'ensino'] as const
+export const SECAO_IDS = [
+  'pastores',
+  'contribuir',
+  'eventos',
+  'proximo_passo',
+  'ensino',
+  'minha_celula',
+  'eventos_igreja',
+  'aniversariantes',
+  'historico',
+  'comunidade',
+  'info_igreja',
+  'mapa',
+] as const
 
 export type SecaoHomeId = (typeof SECAO_IDS)[number]
 
 export const SECAO_LABELS: Record<SecaoHomeId, string> = {
+  pastores: 'Liderança',
   contribuir: 'Dízimos e ofertas',
   eventos: 'Próximos eventos',
   proximo_passo: 'Dê o próximo passo',
   ensino: 'Escola Bíblica',
+  minha_celula: 'Minha célula',
+  eventos_igreja: 'Eventos da igreja',
+  aniversariantes: 'Aniversariantes',
+  historico: 'Histórico',
+  comunidade: 'Nossa comunidade',
+  info_igreja: 'Cultos e endereço',
+  mapa: 'Mapa',
 }
 
-/** Só "eventos" não tem texto próprio — é a agenda escolhida em cada evento. */
+/**
+ * Quem tem título próprio para a liderança escrever. Fica de fora o que é
+ * lista pura — a agenda de eventos e o histórico se explicam pelo conteúdo, e
+ * um título inventado ali só competiria com os nomes dos eventos.
+ */
 export const SECAO_TEM_TEXTO: Record<SecaoHomeId, boolean> = {
+  pastores: false,
   contribuir: true,
   eventos: false,
   proximo_passo: true,
   ensino: true,
+  minha_celula: false,
+  eventos_igreja: true,
+  aniversariantes: true,
+  historico: true,
+  comunidade: true,
+  info_igreja: false,
+  mapa: false,
 }
 
 export interface TextoSecao {
@@ -51,8 +84,23 @@ export type TextosSecoes = Partial<Record<SecaoHomeId, TextoSecao>>
  */
 export type EstiloSecao = 'padrao' | 'cor' | 'gradiente' | 'nebula'
 
+/**
+ * Altura em passos, como os widgets do celular: `auto` é o tamanho do próprio
+ * conteúdo, e os outros dois reservam espaço para o cartão respirar. Nunca
+ * corta nada — conteúdo maior que a altura escolhida continua crescendo, senão
+ * a liderança esconderia sem querer o que quis mostrar.
+ */
+export type AlturaSecao = 'auto' | 'media' | 'alta'
+
+export const ALTURA_MIN: Record<AlturaSecao, string | undefined> = {
+  auto: undefined,
+  media: '14rem',
+  alta: '22rem',
+}
+
 export interface LayoutSecao {
   largura: 1 | 2
+  altura: AlturaSecao
   estilo: EstiloSecao
   cor: string | null
   cor2: string | null
@@ -64,6 +112,7 @@ export type LayoutSecoes = Partial<Record<SecaoHomeId, LayoutSecao>>
 
 export const LAYOUT_PADRAO: LayoutSecao = {
   largura: 2,
+  altura: 'auto',
   estilo: 'padrao',
   cor: null,
   cor2: null,
@@ -81,6 +130,7 @@ export function normalizarLayoutSecoes(salvo: unknown): LayoutSecoes {
     const v = valor as Record<string, unknown>
     limpo[id as SecaoHomeId] = {
       largura: v.largura === 1 ? 1 : 2,
+      altura: v.altura === 'media' || v.altura === 'alta' ? v.altura : 'auto',
       estilo: ['cor', 'gradiente', 'nebula'].includes(v.estilo as string)
         ? (v.estilo as EstiloSecao)
         : 'padrao',
@@ -121,6 +171,22 @@ export function normalizarOrdemSecoes(salva: string[] | null | undefined): Secao
     vistos.add(id as SecaoHomeId)
     validas.push(id as SecaoHomeId)
   }
-  const faltando = SECAO_IDS.filter((id) => !vistos.has(id))
-  return [...validas, ...faltando]
+  // Cada seção nova entra ao lado de quem é vizinho dela na lista canônica, e
+  // não no fim: com a home inteira virando grade, jogar "liderança" e "mapa"
+  // no fim mudaria a página de quem nunca reordenou nada — a igreja abriria o
+  // app e encontraria tudo fora do lugar.
+  const resultado = [...validas]
+  for (const id of SECAO_IDS) {
+    if (vistos.has(id)) continue
+    const posicaoCanonica = SECAO_IDS.indexOf(id)
+    // O vizinho de cima: o último id canônico anterior que já está na lista.
+    let depoisDe = -1
+    for (let i = posicaoCanonica - 1; i >= 0; i--) {
+      const indice = resultado.indexOf(SECAO_IDS[i])
+      if (indice >= 0) { depoisDe = indice; break }
+    }
+    resultado.splice(depoisDe + 1, 0, id)
+    vistos.add(id)
+  }
+  return resultado
 }

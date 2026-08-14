@@ -3,14 +3,14 @@
 import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Check, GripVertical, LayoutGrid, Loader2, Move, Palette, RotateCcw, X,
+  Check, LayoutGrid, Loader2, Move, Palette, RotateCcw, Scaling, X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { atualizarSecoesHomeAction } from '@/app/actions/home-secoes'
 import { fundoStyle, ajustarCor } from '@/lib/rede-fundo'
 import {
-  LAYOUT_PADRAO, SECAO_LABELS, SECAO_TEM_TEXTO, textoClaroSobre,
+  ALTURA_MIN, LAYOUT_PADRAO, SECAO_LABELS, SECAO_TEM_TEXTO, textoClaroSobre,
   type EstiloSecao, type LayoutSecao, type LayoutSecoes, type SecaoHomeId,
   type TextosSecoes,
 } from '@/lib/home-secoes'
@@ -106,13 +106,21 @@ export function SecoesHome({ ordem: ordemInicial, layout: layoutInicial, textos:
 
     const idR = redimensionando.current
     if (idR && gradeRef.current) {
-      // A largura vira metade ou inteira conforme onde o dedo está na grade:
-      // passou da metade da largura, ocupa a linha toda. Sem passos
-      // intermediários — a grade só tem duas colunas, e fingir precisão
-      // milimétrica num celular só geraria frustração.
+      // Arrastar a ponta inferior direita muda os dois eixos de uma vez, como
+      // um widget de celular — e cada eixo cai num passo da grade, para dois
+      // cartões vizinhos nunca ficarem tortos um em relação ao outro.
       const caixa = gradeRef.current.getBoundingClientRect()
+      const cartao = document
+        .querySelector(`[data-secao="${idR}"]`)
+        ?.getBoundingClientRect()
+
       const proporcao = (e.clientX - caixa.left) / caixa.width
-      mudarLayout(idR, { largura: proporcao > 0.55 ? 2 : 1 })
+      const alturaArrastada = cartao ? e.clientY - cartao.top : 0
+
+      mudarLayout(idR, {
+        largura: proporcao > 0.55 ? 2 : 1,
+        altura: alturaArrastada > 340 ? 'alta' : alturaArrastada > 210 ? 'media' : 'auto',
+      })
     }
   }
 
@@ -171,21 +179,6 @@ export function SecoesHome({ ordem: ordemInicial, layout: layoutInicial, textos:
             </button>
             <button
               type="button"
-              onPointerDown={(e) => {
-                e.preventDefault()
-                redimensionando.current = id
-                setSelecionada(id)
-                ;(e.target as Element).setPointerCapture(e.pointerId)
-              }}
-              onPointerMove={moverPonteiro}
-              onPointerUp={soltar}
-              aria-label={`Mudar o tamanho de ${SECAO_LABELS[id]}`}
-              className="absolute -top-9 right-0 z-20 flex h-8 w-8 touch-none items-center justify-center rounded-full border border-primary bg-background text-primary shadow-sm active:scale-95"
-            >
-              <GripVertical className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
               onClick={() => setSelecionada(selecionada === id ? null : id)}
               className="absolute -top-8 left-1/2 z-20 max-w-[60%] -translate-x-1/2 truncate rounded-full border border-primary bg-background px-3 py-1 text-[11px] font-semibold text-primary shadow-sm"
             >
@@ -205,6 +198,27 @@ export function SecoesHome({ ordem: ordemInicial, layout: layoutInicial, textos:
             </div>
           )}
         </MolduraSecao>
+
+        {editando && (
+          // Alça de escala na ponta inferior direita, como widget de celular:
+          // arrasta para a esquerda e o cartão vira metade da linha; arrasta
+          // para baixo e ele cresce, sempre caindo num passo da grade.
+          <button
+            type="button"
+            onPointerDown={(e) => {
+              e.preventDefault()
+              redimensionando.current = id
+              setSelecionada(id)
+              ;(e.target as Element).setPointerCapture(e.pointerId)
+            }}
+            onPointerMove={moverPonteiro}
+            onPointerUp={soltar}
+            aria-label={`Mudar o tamanho de ${SECAO_LABELS[id]}`}
+            className="absolute -bottom-2 -right-2 z-20 flex h-8 w-8 cursor-nwse-resize touch-none items-center justify-center rounded-full border border-primary bg-background text-primary shadow-sm active:scale-95"
+          >
+            <Scaling className="h-4 w-4" />
+          </button>
+        )}
 
         {editando && selecionada === id && (
           <PainelSecao
@@ -285,10 +299,17 @@ function MolduraSecao({
   const contorno = selecionada
     ? 'ring-2 ring-primary ring-offset-2 ring-offset-background rounded-2xl'
     : ''
+  // A altura escolhida é piso, não teto: conteúdo maior continua crescendo em
+  // vez de ser cortado. O `flex` centra o cartão quando sobra espaço.
+  const alturaMin = ALTURA_MIN[cfg.altura]
+  const esticado = alturaMin ? 'flex flex-col justify-center [&>*]:w-full' : ''
 
   if (cfg.estilo === 'padrao') {
     return (
-      <div className={`${contorno} ${editando ? 'pointer-events-none select-none' : ''}`}>
+      <div
+        style={alturaMin ? { minHeight: alturaMin } : undefined}
+        className={`${contorno} ${esticado} ${editando ? 'pointer-events-none select-none' : ''}`}
+      >
         {children}
       </div>
     )
@@ -300,19 +321,19 @@ function MolduraSecao({
 
   return (
     <div
-      style={fundoStyle({
-        cor,
-        cor_secundaria: cor2,
-        fundo_tipo: cfg.estilo === 'cor' ? 'cor' : cfg.estilo,
-      })}
-      className={`overflow-hidden rounded-2xl p-1 shadow-sm ${contorno} ${
+      style={{
+        ...fundoStyle({
+          cor,
+          cor_secundaria: cor2,
+          fundo_tipo: cfg.estilo === 'cor' ? 'cor' : cfg.estilo,
+        }),
+        ...(alturaMin ? { minHeight: alturaMin } : {}),
+      }}
+      // `secao-pintada` está em `app/globals.css`: é o que apaga o fundo
+      // próprio dos cartões de dentro (o branco, e o degradê azul da Escola
+      // Bíblica), que antes tapava a cor escolhida aqui.
+      className={`secao-pintada ${claro ? 'secao-pintada-claro' : 'secao-pintada-escuro'} overflow-hidden rounded-2xl p-2 shadow-sm ${contorno} ${esticado} ${
         editando ? 'pointer-events-none select-none' : ''
-      } ${
-        // Os cartões de dentro têm fundo branco próprio, que taparia a cor
-        // escolhida: aqui eles ficam transparentes e o texto acompanha.
-        claro
-          ? '[&_.bg-card]:bg-transparent [&_.shadow-sm]:shadow-none text-white [&_h2]:text-white [&_h3]:text-white [&_p]:text-white/90 [&_.text-muted-foreground]:text-white/70'
-          : '[&_.bg-card]:bg-transparent [&_.shadow-sm]:shadow-none'
       }`}
     >
       {children}
@@ -344,8 +365,8 @@ function PainelSecao({
         </button>
       </div>
 
-      {/* Tamanho — também dá para arrastar a alça, mas o botão é o caminho
-          óbvio para quem não descobriu a alça. */}
+      {/* Tamanho — também dá para arrastar a ponta inferior direita, mas o
+          botão é o caminho óbvio para quem não reparou na alça. */}
       <div className="flex gap-1.5">
         {[
           { v: 2 as const, nome: 'Linha inteira' },
@@ -357,6 +378,27 @@ function PainelSecao({
             onClick={() => onLayout({ largura: o.v })}
             className={`flex-1 rounded-lg border px-2 py-1.5 text-[11px] font-medium transition-colors ${
               cfg.largura === o.v
+                ? 'border-primary bg-primary text-primary-foreground'
+                : 'border-border hover:bg-accent'
+            }`}
+          >
+            {o.nome}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex gap-1.5">
+        {[
+          { v: 'auto' as const, nome: 'Altura normal' },
+          { v: 'media' as const, nome: 'Mais alto' },
+          { v: 'alta' as const, nome: 'Bem alto' },
+        ].map((o) => (
+          <button
+            key={o.v}
+            type="button"
+            onClick={() => onLayout({ altura: o.v })}
+            className={`flex-1 rounded-lg border px-2 py-1.5 text-[11px] font-medium transition-colors ${
+              cfg.altura === o.v
                 ? 'border-primary bg-primary text-primary-foreground'
                 : 'border-border hover:bg-accent'
             }`}
@@ -459,6 +501,18 @@ function PainelSecao({
             placeholder="Subtítulo (opcional)"
             className="h-8 text-sm"
           />
+          {/* O cartão acima é montado no servidor com o texto que está salvo,
+              então ele só muda depois do "Salvar" — sem este aviso, quem
+              digita acha que não funcionou. */}
+          {(texto.titulo?.trim() || texto.subtitulo?.trim()) && (
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              O cartão passa a mostrar{' '}
+              {texto.titulo?.trim() && <strong className="text-foreground">“{texto.titulo.trim()}”</strong>}
+              {texto.titulo?.trim() && texto.subtitulo?.trim() && ' e '}
+              {texto.subtitulo?.trim() && <strong className="text-foreground">“{texto.subtitulo.trim()}”</strong>}
+              {' '}assim que você salvar.
+            </p>
+          )}
         </div>
       )}
     </div>

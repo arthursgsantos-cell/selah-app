@@ -329,3 +329,36 @@
   border: 0;
   border-top: 1px solid var(--border);
 }
+
+/* ============================================================
+   SEÇÕES PINTADAS DA HOME
+   ============================================================
+   Quando a liderança escolhe cor, degradê ou nébula para um cartão da home, a
+   cor precisa aparecer — e os cartões de dentro têm fundo próprio (branco, ou
+   o degradê azul da Escola Bíblica) que tapava justamente o que se acabou de
+   escolher.
+
+   A regra vale para o cartão e para o filho dele: é onde moram as superfícies.
+   Mais fundo que isso fica de fora de propósito — o quadradinho do ícone e as
+   etiquetas continuam com a cor deles, e é o que dá relevo ao cartão pintado.
+   ============================================================ */
+.secao-pintada > *,
+.secao-pintada > * > * {
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border-color: transparent !important;
+}
+
+/* Texto legível sobre o fundo escolhido. `currentColor` leva junto os ícones
+   do lucide, que herdam a cor do texto. */
+.secao-pintada-claro,
+.secao-pintada-claro * {
+  color: #fff !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+}
+.secao-pintada-escuro,
+.secao-pintada-escuro * {
+  color: #0f172a !important;
+  border-color: rgba(15, 23, 42, 0.15) !important;
+}
