@@ -7,7 +7,7 @@ import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { EditarPerfilForm } from '@/components/perfil/editar-perfil-form'
 import { ConjugeVinculoSection } from '@/components/perfil/conjuge-vinculo-section'
-import { SolicitarCargoSection } from '@/components/perfil/solicitar-cargo-section'
+import { VinculoIgrejaSection } from '@/components/perfil/vinculo-igreja-section'
 import { buscarDependentesAction, type DependenteItem } from '@/app/actions/dependentes'
 import { buscarDadosConjugeAction } from '@/app/actions/conjuge'
 import { minhasInscricoesAction } from '@/app/actions/inscricoes-membro'
@@ -50,7 +50,6 @@ function PerfilConteudo() {
   const [dependentes, setDependentes] = useState<DependenteItem[]>([])
   const [conjugeFilhos, setConjugeFilhos] = useState<Array<{ nome: string; data_nascimento: string | null }>>([])
   const [erro, setErro] = useState<string | null>(null)
-  const [jaPendente, setJaPendente] = useState(false)
   const [inscricoes, setInscricoes] = useState<InscricaoResumo[]>([])
 
   // As inscrições vêm da planilha de cada evento; carregam à parte para não
@@ -66,7 +65,7 @@ function PerfilConteudo() {
         setErro('Sessão não encontrada. Tente recarregar a página.')
         return
       }
-      const [profileResult, deps, conjugeDados, solicitacao] = await Promise.all([
+      const [profileResult, deps, conjugeDados] = await Promise.all([
         supabase
           .from('profiles')
           .select('nome, role, titulo, telefone, email, avatar_url, data_nascimento_1, data_nascimento_2, data_casamento, endereco, endereco_maps')
@@ -74,12 +73,6 @@ function PerfilConteudo() {
           .single(),
         buscarDependentesAction().catch(() => [] as DependenteItem[]),
         buscarDadosConjugeAction().catch(() => null),
-        supabase
-          .from('solicitacoes_cargo')
-          .select('id')
-          .eq('user_id', session.user.id)
-          .eq('status', 'pendente')
-          .maybeSingle(),
       ])
       if (profileResult.error || !profileResult.data) {
         setErro('Erro ao carregar perfil: ' + (profileResult.error?.message ?? 'sem dados'))
@@ -97,7 +90,6 @@ function PerfilConteudo() {
       })
       setDependentes(deps)
       setConjugeFilhos(conjugeDados?.filhos ?? [])
-      setJaPendente(!!solicitacao.data)
     })
   }, [])
 
@@ -139,6 +131,11 @@ function PerfilConteudo() {
         </div>
       )}
 
+      {/* Quem a pessoa é na igreja. No primeiro acesso vem antes de tudo: é a
+          resposta que a liderança mais precisa, e a que ninguém pensaria em
+          procurar no fim da página. */}
+      <VinculoIgrejaSection primeiroAcesso={Boolean(retorno)} />
+
       <MinhasInscricoes inscricoes={inscricoes} />
 
       <EditarPerfilForm
@@ -160,7 +157,6 @@ function PerfilConteudo() {
       <div className="rounded-xl border border-border bg-card p-4">
         <ConjugeVinculoSection />
       </div>
-      <SolicitarCargoSection roleAtual={profile.role} jaPendente={jaPendente} />
     </div>
   )
 }

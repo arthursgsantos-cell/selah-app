@@ -1,15 +1,26 @@
 'use client'
 
 import { useState } from 'react'
-import { resolverSolicitacaoCargoAction } from '@/app/actions/solicitacoes-cargo'
+import { confirmarVinculoAction } from '@/app/actions/vinculo-igreja'
 import { Check, X, Loader2 } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 
 const cargoLabels: Record<string, string> = {
+  membro: 'Membro',
   lider_treinamento: 'Líder em Treinamento',
   lider: 'Líder',
   supervisor_treinamento: 'Supervisor em Treinamento',
   supervisor: 'Supervisor',
+  pastor: 'Pastor',
+  admin: 'Administrador',
+  ensino_professor: 'Professor da Escola Bíblica',
+  ensino_coordenador: 'Coordenador de cursos',
+}
+
+const vinculoLabels: Record<string, string> = {
+  membro: 'diz ser membro',
+  congregado: 'diz congregar aqui',
+  visitante: 'diz estar visitando',
 }
 
 type Props = {
@@ -18,6 +29,8 @@ type Props = {
     cargo_solicitado: string
     mensagem: string | null
     criado_em: string
+    vinculo?: string | null
+    celulas?: { nome: string } | null
     profiles: { nome: string; avatar_url: string | null; role: string } | null
   }
 }
@@ -28,7 +41,7 @@ export function SolicitacaoCargoCard({ sol }: Props) {
 
   async function resolver(acao: 'aprovar' | 'rejeitar') {
     setLoading(acao)
-    await resolverSolicitacaoCargoAction(sol.id, acao)
+    await confirmarVinculoAction(sol.id, acao)
     setResolvido(true)
   }
 
@@ -46,8 +59,17 @@ export function SolicitacaoCargoCard({ sol }: Props) {
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold">{nome}</p>
         <p className="text-xs text-muted-foreground">
-          Solicitou: <span className="font-medium text-foreground">{cargoLabels[sol.cargo_solicitado] ?? sol.cargo_solicitado}</span>
+          {sol.vinculo ? vinculoLabels[sol.vinculo] ?? sol.vinculo : 'Solicitou'}
+          {' · '}
+          <span className="font-medium text-foreground">
+            {cargoLabels[sol.cargo_solicitado] ?? sol.cargo_solicitado}
+          </span>
         </p>
+        {sol.celulas?.nome && (
+          <p className="text-xs text-muted-foreground">
+            Célula: <span className="font-medium text-foreground">{sol.celulas.nome}</span>
+          </p>
+        )}
         {sol.mensagem && (
           <p className="text-xs text-muted-foreground mt-1 italic">&ldquo;{sol.mensagem}&rdquo;</p>
         )}

@@ -30,7 +30,7 @@ export default async function PendenciasPage() {
   ] = await Promise.all([
     admin
       .from('solicitacoes_cargo')
-      .select('id, cargo_solicitado, mensagem, criado_em, profiles(nome, avatar_url, role)')
+      .select('id, cargo_solicitado, mensagem, criado_em, vinculo, celulas(nome), profiles(nome, avatar_url, role)')
       .eq('igreja_id', profile.igreja_id)
       .eq('status', 'pendente')
       .order('criado_em', { ascending: false }),
@@ -105,7 +105,7 @@ export default async function PendenciasPage() {
         <section>
           <div className="flex items-center gap-2 mb-3">
             <UserCheck className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-semibold">Solicitações de cargo</h2>
+            <h2 className="text-sm font-semibold">Quem se apresentou</h2>
             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
               {totalCargo}
             </span>

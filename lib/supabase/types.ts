@@ -157,6 +157,22 @@ export interface ConfigLeitura {
 
 export type Testamento = 'AT' | 'NT'
 
+/**
+ * O que uma pessoa pode declarar ser no primeiro acesso. Vai além de `Role`
+ * porque coordenador e professor do Ensino não são cargo em `profiles` — são
+ * linha em `ensino_equipe`. Ver `solicitacoes_cargo_vinculo.sql`.
+ */
+export type CargoSolicitado =
+  | 'membro'
+  | 'lider_treinamento'
+  | 'lider'
+  | 'supervisor_treinamento'
+  | 'supervisor'
+  | 'pastor'
+  | 'admin'
+  | 'ensino_coordenador'
+  | 'ensino_professor'
+
 export type Database = {
   public: {
     Tables: {
@@ -1146,7 +1162,11 @@ export type Database = {
           id: string
           igreja_id: string
           user_id: string
-          cargo_solicitado: 'lider_treinamento' | 'lider' | 'supervisor_treinamento' | 'supervisor'
+          cargo_solicitado: CargoSolicitado
+          /** Célula que a pessoa diz frequentar — confirmada junto com o cargo. */
+          celula_id: string | null
+          /** 'membro' | 'congregado' | 'visitante', como a pessoa se declara. */
+          vinculo: string | null
           mensagem: string | null
           status: 'pendente' | 'aprovado' | 'rejeitado'
           resolvido_por: string | null
@@ -1157,7 +1177,9 @@ export type Database = {
           id?: string
           igreja_id: string
           user_id: string
-          cargo_solicitado: 'lider_treinamento' | 'lider' | 'supervisor_treinamento' | 'supervisor'
+          cargo_solicitado: CargoSolicitado
+          celula_id?: string | null
+          vinculo?: string | null
           mensagem?: string | null
           status?: 'pendente' | 'aprovado' | 'rejeitado'
           resolvido_por?: string | null
@@ -1168,7 +1190,9 @@ export type Database = {
           id?: string
           igreja_id?: string
           user_id?: string
-          cargo_solicitado?: 'lider_treinamento' | 'lider' | 'supervisor_treinamento' | 'supervisor'
+          cargo_solicitado?: CargoSolicitado
+          celula_id?: string | null
+          vinculo?: string | null
           mensagem?: string | null
           status?: 'pendente' | 'aprovado' | 'rejeitado'
           resolvido_por?: string | null
