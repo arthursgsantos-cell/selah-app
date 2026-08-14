@@ -866,7 +866,6 @@ export default async function HomePage() {
                       <ParabensBtn
                         nome={p.nome}
                         telefone={(p as { telefone?: string | null }).telefone}
-                        igrejaNome={church?.nome}
                       />
                     </div>
                   </div>
@@ -926,7 +925,6 @@ export default async function HomePage() {
                     <ParabensBtn
                       nome={p.nome}
                       telefone={(p as { telefone?: string | null }).telefone}
-                      igrejaNome={church?.nome}
                       compacto
                     />
                   )}
