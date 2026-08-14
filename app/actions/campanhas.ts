@@ -8,6 +8,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
+import { BUCKET_CAMPANHAS } from '@/lib/campanhas'
 
 export interface Campanha {
   id: string
@@ -16,6 +17,12 @@ export interface Campanha {
   centavos: number
   ativa: boolean
   ordem: number
+  /** Card da campanha — o retrato que ela leva para a página e para a home. */
+  imagem_url: string | null
+  /** Vídeo promocional: YouTube, Vimeo ou link direto de mp4. */
+  video_url: string | null
+  /** Leva o card para a home, além da página de contribuição. */
+  destaque: boolean
 }
 
 export interface DadosCampanha {
@@ -23,6 +30,9 @@ export interface DadosCampanha {
   descricao: string | null
   centavos: number
   ativa: boolean
+  imagem_url?: string | null
+  video_url?: string | null
+  destaque?: boolean
 }
 
 async function exigirDirecao(): Promise<{ igrejaId: string } | null> {
@@ -88,6 +98,9 @@ export async function criarCampanhaAction(
       descricao: dados.descricao?.trim() || null,
       centavos: dados.centavos,
       ativa: dados.ativa,
+      imagem_url: dados.imagem_url ?? null,
+      video_url: dados.video_url?.trim() || null,
+      destaque: dados.destaque ?? false,
       ordem: ((ultima as { ordem: number } | null)?.ordem ?? 0) + 1,
     })
     .select('id')
@@ -120,6 +133,9 @@ export async function editarCampanhaAction(
       descricao: dados.descricao?.trim() || null,
       centavos: dados.centavos,
       ativa: dados.ativa,
+      imagem_url: dados.imagem_url ?? null,
+      video_url: dados.video_url?.trim() || null,
+      destaque: dados.destaque ?? false,
     })
     .eq('id', id)
     // O filtro por igreja não é redundante com a checagem de cargo: sem ele,
@@ -131,6 +147,40 @@ export async function editarCampanhaAction(
   revalidatePath('/pastor')
   revalidatePath('/contribuir')
   return { ok: true }
+}
+
+/**
+ * Sobe o card da campanha.
+ *
+ * A imagem é gravada antes de a campanha existir (na hora de criar) — por isso
+ * a ação devolve a URL em vez de já salvar na linha: quem guarda é o
+ * formulário, junto com o resto.
+ */
+export async function subirImagemCampanhaAction(
+  formData: FormData
+): Promise<{ ok: true; url: string } | { ok: false; erro: string }> {
+  const direcao = await exigirDirecao()
+  if (!direcao) return { ok: false, erro: 'Sem permissão.' }
+
+  const file = formData.get('file') as File | null
+  if (!file) return { ok: false, erro: 'Escolha uma imagem.' }
+  // 8 MB: acima disso é foto de câmera sem tratamento, que só faz a página
+  // demorar a abrir no celular de quem vai contribuir.
+  if (file.size > 8 * 1024 * 1024) return { ok: false, erro: 'Imagem muito grande (máximo 8 MB).' }
+
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
+  const caminho = `${direcao.igrejaId}/${crypto.randomUUID()}.${ext}`
+
+  const admin = createAdminClient()
+  const { error } = await admin.storage
+    .from(BUCKET_CAMPANHAS)
+    .upload(caminho, await file.arrayBuffer(), { contentType: file.type, upsert: false })
+  if (error) return { ok: false, erro: error.message }
+
+  return {
+    ok: true,
+    url: admin.storage.from(BUCKET_CAMPANHAS).getPublicUrl(caminho).data.publicUrl,
+  }
 }
 
 export async function excluirCampanhaAction(

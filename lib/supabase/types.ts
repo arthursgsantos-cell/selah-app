@@ -2620,6 +2620,9 @@ export type Database = {
           centavos: number
           ativa: boolean
           ordem: number
+          imagem_url: string | null
+          video_url: string | null
+          destaque: boolean
           criado_em: string
         }
         Insert: {
@@ -2630,6 +2633,9 @@ export type Database = {
           centavos: number
           ativa?: boolean
           ordem?: number
+          imagem_url?: string | null
+          video_url?: string | null
+          destaque?: boolean
           criado_em?: string
         }
         Update: {
@@ -2640,6 +2646,9 @@ export type Database = {
           centavos?: number
           ativa?: boolean
           ordem?: number
+          imagem_url?: string | null
+          video_url?: string | null
+          destaque?: boolean
           criado_em?: string
         }
         Relationships: []

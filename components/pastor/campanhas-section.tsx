@@ -1,14 +1,18 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Coins, Loader2, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { Coins, ImagePlus, Loader2, Pencil, Play, Plus, Star, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { comprimirImagem } from '@/lib/comprimir-imagem'
+import { centavosTexto } from '@/lib/campanhas'
+import { resolverVideo } from '@/lib/video-embed'
 import {
   criarCampanhaAction, editarCampanhaAction, excluirCampanhaAction,
+  subirImagemCampanhaAction,
   type Campanha, type DadosCampanha,
 } from '@/app/actions/campanhas'
 
@@ -16,11 +20,9 @@ interface Props {
   campanhas: Campanha[]
 }
 
-const VAZIO: DadosCampanha = { nome: '', descricao: null, centavos: 1, ativa: true }
-
-/** "23" → ",23"; o zero à esquerda importa, é assim que sai no extrato. */
-export function centavosTexto(centavos: number): string {
-  return `,${String(centavos).padStart(2, '0')}`
+const VAZIO: DadosCampanha = {
+  nome: '', descricao: null, centavos: 1, ativa: true,
+  imagem_url: null, video_url: null, destaque: false,
 }
 
 function Formulario({
@@ -37,6 +39,31 @@ function Formulario({
   erro: string | null
 }) {
   const [dados, setDados] = useState<DadosCampanha>(inicial)
+  const [subindo, setSubindo] = useState(false)
+  const [erroImagem, setErroImagem] = useState<string | null>(null)
+  const arquivoRef = useRef<HTMLInputElement>(null)
+
+  async function escolherImagem(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setErroImagem(null)
+    setSubindo(true)
+    try {
+      // Comprime antes de mandar: o corpo de uma Server Action tem teto de
+      // 1 MB, e foto de celular passa disso com folga.
+      const menor = await comprimirImagem(file)
+      const fd = new FormData()
+      fd.append('file', menor)
+      const r = await subirImagemCampanhaAction(fd)
+      if (!r.ok) setErroImagem(r.erro)
+      else setDados((d) => ({ ...d, imagem_url: r.url }))
+    } catch (err) {
+      setErroImagem(err instanceof Error ? err.message : 'Erro ao subir a imagem')
+    } finally {
+      setSubindo(false)
+      if (arquivoRef.current) arquivoRef.current.value = ''
+    }
+  }
 
   return (
     <div className="rounded-xl border border-primary/30 bg-background p-3 space-y-3">
@@ -79,6 +106,58 @@ function Formulario({
         />
       </div>
 
+      {/* Card da campanha — a imagem que aparece na página de contribuição */}
+      <div className="space-y-1.5">
+        <Label className="text-xs">Imagem do card (opcional)</Label>
+        {dados.imagem_url ? (
+          <div className="relative overflow-hidden rounded-xl border border-border">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={dados.imagem_url} alt="" className="h-28 w-full object-cover" />
+            <button
+              type="button"
+              onClick={() => setDados((d) => ({ ...d, imagem_url: null }))}
+              className="absolute top-1.5 right-1.5 rounded-lg bg-black/60 p-1 text-white hover:bg-black/80"
+              aria-label="Remover imagem"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => arquivoRef.current?.click()}
+            disabled={subindo}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border py-6 text-xs text-muted-foreground hover:bg-accent transition-colors disabled:opacity-60"
+          >
+            {subindo ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+            {subindo ? 'Enviando…' : 'Escolher imagem'}
+          </button>
+        )}
+        <input
+          ref={arquivoRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden"
+          onChange={escolherImagem}
+        />
+        {erroImagem && <p className="text-xs text-destructive">{erroImagem}</p>}
+      </div>
+
+      <div className="space-y-1.5">
+        <Label className="text-xs">Vídeo promocional (opcional)</Label>
+        <Input
+          value={dados.video_url ?? ''}
+          onChange={(e) => setDados((d) => ({ ...d, video_url: e.target.value }))}
+          placeholder="Link do YouTube, Vimeo ou .mp4"
+          className="h-8 text-sm"
+        />
+        {dados.video_url?.trim() && !resolverVideo(dados.video_url) && (
+          <p className="text-xs text-amber-700">
+            Não reconheci esse link. Use YouTube, Vimeo ou um arquivo .mp4.
+          </p>
+        )}
+      </div>
+
       <label className="flex items-center gap-2 text-xs cursor-pointer">
         <input
           type="checkbox"
@@ -87,6 +166,16 @@ function Formulario({
           className="accent-primary h-3.5 w-3.5"
         />
         Mostrar na página de contribuição
+      </label>
+
+      <label className="flex items-center gap-2 text-xs cursor-pointer">
+        <input
+          type="checkbox"
+          checked={dados.destaque ?? false}
+          onChange={(e) => setDados((d) => ({ ...d, destaque: e.target.checked }))}
+          className="accent-primary h-3.5 w-3.5"
+        />
+        Destacar também na tela inicial
       </label>
 
       {erro && <p className="text-xs text-destructive">{erro}</p>}
@@ -200,6 +289,9 @@ export function CampanhasSection({ campanhas }: Props) {
                   descricao: c.descricao,
                   centavos: c.centavos,
                   ativa: c.ativa,
+                  imagem_url: c.imagem_url,
+                  video_url: c.video_url,
+                  destaque: c.destaque,
                 }}
                 onSalvar={(d) => editar(c.id, d)}
                 onCancelar={() => { setEditando(null); setErro(null) }}
@@ -209,19 +301,45 @@ export function CampanhasSection({ campanhas }: Props) {
             ) : (
               <div key={c.id} className="rounded-xl border border-border p-3">
                 <div className="flex items-start gap-3">
-                  <span className="shrink-0 rounded-lg bg-primary/10 px-2 py-1 font-mono text-sm font-bold text-primary tabular-nums">
-                    {centavosTexto(c.centavos)}
-                  </span>
+                  {c.imagem_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={c.imagem_url}
+                      alt=""
+                      className="h-12 w-12 shrink-0 rounded-lg object-cover"
+                    />
+                  ) : (
+                    <span className="shrink-0 rounded-lg bg-primary/10 px-2 py-1 font-mono text-sm font-bold text-primary tabular-nums">
+                      {centavosTexto(c.centavos)}
+                    </span>
+                  )}
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium truncate">{c.nome}</p>
                     {c.descricao && (
                       <p className="text-xs text-muted-foreground line-clamp-2">{c.descricao}</p>
                     )}
-                    {!c.ativa && (
-                      <span className="mt-1 inline-block rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                        Não aparece na página
-                      </span>
-                    )}
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                      {c.imagem_url && (
+                        <span className="rounded-full bg-primary/10 px-2 py-0.5 font-mono text-[10px] font-bold text-primary tabular-nums">
+                          {centavosTexto(c.centavos)}
+                        </span>
+                      )}
+                      {c.video_url && (
+                        <span className="inline-flex items-center gap-0.5 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                          <Play className="h-2.5 w-2.5" /> vídeo
+                        </span>
+                      )}
+                      {c.destaque && (
+                        <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                          <Star className="h-2.5 w-2.5" /> na tela inicial
+                        </span>
+                      )}
+                      {!c.ativa && (
+                        <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                          Não aparece na página
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <button
                     type="button"

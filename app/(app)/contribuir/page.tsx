@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { PixIgreja } from '@/components/contribuir/pix-igreja'
 import { ContribuicaoFundo } from '@/components/contribuir/contribuicao-fundo'
+import { CampanhasCards } from '@/components/contribuir/campanhas-cards'
 import { PAINEL, SECAO } from '@/lib/estilos'
 import type { TipoChavePix } from '@/lib/pix'
 import { textoRicoParaHtml } from '@/lib/texto-rico'
@@ -55,7 +56,7 @@ export default async function ContribuirPage() {
   const { data: campanhasRaw } = igreja
     ? await admin
         .from('campanhas_contribuicao')
-        .select('id, nome, descricao, centavos, ativa, ordem, criado_em')
+        .select('id, nome, descricao, centavos, ativa, ordem, imagem_url, video_url, destaque, criado_em')
         .eq('igreja_id', igreja.id)
         .eq('ativa', true)
         .order('ordem')
@@ -109,6 +110,10 @@ export default async function ContribuirPage() {
           />
         </div>
       )}
+
+      {/* Campanhas com card, imagem e vídeo — antes do QR, porque é o que
+          explica para onde vai o dinheiro. */}
+      <CampanhasCards campanhas={campanhas} />
 
       {pixPronto ? (
         <div className={SECAO}>

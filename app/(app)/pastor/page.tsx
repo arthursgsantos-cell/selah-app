@@ -131,7 +131,7 @@ export default async function PastorPage({
       .limit(50),
     admin
       .from('campanhas_contribuicao')
-      .select('id, nome, descricao, centavos, ativa, ordem, criado_em')
+      .select('id, nome, descricao, centavos, ativa, ordem, imagem_url, video_url, destaque, criado_em')
       .eq('igreja_id', profile.igreja_id)
       .order('ordem'),
   ])

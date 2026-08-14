@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import QRCode from 'react-qr-code'
 import {
   gerarPayloadPix, formatarChavePix, normalizarChavePix, aplicarCentavosCampanha,
@@ -9,6 +9,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Copy, Check, QrCode, Target } from 'lucide-react'
+import { EVENTO_ESCOLHER_CAMPANHA } from '@/components/contribuir/campanhas-cards'
 
 interface CampanhaResumo {
   id: string
@@ -36,6 +37,17 @@ export function PixIgreja({ chave, tipo, nome, cidade, campanhas = [] }: Props) 
   const [copiado, setCopiado] = useState<'payload' | 'chave' | null>(null)
 
   const campanha = campanhas.find((c) => c.id === campanhaId) ?? null
+
+  // O card da campanha, lá em cima na página, marca o destino aqui embaixo.
+  // Ver `EVENTO_ESCOLHER_CAMPANHA` em `campanhas-cards.tsx`.
+  useEffect(() => {
+    function escolher(e: Event) {
+      const id = (e as CustomEvent<string>).detail
+      if (campanhas.some((c) => c.id === id)) setCampanhaId(id)
+    }
+    window.addEventListener(EVENTO_ESCOLHER_CAMPANHA, escolher)
+    return () => window.removeEventListener(EVENTO_ESCOLHER_CAMPANHA, escolher)
+  }, [campanhas])
 
   // "12,50" e "12.50" vêm da mesma pessoa em teclados diferentes.
   const valorDigitado = useMemo(() => {
@@ -66,7 +78,7 @@ export function PixIgreja({ chave, tipo, nome, cidade, campanhas = [] }: Props) 
   }
 
   return (
-    <div className="space-y-5">
+    <div id="pix-igreja" className="space-y-5">
       {/* Valor */}
       <div>
         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">Valor</p>

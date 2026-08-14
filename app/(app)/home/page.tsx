@@ -13,6 +13,7 @@ import { SolicitarCelulaDialog } from '@/components/home/solicitar-celula-dialog
 import { QueroServirDialog } from '@/components/home/quero-servir-dialog'
 import { QueroSerMembroDialog } from '@/components/home/quero-ser-membro-dialog'
 import { ContribuirCard } from '@/components/home/contribuir-card'
+import { CampanhaDestaqueCard, type CampanhaDestaque } from '@/components/home/campanha-destaque-card'
 import { SecoesHomeDialog } from '@/components/home/secoes-home-dialog'
 import { normalizarOrdemSecoes, type TextosSecoes } from '@/lib/home-secoes'
 import { CultoAoVivo } from '@/components/home/culto-ao-vivo'
@@ -344,6 +345,21 @@ export default async function HomePage() {
     : null
   const contribuicaoNoAr = Boolean(church?.contribuicao_ativa)
 
+  // Campanhas marcadas como destaque ganham card próprio na home, logo abaixo
+  // do convite de contribuição. O card completo, com vídeo, mora em /contribuir.
+  const { data: campanhasDestaqueData } = church?.id && contribuicaoNoAr
+    ? await supabase
+        .from('campanhas_contribuicao')
+        .select('id, nome, descricao, centavos, imagem_url, video_url')
+        .eq('igreja_id', church.id)
+        .eq('ativa', true)
+        .eq('destaque', true)
+        .order('ordem')
+        .limit(3)
+    : { data: null }
+
+  const campanhasDestaque = (campanhasDestaqueData ?? []) as CampanhaDestaque[]
+
   /**
    * Ordem e textos dos cartões institucionais, escolhidos no painel "Seções".
    * Valem para as duas versões da home — a do visitante e a de quem entrou —,
@@ -480,11 +496,15 @@ export default async function HomePage() {
         {ordemSecoes.map((id) => {
           if (id === 'contribuir') {
             return contribuicaoNoAr ? (
-              <ContribuirCard
-                key={id}
-                titulo={textosSecoes.contribuir?.titulo}
-                subtitulo={textosSecoes.contribuir?.subtitulo}
-              />
+              <div key={id} className="space-y-3">
+                <ContribuirCard
+                  titulo={textosSecoes.contribuir?.titulo}
+                  subtitulo={textosSecoes.contribuir?.subtitulo}
+                />
+                {campanhasDestaque.map((c) => (
+                  <CampanhaDestaqueCard key={c.id} campanha={c} />
+                ))}
+              </div>
             ) : null
           }
           if (id === 'eventos') {
@@ -740,11 +760,15 @@ export default async function HomePage() {
       {ordemSecoes.map((id) => {
         if (id === 'contribuir') {
           return contribuicaoNoAr ? (
-            <ContribuirCard
-              key={id}
-              titulo={textosSecoes.contribuir?.titulo}
-              subtitulo={textosSecoes.contribuir?.subtitulo}
-            />
+            <div key={id} className="space-y-3">
+              <ContribuirCard
+                titulo={textosSecoes.contribuir?.titulo}
+                subtitulo={textosSecoes.contribuir?.subtitulo}
+              />
+              {campanhasDestaque.map((c) => (
+                <CampanhaDestaqueCard key={c.id} campanha={c} />
+              ))}
+            </div>
           ) : null
         }
         if (id === 'eventos') {
