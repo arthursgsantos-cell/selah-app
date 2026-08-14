@@ -42,6 +42,9 @@ export async function updateUserRoleAction(userId: string, novoRole: Role) {
 
   if (error) throw new Error(error.message)
   revalidatePath('/usuarios')
+  // O cartão da liderança na home lê `titulo`: sem invalidar, o novo título só
+  // apareceria na próxima vez que a página fosse gerada.
+  revalidatePath('/home')
 }
 
 export async function addMembroCelulaAction(
@@ -100,6 +103,8 @@ export async function updateUserProfileAdminAction(
   userId: string,
   data: {
     nome: string
+    /** Título que aparece no cartão da liderança na home ("Pastor Titular"). */
+    titulo?: string | null
     telefone?: string | null
     data_nascimento_1?: string | null
     data_nascimento_2?: string | null
@@ -124,6 +129,7 @@ export async function updateUserProfileAdminAction(
     .from('profiles')
     .update({
       nome: data.nome.trim(),
+      titulo: data.titulo?.trim() || null,
       telefone: data.telefone?.trim() || null,
       data_nascimento_1: data.data_nascimento_1 || null,
       data_nascimento_2: data.data_nascimento_2 || null,

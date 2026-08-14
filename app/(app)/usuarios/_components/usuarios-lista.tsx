@@ -33,6 +33,7 @@ type Usuario = {
   email: string | null
   avatar_url: string | null
   role: Role
+  titulo: string | null
   created_at: string
   telefone: string | null
   data_nascimento_1: string | null

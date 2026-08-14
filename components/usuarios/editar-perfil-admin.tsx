@@ -27,6 +27,7 @@ type UsuarioMin = {
   email: string | null
   avatar_url: string | null
   telefone: string | null
+  titulo?: string | null
   data_nascimento_1: string | null
   data_nascimento_2: string | null
   data_casamento: string | null
@@ -54,6 +55,7 @@ export function EditarPerfilAdmin({ usuario, todosUsuarios }: Props) {
   // Dados pessoais
   const [nome, setNome] = useState(usuario.nome)
   const [telefone, setTelefone] = useState(usuario.telefone ?? '')
+  const [titulo, setTitulo] = useState(usuario.titulo ?? '')
   const [dataNasc1, setDataNasc1] = useState(usuario.data_nascimento_1 ?? '')
   const [dataNasc2, setDataNasc2] = useState(usuario.data_nascimento_2 ?? '')
   const [dataCas, setDataCas] = useState(usuario.data_casamento ?? '')
@@ -119,6 +121,7 @@ export function EditarPerfilAdmin({ usuario, todosUsuarios }: Props) {
         await Promise.all([
           updateUserProfileAdminAction(usuario.id, {
             nome,
+            titulo: titulo || null,
             telefone: telefone || null,
             data_nascimento_1: dataNasc1 || null,
             data_nascimento_2: dataNasc2 || null,
@@ -229,6 +232,33 @@ export function EditarPerfilAdmin({ usuario, todosUsuarios }: Props) {
                 <Label className="text-xs">Nome</Label>
                 <Input value={nome} onChange={(e) => setNome(e.target.value)} className="h-8 text-sm" required />
               </div>
+
+              {/* Só para pastor: é o texto que aparece acima do nome no
+                  cartão da liderança, na tela inicial. */}
+              {usuario.role === 'pastor' && (
+                <div className="col-span-2 space-y-1">
+                  <Label className="text-xs">Título pastoral</Label>
+                  <Input
+                    value={titulo}
+                    onChange={(e) => setTitulo(e.target.value)}
+                    list="titulos-pastorais"
+                    className="h-8 text-sm"
+                    placeholder="Ex: Pastor Titular"
+                  />
+                  <datalist id="titulos-pastorais">
+                    <option value="Pastor Titular" />
+                    <option value="Pastor Auxiliar" />
+                    <option value="Pastor de Jovens" />
+                    <option value="Pastor de Ensino" />
+                    <option value="Pastor de Casais" />
+                    <option value="Pastor Missionário" />
+                    <option value="Evangelista" />
+                  </datalist>
+                  <p className="text-[11px] text-muted-foreground">
+                    Aparece acima do nome no cartão da liderança, na tela inicial.
+                  </p>
+                </div>
+              )}
 
               <div className="space-y-1">
                 <Label className="text-xs">Telefone</Label>

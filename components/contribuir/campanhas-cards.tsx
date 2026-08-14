@@ -55,10 +55,13 @@ export function CampanhasCards({ campanhas }: Props) {
           >
             {c.imagem_url && !aberto && (
               // eslint-disable-next-line @next/next/no-img-element
+              // 16:9, a mesma proporção do card na tela inicial: a arte de
+              // divulgação já nasce assim, e altura livre cortava cada
+              // campanha num lugar diferente.
               <img
                 src={c.imagem_url}
                 alt={c.nome}
-                className="h-40 w-full object-cover"
+                className="aspect-video w-full object-cover"
               />
             )}
 

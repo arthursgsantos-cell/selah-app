@@ -68,7 +68,7 @@ export default async function UsuariosPage({
   ] = await Promise.all([
     supabase
       .from('profiles')
-      .select('id, nome, email, avatar_url, role, created_at, telefone, data_nascimento_1, data_nascimento_2, data_casamento, endereco, endereco_maps, conjuge_id')
+      .select('id, nome, email, avatar_url, role, titulo, created_at, telefone, data_nascimento_1, data_nascimento_2, data_casamento, endereco, endereco_maps, conjuge_id')
       .eq('igreja_id', profile.igreja_id)
       .order('nome'),
     supabase.from('celulas').select('id, nome, rede_id, redes(nome)').eq('ativa', true).order('nome'),

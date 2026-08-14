@@ -10,9 +10,10 @@ import { Input } from '@/components/ui/input'
 import { atualizarSecoesHomeAction } from '@/app/actions/home-secoes'
 import { fundoStyle, ajustarCor } from '@/lib/rede-fundo'
 import {
-  ALTURA_MIN, LAYOUT_PADRAO, SECAO_LABELS, SECAO_TEM_TEXTO, textoClaroSobre,
-  type EstiloSecao, type LayoutSecao, type LayoutSecoes, type SecaoHomeId,
-  type TextosSecoes,
+  ALTURA_LABELS, ALTURA_PROPORCAO, LAYOUT_PADRAO, SECAO_LABELS, SECAO_TEM_TEXTO,
+  textoClaroSobre,
+  type AlturaSecao, type EstiloSecao, type LayoutSecao, type LayoutSecoes,
+  type SecaoHomeId, type TextosSecoes,
 } from '@/lib/home-secoes'
 
 interface Props {
@@ -119,7 +120,7 @@ export function SecoesHome({ ordem: ordemInicial, layout: layoutInicial, textos:
 
       mudarLayout(idR, {
         largura: proporcao > 0.55 ? 2 : 1,
-        altura: alturaArrastada > 340 ? 'alta' : alturaArrastada > 210 ? 'media' : 'auto',
+        altura: alturaArrastada > 340 ? 'r916' : alturaArrastada > 210 ? 'r64' : 'padrao',
       })
     }
   }
@@ -299,15 +300,19 @@ function MolduraSecao({
   const contorno = selecionada
     ? 'ring-2 ring-primary ring-offset-2 ring-offset-background rounded-2xl'
     : ''
-  // A altura escolhida é piso, não teto: conteúdo maior continua crescendo em
-  // vez de ser cortado. O `flex` centra o cartão quando sobra espaço.
-  const alturaMin = ALTURA_MIN[cfg.altura]
-  const esticado = alturaMin ? 'flex flex-col justify-center [&>*]:w-full' : ''
+  // A proporção é piso, não teto: `min-height: fit-content` deixa o conteúdo
+  // maior crescer em vez de ser cortado. O `flex` centra o cartão quando sobra
+  // espaço dentro da proporção.
+  const proporcao = ALTURA_PROPORCAO[cfg.altura]
+  const formato = proporcao
+    ? { aspectRatio: proporcao, minHeight: 'fit-content' as const }
+    : undefined
+  const esticado = proporcao ? 'flex flex-col justify-center [&>*]:w-full' : ''
 
   if (cfg.estilo === 'padrao') {
     return (
       <div
-        style={alturaMin ? { minHeight: alturaMin } : undefined}
+        style={formato}
         className={`${contorno} ${esticado} ${editando ? 'pointer-events-none select-none' : ''}`}
       >
         {children}
@@ -327,7 +332,7 @@ function MolduraSecao({
           cor_secundaria: cor2,
           fundo_tipo: cfg.estilo === 'cor' ? 'cor' : cfg.estilo,
         }),
-        ...(alturaMin ? { minHeight: alturaMin } : {}),
+        ...(formato ?? {}),
       }}
       // `secao-pintada` está em `app/globals.css`: é o que apaga o fundo
       // próprio dos cartões de dentro (o branco, e o degradê azul da Escola
@@ -387,23 +392,21 @@ function PainelSecao({
         ))}
       </div>
 
+      {/* Proporção, na linguagem de quem monta arte: 6:4 é o banner deitado,
+          9:16 é o story em pé. */}
       <div className="flex gap-1.5">
-        {[
-          { v: 'auto' as const, nome: 'Altura normal' },
-          { v: 'media' as const, nome: 'Mais alto' },
-          { v: 'alta' as const, nome: 'Bem alto' },
-        ].map((o) => (
+        {(['padrao', 'r64', 'r916'] as AlturaSecao[]).map((v) => (
           <button
-            key={o.v}
+            key={v}
             type="button"
-            onClick={() => onLayout({ altura: o.v })}
-            className={`flex-1 rounded-lg border px-2 py-1.5 text-[11px] font-medium transition-colors ${
-              cfg.altura === o.v
+            onClick={() => onLayout({ altura: v })}
+            className={`flex-1 rounded-lg border px-2 py-1.5 text-[11px] font-medium tabular-nums transition-colors ${
+              cfg.altura === v
                 ? 'border-primary bg-primary text-primary-foreground'
                 : 'border-border hover:bg-accent'
             }`}
           >
-            {o.nome}
+            {ALTURA_LABELS[v]}
           </button>
         ))}
       </div>

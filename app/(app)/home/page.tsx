@@ -13,7 +13,8 @@ import { SolicitarCelulaDialog } from '@/components/home/solicitar-celula-dialog
 import { QueroServirDialog } from '@/components/home/quero-servir-dialog'
 import { QueroSerMembroDialog } from '@/components/home/quero-ser-membro-dialog'
 import { ContribuirCard } from '@/components/home/contribuir-card'
-import { CampanhaDestaqueCard, type CampanhaDestaque } from '@/components/home/campanha-destaque-card'
+import { CampanhasDestaque, type CampanhaDestaque } from '@/components/home/campanhas-destaque'
+import { ParabensBtn } from '@/components/home/parabens-btn'
 import { SecoesHome } from '@/components/home/secoes-home'
 import {
   normalizarOrdemSecoes, normalizarLayoutSecoes, type TextosSecoes,
@@ -112,7 +113,7 @@ export default async function HomePage() {
       .limit(4),
     admin
       .from('profiles')
-      .select('id, nome, avatar_url, data_nascimento_1')
+      .select('id, nome, avatar_url, telefone, data_nascimento_1')
       .eq('igreja_id', igrejaId ?? '')
       .not('data_nascimento_1', 'is', null),
     celulaId
@@ -347,10 +348,23 @@ export default async function HomePage() {
     : null
   const contribuicaoNoAr = Boolean(church?.contribuicao_ativa)
 
+  // O titular encabeça o cartão da liderança; o resto segue em ordem
+  // alfabética, como veio do banco. Sem isso a ordem era só o nome, e o pastor
+  // auxiliar aparecia antes do titular por acaso da letra inicial.
+  const pastoresOrdenados = [...((pastorProfiles ?? []) as unknown as PastorItem[])].sort(
+    (a, b) =>
+      Number((b.titulo ?? '').toLowerCase().includes('titular')) -
+      Number((a.titulo ?? '').toLowerCase().includes('titular'))
+  )
+
   // Campanhas marcadas como destaque ganham card próprio na home, logo abaixo
   // do convite de contribuição. O card completo, com vídeo, mora em /contribuir.
+  // Pela service role, como as outras consultas desta página: a política de
+  // `campanhas_contribuicao` só abre para quem está autenticado, e a campanha
+  // sumia justamente para o visitante — que é quem a igreja mais quer alcançar
+  // com ela.
   const { data: campanhasDestaqueData } = church?.id && contribuicaoNoAr
-    ? await supabase
+    ? await admin
         .from('campanhas_contribuicao')
         .select('id, nome, descricao, centavos, imagem_url, video_url')
         .eq('igreja_id', church.id)
@@ -457,9 +471,7 @@ export default async function HomePage() {
                   titulo={textosSecoes.contribuir?.titulo}
                   subtitulo={textosSecoes.contribuir?.subtitulo}
                 />
-                {campanhasDestaque.map((c) => (
-                  <CampanhaDestaqueCard key={c.id} campanha={c} />
-                ))}
+                <CampanhasDestaque campanhas={campanhasDestaque} />
               </div>
             ) : null,
             eventos: eventos && eventos.length > 0 ? (
@@ -490,7 +502,7 @@ export default async function HomePage() {
             ),
             pastores: (
               <PastoresCard
-                pastores={(pastorProfiles ?? []) as unknown as PastorItem[]}
+                pastores={pastoresOrdenados}
                 igrejaNome={church?.nome ?? 'Igreja Batista Zona Sul'}
                 fallback={
                   church?.pastor_nome
@@ -848,9 +860,15 @@ export default async function HomePage() {
                       ? <img referrerPolicy="no-referrer" src={p.avatar_url} alt={p.nome} className="h-full w-full object-cover" />
                       : ini}
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-sm font-semibold text-gray-900 leading-tight">{p.nome.split(' ')[0]}</p>
-                    <p className="text-[10px] text-rose-500 font-medium">Parabéns! 🎉</p>
+                    <div className="mt-1">
+                      <ParabensBtn
+                        nome={p.nome}
+                        telefone={(p as { telefone?: string | null }).telefone}
+                        igrejaNome={church?.nome}
+                      />
+                    </div>
                   </div>
                 </div>
               )
@@ -902,6 +920,16 @@ export default async function HomePage() {
                   }`}>
                     {label}
                   </span>
+                  {/* Só antes da data e no próprio dia: parabenizar dias
+                      depois constrange mais do que agrada. */}
+                  {!isPast && (
+                    <ParabensBtn
+                      nome={p.nome}
+                      telefone={(p as { telefone?: string | null }).telefone}
+                      igrejaNome={church?.nome}
+                      compacto
+                    />
+                  )}
                 </div>
               )
             })}
@@ -1115,7 +1143,7 @@ export default async function HomePage() {
         conteudos={{
           pastores: (
             <PastoresCard
-              pastores={(pastorProfiles ?? []) as unknown as PastorItem[]}
+              pastores={pastoresOrdenados}
               igrejaNome={church?.nome ?? 'Igreja Batista Zona Sul'}
               fallback={
                 church?.pastor_nome
@@ -1134,9 +1162,7 @@ export default async function HomePage() {
                 titulo={textosSecoes.contribuir?.titulo}
                 subtitulo={textosSecoes.contribuir?.subtitulo}
               />
-              {campanhasDestaque.map((c) => (
-                <CampanhaDestaqueCard key={c.id} campanha={c} />
-              ))}
+              <CampanhasDestaque campanhas={campanhasDestaque} />
             </div>
           ) : null,
           eventos: <EventosDestaque eventos={destaques} />,

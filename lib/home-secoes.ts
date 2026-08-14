@@ -1,14 +1,14 @@
 /**
- * Seções móveis da home — as que o pastor pode reordenar e renomear direto na
- * tela, sem abrir o painel de administração.
+ * Seções da home — as que a liderança reordena, redimensiona e pinta direto na
+ * tela, sem abrir painel nenhum.
  *
- * Ficam de fora de propósito: o herói, "Minha célula" e o aniversário (são
- * conteúdo pessoal, amarrado a quem está logado, não faz sentido "mover"), o
- * mapa e o rodapé (identidade fixa da igreja), e a liderança (raramente muda
- * de lugar). O que sobra são os quatro cartões institucionais — dízimo,
- * eventos, o convite para servir/ser membro e o atalho do Ensino — que hoje
- * vivem espalhados na página e passam a formar um bloco só, na ordem que a
- * liderança escolher.
+ * Começou com os quatro cartões institucionais e hoje é a página quase
+ * inteira: liderança, dízimo, eventos, célula, aniversariantes, fotos, mapa.
+ *
+ * Continuam fora, de propósito: a saudação do topo (é a identidade de quem
+ * entrou, não um cartão), o aviso de aniversário próprio e o convite de célula
+ * (aparecem conforme a situação da pessoa, não conforme a ordem escolhida) e o
+ * rodapé.
  */
 
 export const SECAO_IDS = [
@@ -85,17 +85,26 @@ export type TextosSecoes = Partial<Record<SecaoHomeId, TextoSecao>>
 export type EstiloSecao = 'padrao' | 'cor' | 'gradiente' | 'nebula'
 
 /**
- * Altura em passos, como os widgets do celular: `auto` é o tamanho do próprio
- * conteúdo, e os outros dois reservam espaço para o cartão respirar. Nunca
- * corta nada — conteúdo maior que a altura escolhida continua crescendo, senão
- * a liderança esconderia sem querer o que quis mostrar.
+ * Formato do cartão, em proporção — a mesma linguagem de quem monta arte para
+ * a igreja: 6:4 é o banner deitado, 9:16 é o story em pé.
+ *
+ * `padrao` deixa a altura seguir o conteúdo, que é como a home sempre foi.
+ * As proporções nunca cortam nada: conteúdo maior que a proporção escolhida
+ * continua crescendo, senão a liderança esconderia sem querer o que quis
+ * mostrar.
  */
-export type AlturaSecao = 'auto' | 'media' | 'alta'
+export type AlturaSecao = 'padrao' | 'r64' | 'r916'
 
-export const ALTURA_MIN: Record<AlturaSecao, string | undefined> = {
-  auto: undefined,
-  media: '14rem',
-  alta: '22rem',
+export const ALTURA_PROPORCAO: Record<AlturaSecao, string | undefined> = {
+  padrao: undefined,
+  r64: '6 / 4',
+  r916: '9 / 16',
+}
+
+export const ALTURA_LABELS: Record<AlturaSecao, string> = {
+  padrao: 'Padrão',
+  r64: '6:4',
+  r916: '9:16',
 }
 
 export interface LayoutSecao {
@@ -112,7 +121,7 @@ export type LayoutSecoes = Partial<Record<SecaoHomeId, LayoutSecao>>
 
 export const LAYOUT_PADRAO: LayoutSecao = {
   largura: 2,
-  altura: 'auto',
+  altura: 'padrao',
   estilo: 'padrao',
   cor: null,
   cor2: null,
@@ -130,7 +139,7 @@ export function normalizarLayoutSecoes(salvo: unknown): LayoutSecoes {
     const v = valor as Record<string, unknown>
     limpo[id as SecaoHomeId] = {
       largura: v.largura === 1 ? 1 : 2,
-      altura: v.altura === 'media' || v.altura === 'alta' ? v.altura : 'auto',
+      altura: v.altura === 'r64' || v.altura === 'r916' ? v.altura : 'padrao',
       estilo: ['cor', 'gradiente', 'nebula'].includes(v.estilo as string)
         ? (v.estilo as EstiloSecao)
         : 'padrao',
