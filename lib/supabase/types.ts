@@ -1737,6 +1737,9 @@ export type Database = {
           /** Capa exclusiva do topo da página. Sem ela, o card faz as vezes. */
           capa_pagina_url: string | null
           local: string | null
+          /** Nulo = turma gratuita. Ver `ensino_pagamentos.sql`. */
+          valor: number | null
+          pagamento_instrucoes: string | null
           data_inicio: string | null
           data_fim: string | null
           dias_semana: number[]
@@ -1786,6 +1789,8 @@ export type Database = {
           capa_url?: string | null
           capa_pagina_url?: string | null
           local?: string | null
+          valor?: number | null
+          pagamento_instrucoes?: string | null
           data_inicio?: string | null
           data_fim?: string | null
           dias_semana?: number[]
@@ -1828,6 +1833,8 @@ export type Database = {
           capa_url?: string | null
           capa_pagina_url?: string | null
           local?: string | null
+          valor?: number | null
+          pagamento_instrucoes?: string | null
           data_inicio?: string | null
           data_fim?: string | null
           dias_semana?: number[]
@@ -1910,6 +1917,8 @@ export type Database = {
           status: StatusInscricaoEnsino
           origem: OrigemInscricaoEnsino
           pre_cadastro_id: string | null
+          /** Bolsa, meia, isenção. Nulo = vale o valor da turma. */
+          valor_combinado: number | null
           observacao: string | null
           decidido_por: string | null
           decidido_em: string | null
@@ -1926,6 +1935,7 @@ export type Database = {
           status?: StatusInscricaoEnsino
           origem?: OrigemInscricaoEnsino
           pre_cadastro_id?: string | null
+          valor_combinado?: number | null
           observacao?: string | null
           decidido_por?: string | null
           decidido_em?: string | null
@@ -1942,6 +1952,7 @@ export type Database = {
           status?: StatusInscricaoEnsino
           origem?: OrigemInscricaoEnsino
           pre_cadastro_id?: string | null
+          valor_combinado?: number | null
           observacao?: string | null
           decidido_por?: string | null
           decidido_em?: string | null
@@ -1990,6 +2001,67 @@ export type Database = {
           local?: string | null
           status?: StatusAula
           video_chamada_url?: string | null
+          criado_em?: string
+        }
+        Relationships: []
+      }
+      ensino_turma_parcelas: {
+        // Plano de parcelas da turma. Sem linhas, o valor é cobrado de uma vez;
+        // `percentual` nulo divide o total igualmente.
+        Row: {
+          id: string
+          turma_id: string
+          numero: number
+          vencimento: string
+          percentual: number | null
+        }
+        Insert: {
+          id?: string
+          turma_id: string
+          numero: number
+          vencimento: string
+          percentual?: number | null
+        }
+        Update: {
+          id?: string
+          turma_id?: string
+          numero?: number
+          vencimento?: string
+          percentual?: number | null
+        }
+        Relationships: []
+      }
+      ensino_pagamentos: {
+        // Um lançamento por pagamento recebido — o app é o livro-caixa da
+        // secretaria, não uma integração bancária.
+        Row: {
+          id: string
+          inscricao_id: string
+          valor: number
+          pago_em: string
+          metodo: string | null
+          observacao: string | null
+          registrado_por: string | null
+          criado_em: string
+        }
+        Insert: {
+          id?: string
+          inscricao_id: string
+          valor: number
+          pago_em?: string
+          metodo?: string | null
+          observacao?: string | null
+          registrado_por?: string | null
+          criado_em?: string
+        }
+        Update: {
+          id?: string
+          inscricao_id?: string
+          valor?: number
+          pago_em?: string
+          metodo?: string | null
+          observacao?: string | null
+          registrado_por?: string | null
           criado_em?: string
         }
         Relationships: []

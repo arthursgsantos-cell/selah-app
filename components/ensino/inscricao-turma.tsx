@@ -3,13 +3,14 @@
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { CheckCircle2, Clock, XCircle, Loader2, Ban, ExternalLink, MessageCircle } from 'lucide-react'
+import { CheckCircle2, Clock, XCircle, Loader2, Ban, ExternalLink, MessageCircle, Banknote } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   cancelarMinhaInscricaoAction,
   inscreverPeloWhatsappAction,
 } from '@/app/actions/ensino/inscricoes'
 import { PAINEL } from '@/lib/estilos'
+import { formatarBRL } from '@/lib/ensino/cobranca'
 import type { StatusInscricaoEnsino, TipoInscricaoTurma } from '@/lib/supabase/types'
 
 interface Props {
@@ -22,6 +23,9 @@ interface Props {
   linkUrl: string | null
   /** O grupo da turma — em `whatsapp`, o destino da inscrição. */
   grupoUrl: string | null
+  /** Nulo = curso gratuito. O aviso vem antes da inscrição, não depois. */
+  valor?: number | null
+  instrucoesPagamento?: string | null
 }
 
 const APRESENTACAO: Record<
@@ -62,6 +66,7 @@ const APRESENTACAO: Record<
 
 export function InscricaoTurma({
   turmaId, inscricao, disponivel, motivoIndisponivel, tipo, linkUrl, grupoUrl,
+  valor = null, instrucoesPagamento = null,
 }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -108,6 +113,23 @@ export function InscricaoTurma({
   // fundo, e o aviso e o "cancelar" são texto solto que sumia sobre elas.
   return (
     <div className={`${PAINEL} space-y-3`}>
+      {/* O valor aparece antes do botão: cobrar depois de a pessoa se
+          inscrever transforma preço em surpresa. */}
+      {valor != null && valor > 0 && (
+        <div className="rounded-2xl border border-border bg-muted/40 p-4">
+          <div className="flex items-baseline gap-2">
+            <Banknote className="h-4 w-4 text-muted-foreground self-center" />
+            <span className="text-sm font-semibold">{formatarBRL(valor)}</span>
+            <span className="text-xs text-muted-foreground">por aluno</span>
+          </div>
+          {instrucoesPagamento && (
+            <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">
+              {instrucoesPagamento}
+            </p>
+          )}
+        </div>
+      )}
+
       {inscricao && (
         <div className={`rounded-2xl border p-4 ${APRESENTACAO[inscricao.status].classe}`}>
           <div className="flex items-start gap-3">

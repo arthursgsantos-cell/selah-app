@@ -4,7 +4,7 @@ import type { Metadata } from 'next'
 import {
   ArrowLeft, CalendarDays, MapPin, Users, GraduationCap, ClipboardList,
   BookOpen, FolderOpen, MessageCircle, ChevronRight, Pencil, Check, Video,
-  ListChecks, CalendarClock,
+  ListChecks, CalendarClock, Banknote,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/server'
@@ -17,6 +17,7 @@ import {
   inscricoesDisponiveis, dataBr, STATUS_AULA,
 } from '@/lib/ensino/turma'
 import { PAINEL, SECAO, CARTAO_ANINHADO } from '@/lib/estilos'
+import { formatarBRL } from '@/lib/ensino/cobranca'
 import { InscricaoTurma } from '@/components/ensino/inscricao-turma'
 import { DestaqueTurmaBtn } from '@/components/ensino/destaque-turma-btn'
 import { TurmaFundo } from '@/components/ensino/turma-fundo'
@@ -65,7 +66,7 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
     supabase
       .from('ensino_turmas')
       .select(
-        'id, slug, curso_id, nome, descricao, capa_url, capa_pagina_url, local, data_inicio, data_fim, dias_semana, horario_inicio, horario_fim, total_aulas, vagas, inscricoes_abertas, aprovacao_automatica, status, modo, sequencial, destaque, whatsapp_url, tipo_inscricao, link_inscricao_url, video_chamada_modo, video_chamada_url, cor, cor_secundaria, fundo_tipo, fundo_imagem_url, fundo_opacidade, fundo_galeria, fundo_galeria_opacidade, fundo_auto_cor, fundo_auto_cor_origem, ensino_cursos(nome, descricao)'
+        'id, slug, curso_id, nome, descricao, capa_url, capa_pagina_url, local, valor, pagamento_instrucoes, data_inicio, data_fim, dias_semana, horario_inicio, horario_fim, total_aulas, vagas, inscricoes_abertas, aprovacao_automatica, status, modo, sequencial, destaque, whatsapp_url, tipo_inscricao, link_inscricao_url, video_chamada_modo, video_chamada_url, cor, cor_secundaria, fundo_tipo, fundo_imagem_url, fundo_opacidade, fundo_galeria, fundo_galeria_opacidade, fundo_auto_cor, fundo_auto_cor_origem, ensino_cursos(nome, descricao)'
       ),
     params.id
   ).maybeSingle()
@@ -75,6 +76,7 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
   const turma = turmaRaw as unknown as {
     id: string; slug: string | null; curso_id: string; nome: string; descricao: string | null
     capa_url: string | null; capa_pagina_url: string | null; local: string | null
+    valor: number | null; pagamento_instrucoes: string | null
     data_inicio: string | null; data_fim: string | null
     dias_semana: number[]; horario_inicio: string | null; horario_fim: string | null
     total_aulas: number | null; vagas: number | null
@@ -461,6 +463,8 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
         tipo={turma.tipo_inscricao ?? 'app'}
         linkUrl={turma.link_inscricao_url}
         grupoUrl={turma.whatsapp_url}
+        valor={turma.valor != null ? Number(turma.valor) : null}
+        instrucoesPagamento={turma.pagamento_instrucoes}
       />
 
       {/* Atalhos de quem administra a turma */}
@@ -509,6 +513,20 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
                   : 'Tarefas, leitura e provas'
               }
             />
+            {/* Dinheiro é da coordenação: quem dá aula não vira cobrador da
+                própria classe. Mesma regra da RLS de `ensino_pagamentos`. */}
+            {acesso.coordenador && (
+              <AtalhoGestao
+                href={`/ensino/turma/${chave}/financeiro`}
+                icone={<Banknote className="h-5 w-5" />}
+                titulo="Pagamentos"
+                descricao={
+                  turma.valor != null
+                    ? `${formatarBRL(Number(turma.valor))} por aluno`
+                    : 'Definir valor do curso'
+                }
+              />
+            )}
           </div>
         </section>
       )}

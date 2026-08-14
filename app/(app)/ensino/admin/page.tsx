@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { ArrowLeft, Settings, Users, GraduationCap, ClipboardCheck, ChevronRight } from 'lucide-react'
+import { ArrowLeft, Settings, Users, GraduationCap, ClipboardCheck, ChevronRight, Banknote } from 'lucide-react'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { loginCom } from '@/lib/destino-login'
 import { acessoEnsino } from '@/lib/ensino/permissoes'
@@ -9,6 +9,7 @@ import { EquipeGestao } from '@/components/ensino/equipe-gestao'
 import { CursosGestao, type CursoGestao } from '@/components/ensino/cursos-gestao'
 import { PAINEL } from '@/lib/estilos'
 import { STATUS_TURMA, corFrequencia } from '@/lib/ensino/turma'
+import { formatarBRL, valorDevido } from '@/lib/ensino/cobranca'
 import type { StatusTurma } from '@/lib/supabase/types'
 
 export const metadata = { title: 'Administração do Ensino · IBZS' }
@@ -28,7 +29,7 @@ export default async function AdminEnsinoPage() {
       .order('nome'),
     admin
       .from('ensino_turmas')
-      .select('id, slug, curso_id, nome, status, ensino_cursos(nome)')
+      .select('id, slug, curso_id, nome, status, valor, ensino_cursos(nome)')
       .eq('igreja_id', acesso.igrejaId)
       .order('criado_em', { ascending: false }),
     listarEquipe(),
@@ -36,6 +37,7 @@ export default async function AdminEnsinoPage() {
 
   const turmas = (turmasRes.data ?? []) as unknown as {
     id: string; slug: string | null; curso_id: string; nome: string; status: StatusTurma
+    valor: number | null
     ensino_cursos: { nome: string } | null
   }[]
 
@@ -51,7 +53,7 @@ export default async function AdminEnsinoPage() {
   const [inscricoesRes, presencasRes] = await Promise.all([
     admin
       .from('ensino_inscricoes')
-      .select('id, turma_id, user_id, pre_cadastro_id, status')
+      .select('id, turma_id, user_id, pre_cadastro_id, status, valor_combinado')
       .in('turma_id', ids.length > 0 ? ids : ['-']),
     admin
       .from('ensino_presencas')
@@ -62,6 +64,7 @@ export default async function AdminEnsinoPage() {
   const inscricoes = (inscricoesRes.data ?? []) as {
     id: string; turma_id: string; user_id: string | null
     pre_cadastro_id: string | null; status: string
+    valor_combinado: number | null
   }[]
   const presencas = (presencasRes.data ?? []) as unknown as {
     presente: boolean
@@ -101,6 +104,48 @@ export default async function AdminEnsinoPage() {
   const totalPessoas = new Set(
     inscricoes.map((i) => i.user_id ?? (i.pre_cadastro_id ? `pre:${i.pre_cadastro_id}` : `insc:${i.id}`))
   ).size
+  // ── Pagamentos ───────────────────────────────────────────────────────────
+  // Só as turmas com valor entram: a maioria é gratuita, e uma lista cheia de
+  // "R$ 0,00" esconderia justamente as duas que a secretaria precisa cobrar.
+  const turmasPagas = turmas.filter((t) => t.valor != null && Number(t.valor) > 0)
+
+  const inscricoesCobraveis = inscricoes.filter(
+    (i) =>
+      turmasPagas.some((t) => t.id === i.turma_id) &&
+      ['aprovada', 'concluida', 'pendente'].includes(i.status)
+  )
+
+  const { data: pagamentosData } = inscricoesCobraveis.length > 0
+    ? await admin
+        .from('ensino_pagamentos')
+        .select('inscricao_id, valor')
+        .in('inscricao_id', inscricoesCobraveis.map((i) => i.id))
+    : { data: [] }
+
+  const pagoPorInscricao = new Map<string, number>()
+  for (const p of (pagamentosData ?? []) as { inscricao_id: string; valor: number }[]) {
+    pagoPorInscricao.set(p.inscricao_id, (pagoPorInscricao.get(p.inscricao_id) ?? 0) + Number(p.valor))
+  }
+
+  const financeiro = turmasPagas.map((t) => {
+    const daTurma = inscricoesCobraveis.filter((i) => i.turma_id === t.id)
+    const previsto = daTurma.reduce(
+      (acc, i) => acc + valorDevido(Number(t.valor), i.valor_combinado != null ? Number(i.valor_combinado) : null),
+      0
+    )
+    const recebido = daTurma.reduce((acc, i) => acc + (pagoPorInscricao.get(i.id) ?? 0), 0)
+    return {
+      id: t.id,
+      chave: t.slug ?? t.id,
+      nome: t.nome,
+      curso: t.ensino_cursos?.nome ?? null,
+      alunos: daTurma.length,
+      previsto: Number(previsto.toFixed(2)),
+      recebido: Number(recebido.toFixed(2)),
+      falta: Number(Math.max(0, previsto - recebido).toFixed(2)),
+    }
+  })
+
   const totalRegistros = presencas.length
   const totalPresentes = presencas.filter((p) => p.presente).length
   const mediaGeral =
@@ -180,6 +225,44 @@ export default async function AdminEnsinoPage() {
         </p>
         <EquipeGestao equipe={equipe} meuId={acesso.userId} />
       </section>
+
+      {/* Pagamentos — só as turmas que cobram */}
+      {financeiro.length > 0 && (
+        <section>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
+            Pagamentos
+          </p>
+          <div className={`${PAINEL} p-0 overflow-hidden`}>
+            <div className="divide-y">
+              {financeiro.map((f) => (
+                <Link
+                  key={f.id}
+                  href={`/ensino/turma/${f.chave}/financeiro`}
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-accent transition-colors"
+                >
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <Banknote className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium leading-tight truncate">{f.nome}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {f.alunos} {f.alunos === 1 ? 'aluno' : 'alunos'} · recebido{' '}
+                      {formatarBRL(f.recebido)} de {formatarBRL(f.previsto)}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className={`text-sm font-semibold tabular-nums ${f.falta > 0 ? 'text-amber-600' : 'text-green-600'}`}>
+                      {f.falta > 0 ? formatarBRL(f.falta) : 'em dia'}
+                    </p>
+                    {f.falta > 0 && <p className="text-[10px] text-muted-foreground">a receber</p>}
+                  </div>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Relatório por turma */}
       <section>
