@@ -65,7 +65,7 @@ export async function criarFormularioAction(params: {
 
   if (error) throw new Error(error.message)
   revalidatePath('/eventos')
-  revalidatePath('/formularios')
+  revalidatePath('/eventos')
   return data.id
 }
 
@@ -88,7 +88,7 @@ export async function atualizarFormularioAction(
 
   if (error) throw new Error(error.message)
   revalidatePath('/eventos')
-  revalidatePath('/formularios')
+  revalidatePath('/eventos')
   revalidatePath(`/formularios/${id}`)
 }
 
@@ -112,7 +112,7 @@ export async function deletarFormularioAction(id: string) {
   const { error } = await supabase.from('formularios').delete().eq('id', id)
   if (error) throw new Error(error.message)
   revalidatePath('/eventos')
-  revalidatePath('/formularios')
+  revalidatePath('/eventos')
 }
 
 /** Cria uma cópia editável a partir de outro formulário ou template. */

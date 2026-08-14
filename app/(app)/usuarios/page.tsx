@@ -4,7 +4,10 @@ import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
-import { ArrowLeft, ShieldOff } from 'lucide-react'
+import { ArrowLeft, ListFilter, ShieldOff, UserPlus, Users } from 'lucide-react'
+import { PainelAbas } from '@/components/shared/painel-abas'
+import { ConstrutorListas } from '@/components/listas/construtor-listas'
+import { carregarPessoas } from '@/lib/listas-servidor'
 import { UsuariosLista } from './_components/usuarios-lista'
 import { PreCadastroSection } from './_components/pre-cadastro-section'
 import type { Role } from '@/lib/supabase/types'
@@ -24,7 +27,7 @@ const PAGE_SIZE = 25
 export default async function UsuariosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; page?: string; cargo?: string; celula?: string; u?: string }>
+  searchParams: Promise<{ q?: string; page?: string; cargo?: string; celula?: string; u?: string; aba?: string }>
 }) {
   const params = await searchParams
   const supabase = await createClient()
@@ -156,6 +159,24 @@ export default async function UsuariosPage({
   const page = Math.min(totalPaginas, Math.max(1, parseInt(params.page ?? '1', 10) || 1))
   const pagina = filtrados.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
+  // As listas dinâmicas eram uma página à parte; agora são aba daqui, porque
+  // filtrar membros e falar com eles é a mesma tarefa vista de dois ângulos.
+  const [pessoas, { data: redesListaData }, { data: celulasListaData }] = await Promise.all([
+    carregarPessoas(profile.igreja_id),
+    supabase.from('redes').select('id, nome').eq('igreja_id', profile.igreja_id).order('nome'),
+    supabase
+      .from('celulas')
+      .select('id, nome, rede_id, redes!inner(igreja_id)')
+      .eq('redes.igreja_id', profile.igreja_id)
+      .neq('ativa', false)
+      .order('nome'),
+  ])
+
+  const redesLista = (redesListaData ?? []) as { id: string; nome: string }[]
+  const celulasLista = ((celulasListaData ?? []) as unknown as {
+    id: string; nome: string; rede_id: string
+  }[]).map((c) => ({ id: c.id, nome: c.nome, redeId: c.rede_id }))
+
   const celulaOpts = (celulas ?? []).map((c) => ({
     id: c.id,
     nome: c.nome,
@@ -175,6 +196,15 @@ export default async function UsuariosPage({
         </p>
       </div>
 
+      <PainelAbas
+        inicial={params.aba === 'listas' ? 'listas' : params.aba === 'pre' ? 'pre' : 'pessoas'}
+        abas={[
+          {
+            id: 'pessoas',
+            titulo: 'Pessoas',
+            descricao: 'Cargos, células e mudanças em massa.',
+            icone: <Users className="h-5 w-5" />,
+            conteudo: (
       <UsuariosLista
         usuarios={pagina}
         idsFiltrados={filtrados.map((u) => u.id)}
@@ -193,11 +223,32 @@ export default async function UsuariosPage({
         pessoaAtual={pessoa}
         todosUsuarios={comVinculos.map((u) => ({ id: u.id, nome: u.nome }))}
       />
-
-      <PreCadastroSection
-        preCadastros={preCadastros}
-        membros={comVinculos.map((u) => ({ id: u.id, nome: u.nome }))}
-        celulas={celulaOpts}
+            ),
+          },
+          {
+            id: 'listas',
+            titulo: 'Listas',
+            descricao: 'Combine filtros, chame no WhatsApp ou leve para a planilha.',
+            icone: <ListFilter className="h-5 w-5" />,
+            conteudo: (
+              <ConstrutorListas pessoas={pessoas} redes={redesLista} celulas={celulasLista} />
+            ),
+          },
+          {
+            id: 'pre',
+            titulo: 'Pré-cadastro',
+            descricao: 'Quem foi cadastrado à mão e ainda não criou conta.',
+            icone: <UserPlus className="h-5 w-5" />,
+            aviso: preCadastros.filter((pc: { status: string }) => pc.status === 'pendente').length,
+            conteudo: (
+              <PreCadastroSection
+                preCadastros={preCadastros}
+                membros={comVinculos.map((u) => ({ id: u.id, nome: u.nome }))}
+                celulas={celulaOpts}
+              />
+            ),
+          },
+        ]}
       />
     </div>
   )

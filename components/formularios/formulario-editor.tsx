@@ -86,9 +86,9 @@ export function FormularioEditor({ formularioId, inicial }: Props) {
 
   return (
     <div className="space-y-4 pb-24">
-      <Button variant="ghost" size="sm" render={<Link href="/formularios" />} className="-ml-1">
+      <Button variant="ghost" size="sm" render={<Link href="/eventos?aba=formularios" />} className="-ml-1">
         <ArrowLeft className="h-4 w-4" />
-        Formulários
+        Eventos
       </Button>
 
       <Card>

@@ -4,7 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
-import { ArrowLeft, ChevronRight, Shield } from 'lucide-react'
+import { ArrowLeft, CalendarDays, ChevronRight, Inbox, Network, Shield } from 'lucide-react'
+import { PainelAbas } from '@/components/shared/painel-abas'
 import { CriarEventoDialog } from '@/components/shared/criar-evento-dialog'
 import { PageSearch } from '@/components/shared/page-search'
 import { SolicitacoesPanel } from '@/components/pastor/solicitacoes-panel'
@@ -83,7 +84,7 @@ export default async function SupervisorPage({
   if (redeIds.length === 0) {
     return (
       <div className="max-w-2xl mx-auto space-y-5">
-        <h1 className="text-xl font-bold">Painel da rede</h1>
+        <h1 className="text-xl font-bold">Supervisão</h1>
         <Card>
           <CardContent className="py-16 text-center">
             <Shield className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
@@ -237,10 +238,19 @@ export default async function SupervisorPage({
         Voltar
       </Button>
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">Painel da rede</h1>
+        <h1 className="text-xl font-bold">Supervisão</h1>
         <CriarEventoDialog tipoFixo="rede" label="Criar evento" />
       </div>
 
+      <PainelAbas
+        abas={[
+          {
+            id: 'visao',
+            titulo: 'Início',
+            descricao: 'Como estão as células que você acompanha.',
+            icone: <Shield className="h-5 w-5" />,
+            conteudo: (
+              <>
       {/* Métricas */}
       <div className="grid grid-cols-3 gap-3">
         <Card>
@@ -298,7 +308,15 @@ export default async function SupervisorPage({
         <SupervisoesHistorico supervisoes={supervisoes} podeExcluir />
       </section>
 
-      {/* Calendário da rede */}
+              </>
+            ),
+          },
+          {
+            id: 'calendario',
+            titulo: 'Calendário',
+            descricao: 'Os encontros das células, semana a semana.',
+            icone: <CalendarDays className="h-5 w-5" />,
+            conteudo: (
       <section>
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
           Calendário da rede
@@ -306,7 +324,15 @@ export default async function SupervisorPage({
         <CalendarioRede dias={diasRede} />
       </section>
 
-      {/* Solicitações de célula */}
+            ),
+          },
+          {
+            id: 'pedidos',
+            titulo: 'Pedidos',
+            descricao: 'Quem pediu para entrar numa célula.',
+            icone: <Inbox className="h-5 w-5" />,
+            aviso: (solicitacoesData ?? []).filter((s) => s.status === 'pendente').length,
+            conteudo: (
       <section>
         <div className="flex items-center justify-between mb-3">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
@@ -324,7 +350,14 @@ export default async function SupervisorPage({
         />
       </section>
 
-      {/* Lista de redes */}
+            ),
+          },
+          {
+            id: 'redes',
+            titulo: 'Redes',
+            descricao: 'Cada rede, com suas células e seus números.',
+            icone: <Network className="h-5 w-5" />,
+            conteudo: (
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
@@ -371,6 +404,10 @@ export default async function SupervisorPage({
           </div>
         )}
       </div>
+            ),
+          },
+        ]}
+      />
     </div>
   )
 }

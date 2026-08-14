@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { GraduationCap, ArrowLeft, ChevronRight, UserCog, BookOpen, Settings, Plus } from 'lucide-react'
+import { ListChecks, GraduationCap, ArrowLeft, ChevronRight, UserCog, BookOpen, Settings, Plus } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { loginCom } from '@/lib/destino-login'
@@ -64,6 +64,14 @@ export default async function EnsinoPage() {
               ? `${minhasTurmas.length} ${minhasTurmas.length === 1 ? 'turma' : 'turmas'}`
               : 'Frequência e materiais'
           }
+        />
+        {/* Saiu do menu principal e passou a morar aqui: atividade é assunto
+            do Ensino, e quem tem tarefa chega por este hub. */}
+        <Atalho
+          href="/ensino/atividades"
+          icone={<ListChecks className="h-5 w-5" />}
+          titulo="Minhas atividades"
+          descricao="Tarefas, leituras e provas"
         />
         {acesso.professor && (
           <Atalho

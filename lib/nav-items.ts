@@ -6,13 +6,10 @@ import {
   ChurchIcon,
   UserCog,
   History,
-  ClipboardList,
   GraduationCap,
   HandCoins,
   HeartHandshake,
-  ListFilter,
   BookOpen,
-  ListChecks,
   type LucideIcon,
 } from 'lucide-react'
 import type { Role } from '@/lib/supabase/types'
@@ -45,13 +42,8 @@ export const NAV_SECTIONS: NavSection[] = [
       // Aberto a todos: é por aqui que o membro descobre as turmas e pede
       // inscrição. Professor e coordenação chegam aos painéis pelo hub.
       { href: '/ensino',      label: 'Ensino',      icon: GraduationCap,  minRole: null },
-      // Fora do hub do Ensino de propósito: quem tem tarefa para entregar abre
-      // o app por causa dela, e não deve ter de passar pela lista de turmas.
-      // A própria página se vira quando não há nada — mostra o estado vazio.
-      { href: '/ensino/atividades', label: 'Atividades', icon: ListChecks, minRole: null },
       { href: '/biblia',      label: 'Bíblia',      icon: BookOpen,       minRole: null },
       { href: '/historico',   label: 'Histórico',   icon: History,        minRole: null },
-      { href: '/formularios', label: 'Formulários', icon: ClipboardList,  minRole: 'lider' as Role },
     ],
   },
   {
@@ -61,10 +53,9 @@ export const NAV_SECTIONS: NavSection[] = [
       // ele quem precisa da lista. O que cada um enxerga é recortado dentro
       // da página (ver `acessoConsolidacao`).
       { href: '/consolidacao', label: 'Consolidação', icon: HeartHandshake, minRole: 'lider' as Role },
-      { href: '/supervisor', label: 'Rede',          icon: Shield,     minRole: 'supervisor' as Role },
-      // Junta telefone e vínculo da igreja inteira numa tela — supervisor
-      // para cima, como a própria página confere.
-      { href: '/listas',     label: 'Listas',         icon: ListFilter, minRole: 'supervisor' as Role },
+      // "Supervisão" e não "Rede": o que se faz aqui é acompanhar células e
+      // líderes; a rede é o objeto, não a tarefa.
+      { href: '/supervisor', label: 'Supervisão',     icon: Shield,     minRole: 'supervisor' as Role },
       { href: '/pastor',     label: 'Administração',  icon: ChurchIcon, minRole: 'pastor' as Role },
       { href: '/usuarios',   label: 'Membros',        icon: UserCog,    minRole: 'pastor' as Role },
     ],

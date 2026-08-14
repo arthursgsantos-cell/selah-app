@@ -385,7 +385,9 @@ export function FunilConsolidacao({ fichas, celulas, responsaveis, podeExcluir }
   return (
     <Card>
       <CardContent className="px-0 py-0">
-        <div role="tablist" className="flex gap-1 overflow-x-auto border-b border-border px-2 pt-2">
+        {/* Mesmas abas grandes do resto da administração: alvo de toque
+            confortável e o número da etapa visível sem precisar entrar nela. */}
+        <div role="tablist" className="flex gap-2 overflow-x-auto border-b border-border px-3 py-3">
           {abas.map((a) => (
             <button
               key={a.chave}
@@ -393,24 +395,17 @@ export function FunilConsolidacao({ fichas, celulas, responsaveis, podeExcluir }
               role="tab"
               aria-selected={a.chave === ativa}
               onClick={() => { setAtiva(a.chave); setPagina(0) }}
-              className={`flex shrink-0 items-center gap-1.5 rounded-t-lg px-3 py-2 text-sm transition-colors ${
+              className={`relative flex min-w-[5.5rem] shrink-0 flex-col items-center gap-1 rounded-2xl border px-3 py-2.5 transition-colors ${
                 a.chave === ativa
-                  ? 'border-b-2 border-primary font-semibold text-foreground'
-                  : 'border-b-2 border-transparent text-muted-foreground hover:text-foreground'
+                  ? 'border-primary bg-primary text-primary-foreground shadow-sm'
+                  : 'border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground'
               }`}
             >
-              {a.rotulo}
-              <span
-                className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-                  a.lista.length === 0
-                    ? 'bg-muted text-muted-foreground'
-                    : a.urgente
-                      ? 'bg-red-100 text-red-700'
-                      : 'bg-primary/10 text-primary'
-                }`}
-              >
-                {a.lista.length}
-              </span>
+              <span className="text-lg font-bold leading-none">{a.lista.length}</span>
+              <span className="text-[11px] font-semibold leading-tight">{a.rotulo}</span>
+              {a.urgente && a.lista.length > 0 && a.chave !== ativa && (
+                <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-red-500" />
+              )}
             </button>
           ))}
         </div>

@@ -4,7 +4,9 @@ import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
-import { ArrowLeft, CalendarDays, MapPin, Users, Wallet } from 'lucide-react'
+import { ArrowLeft, CalendarDays, ClipboardList, MapPin, Users, Wallet } from 'lucide-react'
+import { PainelAbas } from '@/components/shared/painel-abas'
+import { FormulariosLista, type FormularioItem } from '@/components/formularios/formularios-lista'
 import { formatarBRL } from '@/lib/evento-cobranca'
 import { CriarEventoDialog } from '@/components/shared/criar-evento-dialog'
 import { EditarEventoDialog } from '@/components/shared/editar-evento-dialog'
@@ -15,6 +17,42 @@ import { PageSearch } from '@/components/shared/page-search'
 import {
   resumosDeEventos, acompanhaInscricoes, CARGOS_ACOMPANHAMENTO, type ResumoEvento,
 } from '@/lib/eventos-resumo'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { ROLE_ORDER } from '@/lib/nav-items'
+import type { CampoFormulario, Role } from '@/lib/supabase/types'
+
+/**
+ * Os formulários da igreja, com quantos eventos usam cada um — o número é o
+ * que impede apagar por engano algo que está no ar.
+ */
+async function carregarFormularios(igrejaId: string): Promise<FormularioItem[]> {
+  const admin = createAdminClient()
+  const [{ data: formulariosData }, { data: eventosData }] = await Promise.all([
+    admin
+      .from('formularios')
+      .select('id, nome, descricao, campos, template')
+      .eq('igreja_id', igrejaId)
+      .order('criado_em', { ascending: false }),
+    admin.from('eventos').select('formulario_id').not('formulario_id', 'is', null),
+  ])
+
+  const uso = new Map<string, number>()
+  for (const e of (eventosData ?? []) as { formulario_id: string }[]) {
+    uso.set(e.formulario_id, (uso.get(e.formulario_id) ?? 0) + 1)
+  }
+
+  return ((formulariosData ?? []) as {
+    id: string; nome: string; descricao: string | null
+    campos: CampoFormulario[] | null; template: boolean | null
+  }[]).map((f) => ({
+    id: f.id,
+    nome: f.nome,
+    descricao: f.descricao,
+    campos: f.campos ?? [],
+    template: f.template ?? false,
+    emUso: uso.get(f.id) ?? 0,
+  }))
+}
 
 const tipoConfig: Record<string, { label: string; className: string }> = {
   culto: { label: 'Culto', className: 'bg-purple-100 text-purple-700' },
@@ -80,7 +118,7 @@ function ResumoInscricoes({
 export default async function EventosPage({
   searchParams,
 }: {
-  searchParams: { q?: string; sort?: string; tipo?: string }
+  searchParams: { q?: string; sort?: string; tipo?: string; aba?: string }
 }) {
   const supabase = await createClient()
 
@@ -104,6 +142,11 @@ export default async function EventosPage({
   const q = (searchParams.q ?? '').toLowerCase().trim()
   const tipoFiltro = searchParams.tipo ?? ''
   const sort = searchParams.sort ?? 'asc'
+
+  // Formulários passam a ser aba daqui: são a matéria-prima da inscrição, e
+  // viviam numa página solta que só quem sabia do caminho encontrava.
+  const podeFormularios = ROLE_ORDER[profile.role as Role] >= ROLE_ORDER.lider
+  const formularios = podeFormularios ? await carregarFormularios(profile.igreja_id) : []
 
   let proximosQuery = supabase
     .from('eventos')
@@ -188,6 +231,16 @@ export default async function EventosPage({
         </div>
       </div>
 
+      <PainelAbas
+        inicial={searchParams.aba === 'formularios' && podeFormularios ? 'formularios' : 'agenda'}
+        abas={[
+          {
+            id: 'agenda',
+            titulo: 'Agenda',
+            descricao: 'Tudo o que a igreja tem marcado.',
+            icone: <CalendarDays className="h-5 w-5" />,
+            conteudo: (
+              <>
       {/* Filtro por tipo */}
       <div className="flex gap-1.5 flex-wrap">
         {TIPO_OPTS.map((opt) => (
@@ -395,6 +448,22 @@ export default async function EventosPage({
           </div>
         </section>
       )}
+              </>
+            ),
+          },
+          // Formulário é matéria-prima de inscrição: mora junto dos eventos, e
+          // não numa página solta que só quem sabia do caminho encontrava.
+          ...(podeFormularios
+            ? [{
+                id: 'formularios',
+                titulo: 'Formulários',
+                descricao: 'As perguntas que a inscrição faz — e os modelos que você reaproveita.',
+                icone: <ClipboardList className="h-5 w-5" />,
+                conteudo: <FormulariosLista formularios={formularios} />,
+              }]
+            : []),
+        ]}
+      />
     </div>
   )
 }
