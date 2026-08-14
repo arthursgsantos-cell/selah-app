@@ -14,6 +14,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { Users, CheckCircle } from 'lucide-react'
+import { ehCasado } from '@/lib/solicitacao-celula'
 
 const selectClass =
   'w-full h-9 rounded-lg border border-input bg-background px-2.5 text-sm outline-none focus-visible:border-ring'
@@ -42,11 +43,16 @@ export function SolicitarCelulaDialog({ email, nomeInicial, telefoneInicial = ''
   const [telefone, setTelefone] = useState(telefoneInicial)
   const [idade, setIdade] = useState(idadeInicial != null ? String(idadeInicial) : '')
   const [estadoCivil, setEstadoCivil] = useState(estadoCivilInicial)
+  const [conjugeNome, setConjugeNome] = useState('')
+  const [conjugeTelefone, setConjugeTelefone] = useState('')
+  const [conjugeIdade, setConjugeIdade] = useState('')
   const [temFilhos, setTemFilhos] = useState(false)
   const [filhosDetalhes, setFilhosDetalhes] = useState('')
   const [bairro, setBairro] = useState('')
   const [tipoMembro, setTipoMembro] = useState('')
   const [melhorDia, setMelhorDia] = useState('')
+
+  const casado = ehCasado(estadoCivil)
 
   function resetForm() {
     setNome(nomeInicial)
@@ -54,6 +60,9 @@ export function SolicitarCelulaDialog({ email, nomeInicial, telefoneInicial = ''
     setTelefone(telefoneInicial)
     setIdade(idadeInicial != null ? String(idadeInicial) : '')
     setEstadoCivil(estadoCivilInicial)
+    setConjugeNome('')
+    setConjugeTelefone('')
+    setConjugeIdade('')
     setTemFilhos(false)
     setFilhosDetalhes('')
     setBairro('')
@@ -93,6 +102,9 @@ export function SolicitarCelulaDialog({ email, nomeInicial, telefoneInicial = ''
           bairro: bairro.trim(),
           tipo_membro: tipoMembro,
           melhor_dia: melhorDia,
+          conjuge_nome: conjugeNome.trim(),
+          conjuge_telefone: conjugeTelefone.trim(),
+          conjuge_idade: conjugeIdade ? parseInt(conjugeIdade, 10) : null,
         })
         setSuccess(true)
       } catch (err) {
@@ -188,6 +200,48 @@ export function SolicitarCelulaDialog({ email, nomeInicial, telefoneInicial = ''
                 {ESTADO_CIVIL.map((v) => <option key={v} value={v}>{v}</option>)}
               </select>
             </div>
+
+            {/* Cônjuge — o casal é encaminhado junto, e o líder precisa do
+                contato dos dois para convidar. */}
+            {casado && (
+              <div className="space-y-3 rounded-xl border border-border bg-muted/20 p-3">
+                <p className="text-xs font-semibold text-muted-foreground">
+                  Sobre seu cônjuge
+                </p>
+                <div className="space-y-1">
+                  <Label htmlFor="sc-conj-nome">Nome</Label>
+                  <Input
+                    id="sc-conj-nome"
+                    value={conjugeNome}
+                    onChange={(e) => setConjugeNome(e.target.value)}
+                    placeholder="Nome completo"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <div className="flex-1 space-y-1">
+                    <Label htmlFor="sc-conj-tel">Contato</Label>
+                    <Input
+                      id="sc-conj-tel"
+                      value={conjugeTelefone}
+                      onChange={(e) => setConjugeTelefone(e.target.value)}
+                      placeholder="(00) 00000-0000"
+                    />
+                  </div>
+                  <div className="w-24 shrink-0 space-y-1">
+                    <Label htmlFor="sc-conj-idade">Idade</Label>
+                    <Input
+                      id="sc-conj-idade"
+                      type="number"
+                      min={1}
+                      max={120}
+                      value={conjugeIdade}
+                      onChange={(e) => setConjugeIdade(e.target.value)}
+                      placeholder="Ex: 30"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Filhos */}
             <div className="space-y-2">

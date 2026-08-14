@@ -205,7 +205,7 @@ export default async function SupervisorPage({
   const [{ data: solicitacoesData }, { data: lideresData }] = await Promise.all([
     admin
       .from('solicitacoes_celula')
-      .select('id, nome, telefone, email, idade, estado_civil, tem_filhos, filhos_detalhes, bairro, tipo_membro, melhor_dia, status, criado_em, lider_encaminhado_id')
+      .select('id, nome, telefone, email, idade, estado_civil, tem_filhos, filhos_detalhes, conjuge_nome, conjuge_telefone, conjuge_idade, bairro, tipo_membro, melhor_dia, status, criado_em, lider_encaminhado_id')
       .eq('igreja_id', profileSup?.igreja_id ?? '')
       .neq('status', 'atendido')
       .order('criado_em', { ascending: false })

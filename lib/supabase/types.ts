@@ -1182,6 +1182,9 @@ export type Database = {
           estado_civil: string | null
           tem_filhos: boolean | null
           filhos_detalhes: string | null
+          conjuge_nome: string | null
+          conjuge_telefone: string | null
+          conjuge_idade: number | null
           bairro: string | null
           tipo_membro: string | null
           melhor_dia: string | null
@@ -1200,6 +1203,9 @@ export type Database = {
           estado_civil?: string | null
           tem_filhos?: boolean | null
           filhos_detalhes?: string | null
+          conjuge_nome?: string | null
+          conjuge_telefone?: string | null
+          conjuge_idade?: number | null
           bairro?: string | null
           tipo_membro?: string | null
           melhor_dia?: string | null
@@ -1218,6 +1224,9 @@ export type Database = {
           estado_civil?: string | null
           tem_filhos?: boolean | null
           filhos_detalhes?: string | null
+          conjuge_nome?: string | null
+          conjuge_telefone?: string | null
+          conjuge_idade?: number | null
           bairro?: string | null
           tipo_membro?: string | null
           melhor_dia?: string | null

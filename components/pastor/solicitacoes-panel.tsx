@@ -24,6 +24,9 @@ interface Solicitacao {
   status: string
   criado_em: string
   lider_encaminhado_id: string | null
+  conjuge_nome?: string | null
+  conjuge_telefone?: string | null
+  conjuge_idade?: number | null
 }
 
 interface Lider {
@@ -135,6 +138,29 @@ function SolicitacaoCard({ sol, lideres }: { sol: Solicitacao; lideres: Lider[] 
             </div>
             {sol.tem_filhos && sol.filhos_detalhes && (
               <p className="text-xs"><span className="text-muted-foreground">Detalhes dos filhos: </span>{sol.filhos_detalhes}</p>
+            )}
+
+            {/* Casal vai junto para a mesma célula: o contato do cônjuge fica
+                à mão de quem for convidar. */}
+            {sol.conjuge_nome && (
+              <div className="rounded-lg bg-muted/40 px-3 py-2 text-xs space-y-0.5">
+                <p className="font-medium">Cônjuge: {sol.conjuge_nome}</p>
+                <p className="text-muted-foreground">
+                  {sol.conjuge_telefone ?? 'sem contato'}
+                  {sol.conjuge_idade ? ` · ${sol.conjuge_idade} anos` : ''}
+                </p>
+                {sol.conjuge_telefone && (
+                  <a
+                    href={whatsappLink(sol.conjuge_telefone, sol.conjuge_nome)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 mt-1 text-green-700 font-medium"
+                  >
+                    <WhatsAppIcon className="h-3 w-3" />
+                    Chamar no WhatsApp
+                  </a>
+                )}
+              </div>
             )}
 
             {/* Encaminhar section */}

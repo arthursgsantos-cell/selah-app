@@ -13,6 +13,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import type { Role } from '@/lib/supabase/types'
 import { NAV_SECTIONS, canSeeNavItem } from '@/lib/nav-items'
+import { destinoNotificacao } from '@/lib/notificacoes-destino'
 
 interface HeaderProps {
   userName?: string
@@ -128,51 +129,6 @@ export function Header({ userName = 'Usuário', userRole = 'membro', avatarUrl, 
       </Link>
 
       <div className="flex items-center gap-2">
-        {/* Menu de navegação — ícone de 3 traços ao lado da foto */}
-        {!isGuest && (
-          <div ref={navRef} className="relative">
-            <button
-              type="button"
-              onClick={() => { setNavOpen((v) => !v); setMenuOpen(false); setNotifOpen(false) }}
-              aria-label="Abrir menu de navegação"
-              className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-muted transition-colors"
-            >
-              <Menu className="h-5 w-5" />
-            </button>
-
-            {navOpen && (
-              <div className="absolute right-0 top-full mt-2 w-56 rounded-lg border bg-background shadow-md z-50 py-1">
-                {visibleSections.map((section, si) => (
-                  <div key={si}>
-                    {section.label && (
-                      <p className="px-4 pt-2.5 pb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70 select-none">
-                        {section.label}
-                      </p>
-                    )}
-                    {section.items.map(({ href, label, icon: Icon }) => {
-                      const active = pathname === href || pathname.startsWith(href + '/')
-                      return (
-                        <Link
-                          key={href}
-                          href={href}
-                          onClick={() => setNavOpen(false)}
-                          className={`flex items-center gap-2 px-4 py-2.5 text-sm transition-colors ${
-                            active ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-muted'
-                          }`}
-                        >
-                          <Icon className="h-4 w-4 shrink-0" />
-                          {label}
-                        </Link>
-                      )
-                    })}
-                    {si < visibleSections.length - 1 && <div className="my-1 border-t" />}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Avatar com dropdown */}
         {isGuest ? (
           <Link
@@ -309,10 +265,10 @@ export function Header({ userName = 'Usuário', userRole = 'membro', avatarUrl, 
                   </div>
                 ) : (
                   notificacoes.map((n) => {
-                    // `dados.href` transforma a notificação em atalho: o pedido
-                    // de inscrição leva direto à tela de aprovação, em vez de
-                    // deixar o professor procurar a turma no menu.
-                    const href = n.dados?.href
+                    // Toda notificação é atalho: o pedido de inscrição leva
+                    // direto à tela de aprovação, o membro novo à ficha dele.
+                    // Ver `lib/notificacoes-destino.ts`.
+                    const href = destinoNotificacao(n.tipo, n.dados)
                     const conteudo = (
                       <>
                         <div className="shrink-0 mt-0.5">
@@ -323,6 +279,7 @@ export function Header({ userName = 'Usuário', userRole = 'membro', avatarUrl, 
                           <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{n.mensagem}</p>
                           <p className="text-[11px] text-muted-foreground/60 mt-1">
                             {formatDistanceToNow(new Date(n.created_at), { addSuffix: true, locale: ptBR })}
+                            {href && <span className="ml-1.5 text-primary font-medium">· ver</span>}
                           </p>
                         </div>
                         {!n.lida && (
@@ -358,6 +315,51 @@ export function Header({ userName = 'Usuário', userRole = 'membro', avatarUrl, 
             </div>
           )}
         </div>
+        )}
+
+        {/* Menu de navegação — à direita da foto de perfil */}
+        {!isGuest && (
+          <div ref={navRef} className="relative">
+            <button
+              type="button"
+              onClick={() => { setNavOpen((v) => !v); setMenuOpen(false); setNotifOpen(false) }}
+              aria-label="Abrir menu de navegação"
+              className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-muted transition-colors"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+
+            {navOpen && (
+              <div className="absolute right-0 top-full mt-2 w-56 rounded-lg border bg-background shadow-md z-50 py-1">
+                {visibleSections.map((section, si) => (
+                  <div key={si}>
+                    {section.label && (
+                      <p className="px-4 pt-2.5 pb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70 select-none">
+                        {section.label}
+                      </p>
+                    )}
+                    {section.items.map(({ href, label, icon: Icon }) => {
+                      const active = pathname === href || pathname.startsWith(href + '/')
+                      return (
+                        <Link
+                          key={href}
+                          href={href}
+                          onClick={() => setNavOpen(false)}
+                          className={`flex items-center gap-2 px-4 py-2.5 text-sm transition-colors ${
+                            active ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-muted'
+                          }`}
+                        >
+                          <Icon className="h-4 w-4 shrink-0" />
+                          {label}
+                        </Link>
+                      )
+                    })}
+                    {si < visibleSections.length - 1 && <div className="my-1 border-t" />}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         )}
       </div>
     </header>

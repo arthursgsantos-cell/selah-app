@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
+import { ehCasado } from '@/lib/solicitacao-celula'
 
 export type SolicitacaoData = {
   nome: string
@@ -15,6 +16,13 @@ export type SolicitacaoData = {
   bairro: string
   tipo_membro: string
   melhor_dia: string
+  /**
+   * Só chegam preenchidos quando o estado civil é casado — o casal é
+   * encaminhado junto, e o líder precisa do contato dos dois.
+   */
+  conjuge_nome?: string | null
+  conjuge_telefone?: string | null
+  conjuge_idade?: number | null
 }
 
 export async function solicitarCelulaAction(data: SolicitacaoData) {
@@ -39,8 +47,16 @@ export async function solicitarCelulaAction(data: SolicitacaoData) {
   }
   if (!igrejaId) throw new Error('Igreja não encontrada')
 
+  // Quem não é casado não leva dados de cônjuge para o banco, mesmo que o
+  // formulário tenha ficado com o texto digitado antes de a pessoa trocar o
+  // estado civil.
+  const casado = ehCasado(data.estado_civil)
+
   const { error } = await admin.from('solicitacoes_celula').insert({
     ...data,
+    conjuge_nome: casado ? data.conjuge_nome?.trim() || null : null,
+    conjuge_telefone: casado ? data.conjuge_telefone?.trim() || null : null,
+    conjuge_idade: casado ? data.conjuge_idade ?? null : null,
     user_id: user?.id ?? null,
     igreja_id: igrejaId,
   })
