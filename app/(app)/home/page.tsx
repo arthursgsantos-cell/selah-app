@@ -14,8 +14,10 @@ import { QueroServirDialog } from '@/components/home/quero-servir-dialog'
 import { QueroSerMembroDialog } from '@/components/home/quero-ser-membro-dialog'
 import { ContribuirCard } from '@/components/home/contribuir-card'
 import { CampanhaDestaqueCard, type CampanhaDestaque } from '@/components/home/campanha-destaque-card'
-import { SecoesHomeDialog } from '@/components/home/secoes-home-dialog'
-import { normalizarOrdemSecoes, type TextosSecoes } from '@/lib/home-secoes'
+import { SecoesHome } from '@/components/home/secoes-home'
+import {
+  normalizarOrdemSecoes, normalizarLayoutSecoes, type TextosSecoes,
+} from '@/lib/home-secoes'
 import { CultoAoVivo } from '@/components/home/culto-ao-vivo'
 import { BotaoAoVivo } from '@/components/home/botao-ao-vivo'
 import { FotosComunidadeCarousel } from '@/components/home/fotos-comunidade-carousel'
@@ -57,8 +59,8 @@ export default async function HomePage() {
 
   // Fetch church (with name for guest welcome)
   const { data: ig } = profile?.igreja_id
-    ? await supabase.from('igrejas').select('id, nome, logo_url, descricao, instagram_url, facebook_url, youtube_url, pastor_nome, pastor_titulo, pastor_foto_url, spotify_url, ao_vivo_url, ao_vivo_ativo, contribuicao_ativa, horario_culto, endereco, fundada_em, cor, cor_secundaria, fundo_tipo, fundo_imagem_url, fundo_opacidade, fundo_galeria, fundo_galeria_opacidade, home_secoes_ordem, home_secoes_textos').eq('id', profile.igreja_id).single()
-    : await supabase.from('igrejas').select('id, nome, logo_url, descricao, instagram_url, facebook_url, youtube_url, pastor_nome, pastor_titulo, pastor_foto_url, spotify_url, ao_vivo_url, ao_vivo_ativo, contribuicao_ativa, horario_culto, endereco, fundada_em, cor, cor_secundaria, fundo_tipo, fundo_imagem_url, fundo_opacidade, fundo_galeria, fundo_galeria_opacidade, home_secoes_ordem, home_secoes_textos').limit(1).single()
+    ? await supabase.from('igrejas').select('id, nome, logo_url, descricao, instagram_url, facebook_url, youtube_url, pastor_nome, pastor_titulo, pastor_foto_url, spotify_url, ao_vivo_url, ao_vivo_ativo, contribuicao_ativa, horario_culto, endereco, fundada_em, cor, cor_secundaria, fundo_tipo, fundo_imagem_url, fundo_opacidade, fundo_galeria, fundo_galeria_opacidade, home_secoes_ordem, home_secoes_textos, home_secoes_layout').eq('id', profile.igreja_id).single()
+    : await supabase.from('igrejas').select('id, nome, logo_url, descricao, instagram_url, facebook_url, youtube_url, pastor_nome, pastor_titulo, pastor_foto_url, spotify_url, ao_vivo_url, ao_vivo_ativo, contribuicao_ativa, horario_culto, endereco, fundada_em, cor, cor_secundaria, fundo_tipo, fundo_imagem_url, fundo_opacidade, fundo_galeria, fundo_galeria_opacidade, home_secoes_ordem, home_secoes_textos, home_secoes_layout').limit(1).single()
 
   const church = ig as any
   const igrejaId = church?.id ?? null
@@ -369,6 +371,7 @@ export default async function HomePage() {
     (church?.home_secoes_ordem as string[] | null) ?? null
   )
   const textosSecoes = (church?.home_secoes_textos as TextosSecoes | null) ?? {}
+  const layoutSecoes = normalizarLayoutSecoes(church?.home_secoes_layout)
 
   /**
    * O fundo da home é um só, configurado pela liderança em `igrejas`.
@@ -491,12 +494,17 @@ export default async function HomePage() {
           </div>
         )}
 
-        {/* Cartões institucionais, na ordem escolhida no painel "Seções".
-            Mesma lista da home de quem entrou, com o visual próprio daqui. */}
-        {ordemSecoes.map((id) => {
-          if (id === 'contribuir') {
-            return contribuicaoNoAr ? (
-              <div key={id} className="space-y-3">
+        {/* Cartões institucionais, na ordem e no desenho escolhidos no editor
+            de seções. Mesma grade da home de quem entrou; o que muda é o
+            conteúdo de cada cartão, feito para quem ainda não tem conta. */}
+        <SecoesHome
+          ordem={ordemSecoes}
+          layout={layoutSecoes}
+          textos={textosSecoes}
+          podeEditar={false}
+          conteudos={{
+            contribuir: contribuicaoNoAr ? (
+              <div className="space-y-3">
                 <ContribuirCard
                   titulo={textosSecoes.contribuir?.titulo}
                   subtitulo={textosSecoes.contribuir?.subtitulo}
@@ -505,11 +513,9 @@ export default async function HomePage() {
                   <CampanhaDestaqueCard key={c.id} campanha={c} />
                 ))}
               </div>
-            ) : null
-          }
-          if (id === 'eventos') {
-            return eventos && eventos.length > 0 ? (
-              <section key={id} className={SECAO}>
+            ) : null,
+            eventos: eventos && eventos.length > 0 ? (
+              <section className={SECAO}>
                 <div className={SECAO_TITULO}>
                   <Sparkles className="h-4 w-4 text-[#0F52BA]" />
                   <h2 className="text-sm font-semibold">Próximos eventos</h2>
@@ -521,26 +527,21 @@ export default async function HomePage() {
                   })}
                 </div>
               </section>
-            ) : null
-          }
-          if (id === 'proximo_passo') {
-            return (
+            ) : null,
+            proximo_passo: (
               <SecaoProximoPassoVisitante
-                key={id}
                 titulo={textosSecoes.proximo_passo?.titulo}
                 subtitulo={textosSecoes.proximo_passo?.subtitulo}
               />
-            )
-          }
-          // id === 'ensino'
-          return (
-            <SecaoEnsinoVisitante
-              key={id}
-              titulo={textosSecoes.ensino?.titulo}
-              subtitulo={textosSecoes.ensino?.subtitulo}
-            />
-          )
-        })}
+            ),
+            ensino: (
+              <SecaoEnsinoVisitante
+                titulo={textosSecoes.ensino?.titulo}
+                subtitulo={textosSecoes.ensino?.subtitulo}
+              />
+            ),
+          }}
+        />
 
         {/* CTA — quero uma célula */}
         <div className="rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50/60 p-5">
@@ -727,14 +728,6 @@ export default async function HomePage() {
         <BotaoAoVivo ativo={Boolean(church?.ao_vivo_ativo)} temUrl={Boolean(church?.ao_vivo_url?.trim())} />
       )}
 
-      {/* Reordenar e renomear os cartões abaixo, direto da tela — sem abrir o
-          painel de administração para um ajuste rápido. */}
-      {podeEditarHome && (
-        <div className="flex justify-end">
-          <SecoesHomeDialog ordemInicial={ordemSecoes} textosInicial={textosSecoes} />
-        </div>
-      )}
-
       {/* Culto ao vivo — passa na frente de tudo enquanto está no ar */}
       {aoVivo && <CultoAoVivo url={aoVivo} igrejaNome={church?.nome} />}
 
@@ -753,14 +746,18 @@ export default async function HomePage() {
         }
       />
 
-      {/* Cartões institucionais, na ordem que a liderança escolheu no painel
-          "Seções" — dízimo, eventos, o convite para servir/ser membro e o
-          atalho do Ensino. Os quatro moram juntos aqui de propósito: só assim
-          dá para pôr um antes do outro. */}
-      {ordemSecoes.map((id) => {
-        if (id === 'contribuir') {
-          return contribuicaoNoAr ? (
-            <div key={id} className="space-y-3">
+      {/* Cartões institucionais — dízimo, eventos, o convite para servir/ser
+          membro e o atalho do Ensino. Os quatro moram juntos aqui de propósito:
+          é o que permite reordenar, redimensionar e pôr dois lado a lado no
+          editor de seções, sem sair da própria home. */}
+      <SecoesHome
+        ordem={ordemSecoes}
+        layout={layoutSecoes}
+        textos={textosSecoes}
+        podeEditar={podeEditarHome}
+        conteudos={{
+          contribuir: contribuicaoNoAr ? (
+            <div className="space-y-3">
               <ContribuirCard
                 titulo={textosSecoes.contribuir?.titulo}
                 subtitulo={textosSecoes.contribuir?.subtitulo}
@@ -769,15 +766,10 @@ export default async function HomePage() {
                 <CampanhaDestaqueCard key={c.id} campanha={c} />
               ))}
             </div>
-          ) : null
-        }
-        if (id === 'eventos') {
-          return <EventosDestaque key={id} eventos={destaques} />
-        }
-        if (id === 'proximo_passo') {
-          return (
+          ) : null,
+          eventos: <EventosDestaque eventos={destaques} />,
+          proximo_passo: (
             <SecaoProximoPasso
-              key={id}
               titulo={textosSecoes.proximo_passo?.titulo}
               subtitulo={textosSecoes.proximo_passo?.subtitulo}
               isMember={isMember}
@@ -785,17 +777,15 @@ export default async function HomePage() {
               nomeInicial={profile?.nome ?? ''}
               telefoneInicial={(profile as { telefone?: string | null })?.telefone ?? ''}
             />
-          )
-        }
-        // id === 'ensino'
-        return (
-          <SecaoEnsino
-            key={id}
-            titulo={textosSecoes.ensino?.titulo}
-            subtitulo={textosSecoes.ensino?.subtitulo}
-          />
-        )
-      })}
+          ),
+          ensino: (
+            <SecaoEnsino
+              titulo={textosSecoes.ensino?.titulo}
+              subtitulo={textosSecoes.ensino?.subtitulo}
+            />
+          ),
+        }}
+      />
 
       {/*
         Minha célula e o próximo encontro numa seção só.

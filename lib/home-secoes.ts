@@ -38,6 +38,73 @@ export interface TextoSecao {
 export type TextosSecoes = Partial<Record<SecaoHomeId, TextoSecao>>
 
 /**
+ * Aparência e tamanho de cada cartão na grade da home.
+ *
+ * A grade tem duas colunas. `largura: 2` ocupa a linha inteira (o padrão, que
+ * é como a home sempre foi); `largura: 1` ocupa metade, e dois cartões de
+ * metade seguidos ficam lado a lado — que é justamente o que se ganha ao
+ * arrastar a alça de tamanho para a esquerda.
+ *
+ * `estilo` reaproveita os mesmos fundos das páginas de rede e célula
+ * (`lib/rede-fundo.ts`), para a home não inventar um vocabulário visual novo:
+ * quem já pintou a página da rede sabe o que "nébula" faz.
+ */
+export type EstiloSecao = 'padrao' | 'cor' | 'gradiente' | 'nebula'
+
+export interface LayoutSecao {
+  largura: 1 | 2
+  estilo: EstiloSecao
+  cor: string | null
+  cor2: string | null
+  /** `auto` decide pelo brilho da cor de fundo. */
+  texto: 'auto' | 'claro' | 'escuro'
+}
+
+export type LayoutSecoes = Partial<Record<SecaoHomeId, LayoutSecao>>
+
+export const LAYOUT_PADRAO: LayoutSecao = {
+  largura: 2,
+  estilo: 'padrao',
+  cor: null,
+  cor2: null,
+  texto: 'auto',
+}
+
+/** Descarta o que não é layout válido — o jsonb aceita qualquer coisa. */
+export function normalizarLayoutSecoes(salvo: unknown): LayoutSecoes {
+  const limpo: LayoutSecoes = {}
+  if (!salvo || typeof salvo !== 'object') return limpo
+
+  for (const [id, valor] of Object.entries(salvo as Record<string, unknown>)) {
+    if (!(SECAO_IDS as readonly string[]).includes(id)) continue
+    if (!valor || typeof valor !== 'object') continue
+    const v = valor as Record<string, unknown>
+    limpo[id as SecaoHomeId] = {
+      largura: v.largura === 1 ? 1 : 2,
+      estilo: ['cor', 'gradiente', 'nebula'].includes(v.estilo as string)
+        ? (v.estilo as EstiloSecao)
+        : 'padrao',
+      cor: typeof v.cor === 'string' && v.cor ? v.cor : null,
+      cor2: typeof v.cor2 === 'string' && v.cor2 ? v.cor2 : null,
+      texto: v.texto === 'claro' || v.texto === 'escuro' ? v.texto : 'auto',
+    }
+  }
+  return limpo
+}
+
+/**
+ * Claro ou escuro sobre a cor de fundo, pela luminância percebida.
+ * Sem isso, um cartão azul-marinho ficaria com texto cinza-escuro ilegível.
+ */
+export function textoClaroSobre(hex: string | null | undefined): boolean {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec((hex ?? '').trim())
+  if (!m) return false
+  const [r, g, b] = [m[1], m[2], m[3]].map((h) => parseInt(h, 16))
+  // Coeficientes de luminância do sRGB.
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 < 0.6
+}
+
+/**
  * A ordem salva pode vir incompleta ou desatualizada — se a igreja nunca
  * reordenou nada, `home_secoes_ordem` é `null`. Também é o que absorve uma
  * seção nova adicionada no código depois de igrejas já terem salvo uma ordem:

@@ -196,6 +196,8 @@ export type Database = {
           // Ordem e textos dos cartões institucionais da home — lib/home-secoes.ts.
           home_secoes_ordem: string[] | null
           home_secoes_textos: Record<string, { titulo?: string | null; subtitulo?: string | null }> | null
+          /** Ver `LayoutSecoes` em `lib/home-secoes.ts`. */
+          home_secoes_layout: Record<string, unknown> | null
           // Aparência da página inicial. `fundo_tipo` nulo = fundo padrão do app.
           cor: string | null
           cor_secundaria: string | null
@@ -240,6 +242,7 @@ export type Database = {
           ao_vivo_ativo?: boolean
           home_secoes_ordem?: string[] | null
           home_secoes_textos?: Record<string, { titulo?: string | null; subtitulo?: string | null }> | null
+          home_secoes_layout?: Record<string, unknown> | null
           cor?: string | null
           cor_secundaria?: string | null
           fundo_tipo?: string | null
@@ -283,6 +286,7 @@ export type Database = {
           ao_vivo_ativo?: boolean
           home_secoes_ordem?: string[] | null
           home_secoes_textos?: Record<string, { titulo?: string | null; subtitulo?: string | null }> | null
+          home_secoes_layout?: Record<string, unknown> | null
           cor?: string | null
           cor_secundaria?: string | null
           fundo_tipo?: string | null

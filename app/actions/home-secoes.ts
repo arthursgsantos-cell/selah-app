@@ -8,11 +8,15 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
-import { SECAO_IDS, type TextosSecoes } from '@/lib/home-secoes'
+import {
+  SECAO_IDS, normalizarLayoutSecoes, type LayoutSecoes, type TextosSecoes,
+} from '@/lib/home-secoes'
 
 export async function atualizarSecoesHomeAction(dados: {
   ordem: string[]
   textos: TextosSecoes
+  /** Tamanho e cor de cada cartão. Ausente mantém o que já estava salvo. */
+  layout?: LayoutSecoes
 }): Promise<{ sucesso: boolean; erro?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -53,6 +57,9 @@ export async function atualizarSecoesHomeAction(dados: {
     .update({
       home_secoes_ordem: ordemLimpa,
       home_secoes_textos: textosLimpos,
+      // A normalização é a mesma da leitura: o jsonb aceitaria qualquer coisa,
+      // e um `largura: 7` gravado aqui viraria uma grade quebrada na home.
+      ...(dados.layout ? { home_secoes_layout: normalizarLayoutSecoes(dados.layout) } : {}),
     })
     .eq('id', perfil.igreja_id)
 
