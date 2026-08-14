@@ -34,7 +34,7 @@ export function FotosComunidadeCarousel({ fotos }: Props) {
   }
 
   // A classe é gancho de CSS: dentro de uma seção com proporção fixa
-  // (`.secao-formatada`, em globals.css) a faixa horizontal vira um mosaico
+  // (`.secao-preenche`, em globals.css) a faixa horizontal vira um mosaico
   // que preenche o cartão, em vez de flutuar no meio do espaço vazio.
   return (
     <div className="galeria-comunidade relative -mx-4">

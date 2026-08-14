@@ -107,9 +107,36 @@ export const ALTURA_LABELS: Record<AlturaSecao, string> = {
   r916: '9:16',
 }
 
+/**
+ * Onde o conteúdo fica dentro do cartão.
+ *
+ * `preencher` é o que faz sentido para lista e galeria: o conteúdo se espalha
+ * pelo formato inteiro. Já um cartão que nunca muda de tamanho — o convite
+ * para servir, o atalho do Ensino — fica melhor centrado, com o espaço sobrando
+ * em volta em vez de esticado.
+ */
+export type AlinhaVertical = 'preencher' | 'topo' | 'centro' | 'base'
+export type AlinhaHorizontal = 'preencher' | 'esquerda' | 'centro' | 'direita'
+
+export const ALINHA_V_LABELS: Record<AlinhaVertical, string> = {
+  preencher: 'Preencher',
+  topo: 'Topo',
+  centro: 'Centro',
+  base: 'Base',
+}
+
+export const ALINHA_H_LABELS: Record<AlinhaHorizontal, string> = {
+  preencher: 'Largura toda',
+  esquerda: 'Esquerda',
+  centro: 'Centro',
+  direita: 'Direita',
+}
+
 export interface LayoutSecao {
   largura: 1 | 2
   altura: AlturaSecao
+  alinhaV: AlinhaVertical
+  alinhaH: AlinhaHorizontal
   estilo: EstiloSecao
   cor: string | null
   cor2: string | null
@@ -122,6 +149,8 @@ export type LayoutSecoes = Partial<Record<SecaoHomeId, LayoutSecao>>
 export const LAYOUT_PADRAO: LayoutSecao = {
   largura: 2,
   altura: 'padrao',
+  alinhaV: 'preencher',
+  alinhaH: 'preencher',
   estilo: 'padrao',
   cor: null,
   cor2: null,
@@ -140,6 +169,12 @@ export function normalizarLayoutSecoes(salvo: unknown): LayoutSecoes {
     limpo[id as SecaoHomeId] = {
       largura: v.largura === 1 ? 1 : 2,
       altura: v.altura === 'r64' || v.altura === 'r916' ? v.altura : 'padrao',
+      alinhaV: ['topo', 'centro', 'base'].includes(v.alinhaV as string)
+        ? (v.alinhaV as AlinhaVertical)
+        : 'preencher',
+      alinhaH: ['esquerda', 'centro', 'direita'].includes(v.alinhaH as string)
+        ? (v.alinhaH as AlinhaHorizontal)
+        : 'preencher',
       estilo: ['cor', 'gradiente', 'nebula'].includes(v.estilo as string)
         ? (v.estilo as EstiloSecao)
         : 'padrao',

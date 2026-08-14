@@ -919,15 +919,15 @@ export default async function HomePage() {
                   }`}>
                     {label}
                   </span>
-                  {/* Só antes da data e no próprio dia: parabenizar dias
-                      depois constrange mais do que agrada. */}
-                  {!isPast && (
-                    <ParabensBtn
-                      nome={p.nome}
-                      telefone={(p as { telefone?: string | null }).telefone}
-                      compacto
-                    />
-                  )}
+                  {/* Vale para todo mundo da lista, inclusive quem fez
+                      aniversário dias atrás: parabéns atrasado é comum, e
+                      esconder o botão fazia a lista passar o mês quase inteira
+                      sem nenhum — que foi o que aconteceu. */}
+                  <ParabensBtn
+                    nome={p.nome}
+                    telefone={(p as { telefone?: string | null }).telefone}
+                    compacto
+                  />
                 </div>
               )
             })}

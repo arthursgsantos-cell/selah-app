@@ -12,8 +12,9 @@ import { fundoStyle, ajustarCor } from '@/lib/rede-fundo'
 import {
   ALTURA_LABELS, ALTURA_PROPORCAO, LAYOUT_PADRAO, SECAO_LABELS, SECAO_TEM_TEXTO,
   textoClaroSobre,
-  type AlturaSecao, type EstiloSecao, type LayoutSecao, type LayoutSecoes,
-  type SecaoHomeId, type TextosSecoes,
+  ALINHA_H_LABELS, ALINHA_V_LABELS,
+  type AlinhaHorizontal, type AlinhaVertical, type AlturaSecao, type EstiloSecao,
+  type LayoutSecao, type LayoutSecoes, type SecaoHomeId, type TextosSecoes,
 } from '@/lib/home-secoes'
 
 interface Props {
@@ -31,6 +32,22 @@ const ESTILOS: { id: EstiloSecao; nome: string }[] = [
   { id: 'gradiente', nome: 'Degradê' },
   { id: 'nebula', nome: 'Nébula' },
 ]
+
+/** Onde o conteúdo encosta dentro da moldura, quando não preenche tudo. */
+const ALINHA_V_CLASSE: Record<AlinhaVertical, string> = {
+  preencher: '',
+  topo: 'justify-start',
+  centro: 'justify-center',
+  base: 'justify-end',
+}
+
+const ALINHA_H_CLASSE: Record<AlinhaHorizontal, string> = {
+  // Sem alinhamento horizontal o filho ocupa a largura toda, que é o padrão.
+  preencher: '[&>*]:w-full',
+  esquerda: 'items-start',
+  centro: 'items-center text-center',
+  direita: 'items-end text-right',
+}
 
 /** Paleta curta: escolher cor num seletor de milhões trava qualquer um. */
 const CORES = [
@@ -306,11 +323,22 @@ function MolduraSecao({
   const formato = proporcao
     ? { aspectRatio: proporcao, minHeight: 'fit-content' as const }
     : undefined
-  // `secao-formatada` está em globals.css: é o que faz o conteúdo se acomodar
+  // `secao-preenche` está em globals.css: é o que faz o conteúdo se acomodar
   // ao formato escolhido — cabeçalho em cima, corpo ocupando o resto, e a
   // galeria trocando a faixa horizontal por um mosaico. Sem isso, escolher uma
   // proporção só esticava a moldura e deixava o conteúdo boiando no meio.
-  const esticado = proporcao ? 'secao-formatada flex flex-col [&>*]:w-full' : ''
+  //
+  // Mas nem todo cartão quer se espalhar: o convite para servir e o atalho do
+  // Ensino têm tamanho próprio e ficam melhor centrados, com o espaço sobrando
+  // em volta. Quem decide é o alinhamento escolhido na própria seção.
+  const preenche = cfg.alinhaV === 'preencher'
+  const esticado = proporcao
+    ? [
+        'flex flex-col',
+        preenche ? 'secao-preenche' : ALINHA_V_CLASSE[cfg.alinhaV],
+        ALINHA_H_CLASSE[cfg.alinhaH],
+      ].join(' ')
+    : ''
 
   if (cfg.estilo === 'padrao') {
     return (
@@ -413,6 +441,45 @@ function PainelSecao({
           </button>
         ))}
       </div>
+
+      {/* Onde a informação fica dentro do cartão. Só faz diferença quando há
+          espaço sobrando, ou seja, quando o cartão tem proporção fixa. */}
+      {cfg.altura !== 'padrao' && (
+        <div className="space-y-1.5">
+          <div className="flex gap-1.5">
+            {(['preencher', 'topo', 'centro', 'base'] as AlinhaVertical[]).map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => onLayout({ alinhaV: v })}
+                className={`flex-1 rounded-lg border px-1.5 py-1.5 text-[11px] font-medium transition-colors ${
+                  cfg.alinhaV === v
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-border hover:bg-accent'
+                }`}
+              >
+                {ALINHA_V_LABELS[v]}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-1.5">
+            {(['preencher', 'esquerda', 'centro', 'direita'] as AlinhaHorizontal[]).map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => onLayout({ alinhaH: v })}
+                className={`flex-1 rounded-lg border px-1.5 py-1.5 text-[11px] font-medium transition-colors ${
+                  cfg.alinhaH === v
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-border hover:bg-accent'
+                }`}
+              >
+                {ALINHA_H_LABELS[v]}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Estilo do fundo */}
       <div className="flex flex-wrap gap-1.5">
