@@ -9,12 +9,22 @@ import { UsuariosLista } from './_components/usuarios-lista'
 import { PreCadastroSection } from './_components/pre-cadastro-section'
 import type { Role } from '@/lib/supabase/types'
 
-const PAGE_SIZE = 20
+const PAGE_SIZE = 25
 
+/**
+ * Gestão de membros.
+ *
+ * A lista inteira da igreja é carregada de uma vez e filtrada aqui, em vez de
+ * paginada no banco. É o que permite "selecionar todos os filtrados" — sem
+ * conhecer o conjunto completo, o botão selecionaria só a página visível e a
+ * secretaria acharia que mudou trinta pessoas quando mudou vinte e cinco.
+ * O custo é aceitável: uma igreja tem membros na casa dos milhares, não dos
+ * milhões, e as colunas carregadas são curtas.
+ */
 export default async function UsuariosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; page?: string }>
+  searchParams: Promise<{ q?: string; page?: string; cargo?: string; celula?: string; u?: string }>
 }) {
   const params = await searchParams
   const supabase = await createClient()
@@ -46,42 +56,18 @@ export default async function UsuariosPage({
     )
   }
 
-  const search = params.q?.trim() ?? ''
-  const page = Math.max(1, parseInt(params.page ?? '1', 10))
-  const offset = (page - 1) * PAGE_SIZE
-
-  const searchFilter = search
-    ? `nome.ilike.%${search}%,email.ilike.%${search}%`
-    : null
-
-  let usuariosQ = supabase
-    .from('profiles')
-    .select('id, nome, email, avatar_url, role, created_at, telefone, data_nascimento_1, data_nascimento_2, data_casamento, endereco, endereco_maps, conjuge_id')
-    .eq('igreja_id', profile.igreja_id)
-    .order('nome')
-    .range(offset, offset + PAGE_SIZE - 1)
-  if (searchFilter) usuariosQ = usuariosQ.or(searchFilter)
-
-  let countQ = supabase
-    .from('profiles')
-    .select('id', { count: 'exact', head: true })
-    .eq('igreja_id', profile.igreja_id)
-  if (searchFilter) countQ = countQ.or(searchFilter)
-
   const [
-    { data: usuarios },
-    { count: totalFiltrado },
-    { data: statsData },
-    { data: todosBasico },
+    { data: perfis },
     { data: celulas },
     { data: redes },
     { data: igreja },
     { data: preCadastrosRaw },
   ] = await Promise.all([
-    usuariosQ,
-    countQ,
-    supabase.from('profiles').select('role').eq('igreja_id', profile.igreja_id),
-    supabase.from('profiles').select('id, nome').eq('igreja_id', profile.igreja_id).order('nome'),
+    supabase
+      .from('profiles')
+      .select('id, nome, email, avatar_url, role, created_at, telefone, data_nascimento_1, data_nascimento_2, data_casamento, endereco, endereco_maps, conjuge_id')
+      .eq('igreja_id', profile.igreja_id)
+      .order('nome'),
     supabase.from('celulas').select('id, nome, rede_id, redes(nome)').eq('ativa', true).order('nome'),
     supabase.from('redes').select('id, nome').eq('igreja_id', profile.igreja_id).order('nome'),
     supabase.from('igrejas').select('codigo_convite').eq('id', profile.igreja_id).single(),
@@ -92,7 +78,8 @@ export default async function UsuariosPage({
       .order('created_at', { ascending: false }),
   ])
 
-  const userIds = (usuarios ?? []).map((u) => u.id)
+  const todos = perfis ?? []
+  const userIds = todos.map((u) => u.id)
 
   const [{ data: membros }, { data: supervisores }] = await Promise.all([
     userIds.length > 0
@@ -102,11 +89,6 @@ export default async function UsuariosPage({
       ? supabase.from('rede_supervisores').select('supervisor_id, rede_id, redes(id, nome)').in('supervisor_id', userIds)
       : Promise.resolve({ data: [] as any[], error: null }),
   ])
-
-  const allRoles: Role[] = ['admin', 'pastor', 'supervisor', 'supervisor_treinamento', 'lider', 'lider_treinamento', 'membro', 'convidado']
-  const roleCounts = Object.fromEntries(
-    allRoles.map((r) => [r, (statsData ?? []).filter((s: any) => s.role === r).length])
-  ) as Record<Role, number>
 
   const membrosPorUser = new Map<string, { celula_id: string; celula_nome: string; papel: string }[]>()
   for (const m of membros ?? []) {
@@ -124,28 +106,61 @@ export default async function UsuariosPage({
     redesPorUser.set(s.supervisor_id, list)
   }
 
-  const todosNomes = new Map((todosBasico ?? []).map((u: any) => [u.id, u.nome as string]))
+  const todosNomes = new Map(todos.map((u) => [u.id, u.nome as string]))
 
   const preCadastros = (preCadastrosRaw ?? []).map((pc: any) => ({
     ...pc,
     profile_nome: pc.profile_id ? (todosNomes.get(pc.profile_id) ?? null) : null,
   }))
 
-  const usuariosComVinculos = (usuarios ?? []).map((u) => ({
+  const comVinculos = todos.map((u) => ({
     ...u,
     conjuge_nome: u.conjuge_id ? (todosNomes.get(u.conjuge_id) ?? null) : null,
     memberships: membrosPorUser.get(u.id) ?? [],
     redes_supervisiona: redesPorUser.get(u.id) ?? [],
   }))
 
+  const allRoles: Role[] = ['admin', 'pastor', 'supervisor', 'supervisor_treinamento', 'lider', 'lider_treinamento', 'membro', 'convidado']
+  const roleCounts = Object.fromEntries(
+    allRoles.map((r) => [r, comVinculos.filter((u) => u.role === r).length])
+  ) as Record<Role, number>
+
+  // ── Filtros ────────────────────────────────────────────────────────────
+  const busca = params.q?.trim().toLowerCase() ?? ''
+  const cargo = allRoles.includes(params.cargo as Role) ? (params.cargo as Role) : null
+  const celulaFiltro = params.celula ?? null
+  // `?u=` vem do sino de notificações: leva direto à ficha de quem entrou.
+  const pessoa = params.u ?? null
+
+  let filtrados = comVinculos
+  if (pessoa) {
+    filtrados = filtrados.filter((u) => u.id === pessoa)
+  } else {
+    if (busca) {
+      filtrados = filtrados.filter(
+        (u) =>
+          u.nome.toLowerCase().includes(busca) ||
+          (u.email ?? '').toLowerCase().includes(busca) ||
+          (u.telefone ?? '').includes(busca)
+      )
+    }
+    if (cargo) filtrados = filtrados.filter((u) => u.role === cargo)
+    if (celulaFiltro === 'sem') {
+      filtrados = filtrados.filter((u) => u.memberships.length === 0)
+    } else if (celulaFiltro) {
+      filtrados = filtrados.filter((u) => u.memberships.some((m) => m.celula_id === celulaFiltro))
+    }
+  }
+
+  const totalPaginas = Math.max(1, Math.ceil(filtrados.length / PAGE_SIZE))
+  const page = Math.min(totalPaginas, Math.max(1, parseInt(params.page ?? '1', 10) || 1))
+  const pagina = filtrados.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+
   const celulaOpts = (celulas ?? []).map((c) => ({
     id: c.id,
     nome: c.nome,
     rede_nome: (c.redes as { nome: string } | null)?.nome ?? '',
   }))
-
-  const totalGeral = (statsData ?? []).length
-  const totalPaginas = Math.max(1, Math.ceil((totalFiltrado ?? 0) / PAGE_SIZE))
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
@@ -154,31 +169,35 @@ export default async function UsuariosPage({
         Voltar
       </Button>
       <div>
-        <h1 className="text-xl font-bold">Usuários</h1>
+        <h1 className="text-xl font-bold">Membros</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
-          Gerencie membros, cargos e vínculos de células
+          Cargos, células e vínculos — dá para mudar vários de uma vez
         </p>
       </div>
 
-      <PreCadastroSection
-        preCadastros={preCadastros}
-        membros={(todosBasico ?? []) as { id: string; nome: string }[]}
-        celulas={celulaOpts}
-      />
-
       <UsuariosLista
-        usuarios={usuariosComVinculos}
+        usuarios={pagina}
+        idsFiltrados={filtrados.map((u) => u.id)}
         currentUserId={user.id}
         celulaOpts={celulaOpts}
         redeOpts={redes ?? []}
         codigoIgreja={igreja?.codigo_convite ?? ''}
         roleCounts={roleCounts}
-        totalFiltrado={totalFiltrado ?? 0}
-        totalGeral={totalGeral}
+        totalGeral={comVinculos.length}
+        semCelula={comVinculos.filter((u) => u.memberships.length === 0).length}
         page={page}
         totalPaginas={totalPaginas}
-        searchInicial={search}
-        todosUsuarios={(todosBasico ?? []) as { id: string; nome: string }[]}
+        searchInicial={params.q ?? ''}
+        cargoAtual={cargo}
+        celulaAtual={celulaFiltro}
+        pessoaAtual={pessoa}
+        todosUsuarios={comVinculos.map((u) => ({ id: u.id, nome: u.nome }))}
+      />
+
+      <PreCadastroSection
+        preCadastros={preCadastros}
+        membros={comVinculos.map((u) => ({ id: u.id, nome: u.nome }))}
+        celulas={celulaOpts}
       />
     </div>
   )
