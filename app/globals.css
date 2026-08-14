@@ -422,3 +422,103 @@
 .secao-formatada .galeria-comunidade > button {
   display: none;
 }
+
+/* ============================================================
+   BARRA DE ROLAGEM DISCRETA
+   ============================================================
+   A barra nativa do Windows é cinza, larga e com botões de seta nas pontas —
+   dentro de um cartão colorido da home ela aparece como um pedaço de outro
+   aplicativo colado ali.
+
+   Esta é fina, arredondada e tirada da própria cor do texto do cartão
+   (`currentColor`): no cartão claro nasce escura, no cartão pintado de azul
+   nasce clara. Os botões de seta somem; o que indica "tem mais coisa aqui
+   embaixo" é o esmaecido nas bordas, aplicado junto.
+   ============================================================ */
+.rolagem-discreta {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, currentColor 22%, transparent) transparent;
+}
+.rolagem-discreta::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.rolagem-discreta::-webkit-scrollbar-track {
+  background: transparent;
+}
+.rolagem-discreta::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, currentColor 22%, transparent);
+  border-radius: 999px;
+}
+.rolagem-discreta:hover::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, currentColor 38%, transparent);
+}
+/* As setas das pontas — o que mais denuncia a barra antiga. */
+.rolagem-discreta::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+.rolagem-discreta::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* O corpo de uma seção com proporção fixa é o lugar onde isso aparece: a lista
+   que não cabe inteira no formato escolhido. */
+.secao-formatada > section > :last-child,
+.secao-formatada > div > :last-child {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, currentColor 22%, transparent) transparent;
+  /* Esmaecido nas duas pontas: diz que continua, sem precisar de seta. */
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 0.75rem,
+    #000 calc(100% - 0.75rem),
+    transparent 100%
+  );
+}
+.secao-formatada > section > :last-child::-webkit-scrollbar,
+.secao-formatada > div > :last-child::-webkit-scrollbar {
+  width: 6px;
+}
+.secao-formatada > section > :last-child::-webkit-scrollbar-track,
+.secao-formatada > div > :last-child::-webkit-scrollbar-track {
+  background: transparent;
+}
+.secao-formatada > section > :last-child::-webkit-scrollbar-thumb,
+.secao-formatada > div > :last-child::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, currentColor 22%, transparent);
+  border-radius: 999px;
+}
+.secao-formatada > section > :last-child::-webkit-scrollbar-button,
+.secao-formatada > div > :last-child::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* A barra antiga do Windows não aparece só dentro dos cartões da home: ela
+   surge em qualquer área que rola — diálogos, o painel de notificações, a
+   página inteira. A regra vale para todas, e `currentColor` faz cada uma
+   nascer da cor do texto de onde está. Elementos que não rolam ignoram. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, currentColor 20%, transparent) transparent;
+}
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, currentColor 20%, transparent);
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
