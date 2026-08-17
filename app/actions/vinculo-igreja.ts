@@ -29,6 +29,19 @@ export interface DeclaracaoVinculo {
 
 export type ResultadoVinculo = { ok: true } | { ok: false; erro: string }
 
+/**
+ * Correções que quem confirma pode fazer antes de aceitar.
+ *
+ * A declaração é o que a pessoa acha que é; quem confirma sabe o que ela de
+ * fato é. Sem isso, recusar era a única saída para um pedido quase certo — um
+ * líder que apontou a célula errada voltava para o começo.
+ */
+export interface AjusteVinculo {
+  cargo?: CargoSolicitado
+  /** `null` aceita sem colocar em célula nenhuma. */
+  celulaId?: string | null
+}
+
 /** Cargos que existem em `profiles.role`; os do Ensino moram em `ensino_equipe`. */
 const CARGOS_DE_PERFIL: Record<string, Role> = {
   membro: 'membro',
@@ -133,7 +146,8 @@ async function avisarLideranca(
  */
 export async function confirmarVinculoAction(
   solicitacaoId: string,
-  acao: 'aprovar' | 'rejeitar'
+  acao: 'aprovar' | 'rejeitar',
+  ajuste?: AjusteVinculo
 ): Promise<ResultadoVinculo> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -164,10 +178,18 @@ export async function confirmarVinculoAction(
     return { ok: false, erro: 'Solicitação não encontrada.' }
   }
 
+  // O que sai daqui é a decisão de quem confirma, não mais a declaração: se
+  // houve correção, é ela que vale e é ela que fica gravada na linha.
+  const cargoFinal = (acao === 'aprovar' && ajuste?.cargo) || pedido.cargo_solicitado
+  const celulaFinal =
+    acao === 'aprovar' && ajuste?.celulaId !== undefined ? ajuste.celulaId : pedido.celula_id
+
   const { error: erroStatus } = await admin
     .from('solicitacoes_cargo')
     .update({
       status: acao === 'aprovar' ? 'aprovado' : 'rejeitado',
+      cargo_solicitado: cargoFinal,
+      celula_id: celulaFinal,
       resolvido_por: user.id,
       resolvido_em: new Date().toISOString(),
     })
@@ -175,7 +197,7 @@ export async function confirmarVinculoAction(
   if (erroStatus) return { ok: false, erro: erroStatus.message }
 
   if (acao === 'aprovar') {
-    const cargoPerfil = CARGOS_DE_PERFIL[pedido.cargo_solicitado]
+    const cargoPerfil = CARGOS_DE_PERFIL[cargoFinal]
     if (cargoPerfil) {
       await admin
         .from('profiles')
@@ -185,25 +207,25 @@ export async function confirmarVinculoAction(
 
     // Coordenador e professor não são cargo em `profiles`: entram na equipe do
     // Ensino, que é onde as telas do módulo procuram.
-    if (pedido.cargo_solicitado === 'ensino_coordenador' || pedido.cargo_solicitado === 'ensino_professor') {
+    if (cargoFinal === 'ensino_coordenador' || cargoFinal === 'ensino_professor') {
       await admin.from('ensino_equipe').upsert(
         {
           igreja_id: pedido.igreja_id,
           profile_id: pedido.user_id,
-          papel: pedido.cargo_solicitado === 'ensino_coordenador' ? 'coordenador' : 'professor',
+          papel: cargoFinal === 'ensino_coordenador' ? 'coordenador' : 'professor',
         } as never,
         { onConflict: 'profile_id' }
       )
     }
 
-    if (pedido.celula_id) {
+    if (celulaFinal) {
       await admin.from('celula_membros').upsert(
         {
-          celula_id: pedido.celula_id,
+          celula_id: celulaFinal,
           user_id: pedido.user_id,
-          // Quem se declarou líder entra como líder da célula que apontou; o
+          // Quem foi confirmado como líder entra como líder da célula; o
           // resto entra como membro.
-          papel: ['lider', 'lider_treinamento'].includes(pedido.cargo_solicitado) ? 'lider' : 'membro',
+          papel: ['lider', 'lider_treinamento'].includes(cargoFinal) ? 'lider' : 'membro',
         },
         { onConflict: 'celula_id,user_id' }
       )

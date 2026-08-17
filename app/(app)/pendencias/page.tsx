@@ -27,10 +27,17 @@ export default async function PendenciasPage() {
     { data: presCadastro },
     { data: solicitacoesCelula },
     { data: todosProfiles },
+    { data: celulasIgreja },
   ] = await Promise.all([
     admin
       .from('solicitacoes_cargo')
-      .select('id, cargo_solicitado, mensagem, criado_em, vinculo, celulas(nome), profiles(nome, avatar_url, role)')
+      // `profiles` precisa do nome da chave: a tabela aponta duas vezes para lá
+      // (quem pediu e quem resolveu) e o embed sem apelido falha calado — a
+      // seção inteira sumia da tela com pedidos esperando no banco.
+      .select(
+        'id, cargo_solicitado, celula_id, mensagem, criado_em, vinculo, ' +
+        'perfil:profiles!solicitacoes_cargo_user_id_fkey(id, nome, avatar_url, role, email, telefone)'
+      )
       .eq('igreja_id', profile.igreja_id)
       .eq('status', 'pendente')
       .order('criado_em', { ascending: false }),
@@ -51,7 +58,18 @@ export default async function PendenciasPage() {
       .from('profiles')
       .select('id, nome')
       .eq('igreja_id', profile.igreja_id),
+    // Células da igreja, para corrigir a que a pessoa apontou antes de aceitar.
+    admin
+      .from('celulas')
+      .select('id, nome, redes!inner(nome, igreja_id)')
+      .eq('ativa', true)
+      .eq('redes.igreja_id', profile.igreja_id)
+      .order('nome'),
   ])
+
+  const celulas = ((celulasIgreja ?? []) as unknown as {
+    id: string; nome: string; redes: { nome: string } | null
+  }[]).map((c) => ({ id: c.id, nome: c.nome, rede: c.redes?.nome ?? null }))
 
   const totalCargo = solicitacoesCargo?.length ?? 0
   const totalPreCadastro = presCadastro?.length ?? 0
@@ -110,9 +128,13 @@ export default async function PendenciasPage() {
               {totalCargo}
             </span>
           </div>
+          <p className="text-xs text-muted-foreground mb-3">
+            Confira o que cada um declarou. Dá para corrigir o cargo e a célula
+            antes de aceitar — o que ficar aqui é o que vale.
+          </p>
           <div className="space-y-2">
             {(solicitacoesCargo ?? []).map((sol: any) => (
-              <SolicitacaoCargoCard key={sol.id} sol={sol} />
+              <SolicitacaoCargoCard key={sol.id} sol={sol} celulas={celulas} />
             ))}
           </div>
         </section>
