@@ -3,7 +3,9 @@
 import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, MessageCircle } from 'lucide-react'
+import { pendenciasDoPerfil } from '@/lib/perfil-pendencias'
+import { linkSuporte } from '@/lib/suporte'
 import { createClient } from '@/lib/supabase/client'
 import { EditarPerfilForm } from '@/components/perfil/editar-perfil-form'
 import { ConjugeVinculoSection } from '@/components/perfil/conjuge-vinculo-section'
@@ -109,6 +111,8 @@ function PerfilConteudo() {
     )
   }
 
+  const pendencias = pendenciasDoPerfil(profile)
+
   return (
     <div className="max-w-lg mx-auto space-y-6">
       <Link href="/home" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground -ml-1 transition-colors">
@@ -120,16 +124,44 @@ function PerfilConteudo() {
         <p className="text-sm text-muted-foreground mt-0.5">Gerencie suas informações pessoais</p>
       </div>
 
-      {/* Veio do convite de primeiro acesso: a pessoa precisa saber que salvar
-          aqui a devolve para onde ela estava indo. */}
-      {retorno && (
-        <div className="rounded-xl border border-primary/30 bg-primary/5 px-4 py-3">
-          <p className="text-sm font-medium">Complete seus dados</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Ao salvar, você volta automaticamente para onde estava.
+      {/* O que ainda falta, com nome e motivo. Reflete o que está salvo: some
+          depois que a pessoa salva, não enquanto ela digita. */}
+      {pendencias.length > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50/60 px-4 py-3">
+          <p className="text-sm font-medium text-amber-900">
+            {pendencias.length === 1 ? 'Falta 1 dado no seu cadastro' : `Faltam ${pendencias.length} dados no seu cadastro`}
           </p>
+          <ul className="mt-2 space-y-1.5">
+            {pendencias.map((p) => (
+              <li key={p.campo} className="flex items-start gap-2">
+                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
+                <span className="text-xs leading-snug text-amber-800">
+                  <span className="font-medium">{p.rotulo}</span> — {p.porque}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {retorno && (
+            <p className="text-xs text-amber-800/80 mt-2">
+              Ao salvar, você volta automaticamente para onde estava.
+            </p>
+          )}
         </div>
       )}
+
+      {/* Provisório: quem travar numa dúvida fala com quem cuida do app. */}
+      <a
+        href={linkSuporte('Olá! Tenho uma dúvida sobre o meu cadastro no app da igreja.')}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50/60 px-4 py-3 hover:bg-emerald-50 transition-colors"
+      >
+        <MessageCircle className="h-4 w-4 shrink-0 text-emerald-600" />
+        <span className="min-w-0">
+          <span className="block text-sm font-medium text-emerald-900">Ficou com dúvida?</span>
+          <span className="block text-xs text-emerald-800/80">Chame no WhatsApp que a gente resolve.</span>
+        </span>
+      </a>
 
       {/* Quem a pessoa é na igreja. No primeiro acesso vem antes de tudo: é a
           resposta que a liderança mais precisa, e a que ninguém pensaria em
