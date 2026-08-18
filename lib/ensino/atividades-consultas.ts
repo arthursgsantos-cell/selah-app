@@ -247,7 +247,7 @@ export async function painelDaAtividade(
   const [inscricoesRes, entregasRes] = await Promise.all([
     admin
       .from('ensino_inscricoes')
-      .select('id, nome, telefone')
+      .select('id, nome, telefone, profiles!ensino_inscricoes_user_id_fkey(telefone)')
       .eq('turma_id', turmaId)
       .in('status', ['aprovada', 'concluida'])
       .order('nome'),
@@ -257,7 +257,10 @@ export async function painelDaAtividade(
       .eq('atividade_id', atividadeId),
   ])
 
-  const inscricoes = (inscricoesRes.data ?? []) as { id: string; nome: string; telefone: string | null }[]
+  const inscricoes = (inscricoesRes.data ?? []) as {
+    id: string; nome: string; telefone: string | null
+    profiles: { telefone: string | null } | null
+  }[]
   const entregas = new Map(
     ((entregasRes.data ?? []) as {
       id: string; inscricao_id: string; status: StatusEntrega; concluida: boolean
@@ -318,7 +321,7 @@ export async function painelDaAtividade(
       id: entrega?.id ?? '',
       inscricaoId: i.id,
       nome: i.nome,
-      telefone: i.telefone,
+      telefone: i.telefone ?? i.profiles?.telefone ?? null,
       status: entrega?.status ?? 'pendente',
       concluida: entrega?.concluida ?? false,
       comentario: entrega?.comentario ?? null,
