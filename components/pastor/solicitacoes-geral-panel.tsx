@@ -15,6 +15,7 @@ import type { TipoSolicitacao, StatusSolicitacao } from '@/lib/supabase/types'
 export interface SolicitacaoGeral {
   id: string
   avatar_url?: string | null
+  responsavel_nome?: string | null
   tipo: TipoSolicitacao
   nome: string
   telefone: string
@@ -28,7 +29,7 @@ export interface SolicitacaoGeral {
 
 const STATUS: Record<StatusSolicitacao, { label: string; className: string }> = {
   pendente:     { label: 'Pendente',     className: 'bg-yellow-100 text-yellow-700' },
-  em_andamento: { label: 'Em andamento', className: 'bg-blue-100 text-blue-700' },
+  em_andamento: { label: 'Em acolhimento', className: 'bg-blue-100 text-blue-700' },
   atendido:     { label: 'Atendido',     className: 'bg-green-100 text-green-700' },
   arquivado:    { label: 'Arquivado',    className: 'bg-muted text-muted-foreground' },
 }
@@ -181,6 +182,7 @@ function Cartao({ sol }: { sol: SolicitacaoGeral }) {
         <div className="mt-3 space-y-2.5 border-t border-border pt-3">
           <Linha rotulo="Telefone" valor={sol.telefone} />
           <Linha rotulo="E-mail" valor={sol.email} />
+          <Linha rotulo="Responsável pelo acolhimento" valor={sol.responsavel_nome ?? null} />
           <Detalhes sol={sol} />
           {sol.mensagem && (
             <p className="rounded-lg bg-muted/60 p-2.5 text-xs leading-relaxed">{sol.mensagem}</p>
@@ -234,8 +236,8 @@ function Cartao({ sol }: { sol: SolicitacaoGeral }) {
  * mesmo nome em dois lugares. O selo diz qual é qual.
  */
 export function SolicitacoesGeralPanel({ solicitacoes }: { solicitacoes: SolicitacaoGeral[] }) {
-  const [filtro, setFiltro] = useState<'abertos' | 'atendidos' | 'arquivados' | 'todos'>('abertos')
-  const visiveis = solicitacoes.filter((s) => filtro === 'todos' || filtro === 'abertos' && ['pendente', 'em_andamento'].includes(s.status) || filtro === 'atendidos' && s.status === 'atendido' || filtro === 'arquivados' && s.status === 'arquivado')
+  const [filtro, setFiltro] = useState<'abertos' | 'acolhimento' | 'atendidos' | 'arquivados' | 'todos'>('abertos')
+  const visiveis = solicitacoes.filter((s) => filtro === 'todos' || filtro === 'abertos' && ['pendente', 'em_andamento'].includes(s.status) || filtro === 'acolhimento' && s.status === 'em_andamento' || filtro === 'atendidos' && s.status === 'atendido' || filtro === 'arquivados' && s.status === 'arquivado')
   if (solicitacoes.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-border py-10 text-center">
@@ -248,9 +250,9 @@ export function SolicitacoesGeralPanel({ solicitacoes }: { solicitacoes: Solicit
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-1.5">
-        {([['abertos', 'Em aberto'], ['atendidos', 'Concluídos'], ['arquivados', 'Arquivados'], ['todos', 'Todo o histórico']] as const).map(([id, label]) => (
+        {([['abertos', 'Em aberto'], ['acolhimento', 'Em acolhimento'], ['atendidos', 'Concluídos'], ['arquivados', 'Arquivados'], ['todos', 'Todo o histórico']] as const).map(([id, label]) => (
           <button key={id} type="button" onClick={() => setFiltro(id)} className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${filtro === id ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
-            {label} ({solicitacoes.filter((s) => id === 'todos' || id === 'abertos' && ['pendente', 'em_andamento'].includes(s.status) || id === 'atendidos' && s.status === 'atendido' || id === 'arquivados' && s.status === 'arquivado').length})
+            {label} ({solicitacoes.filter((s) => id === 'todos' || id === 'abertos' && ['pendente', 'em_andamento'].includes(s.status) || id === 'acolhimento' && s.status === 'em_andamento' || id === 'atendidos' && s.status === 'atendido' || id === 'arquivados' && s.status === 'arquivado').length})
           </button>
         ))}
       </div>
