@@ -17,8 +17,8 @@ export async function salvarAcessoSolicitacoesAction(usuarioId: string, permitir
   if (!ctx || !['pastor', 'admin'].includes(ctx.perfil.role)) return { sucesso: false, erro: 'Sem permissão' }
   const admin = createAdminClient()
   const result = permitir
-    ? await admin.from('solicitacoes_acesso_delegado').upsert({ igreja_id: ctx.perfil.igreja_id, usuario_id: usuarioId, criado_por: ctx.user.id })
-    : await admin.from('solicitacoes_acesso_delegado').delete().eq('igreja_id', ctx.perfil.igreja_id).eq('usuario_id', usuarioId)
+    ? await (admin as any).from('solicitacoes_acesso_delegado').upsert({ igreja_id: ctx.perfil.igreja_id, usuario_id: usuarioId, criado_por: ctx.user.id })
+    : await (admin as any).from('solicitacoes_acesso_delegado').delete().eq('igreja_id', ctx.perfil.igreja_id).eq('usuario_id', usuarioId)
   if (result.error) return { sucesso: false, erro: result.error.message }
   revalidatePath('/pastor')
   return { sucesso: true }
