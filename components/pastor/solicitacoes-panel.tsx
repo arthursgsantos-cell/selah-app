@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import { encaminharSolicitacaoAction, marcarAtendidoAction } from '@/app/actions/solicitar-celula'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { CheckCheck, ChevronDown, ChevronUp, Users } from 'lucide-react'
+import { CheckCheck, ChevronDown, ChevronUp, Users, Share2 } from 'lucide-react'
 import { WhatsAppIcon } from '@/components/ui/whatsapp-icon'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -77,6 +77,19 @@ function SolicitacaoCard({ sol, lideres }: { sol: Solicitacao; lideres: Lider[] 
     })
   }
 
+  async function compartilhar() {
+    const texto = [
+      `Pedido de célula — ${sol.nome}`,
+      `Telefone: ${sol.telefone}`, `E-mail: ${sol.email}`,
+      sol.idade ? `Idade: ${sol.idade} anos` : '', sol.estado_civil ? `Estado civil: ${sol.estado_civil}` : '',
+      sol.bairro ? `Bairro: ${sol.bairro}` : '', sol.tipo_membro ? `Tipo: ${sol.tipo_membro}` : '',
+      sol.melhor_dia ? `Melhor dia: ${sol.melhor_dia}` : '', sol.tem_filhos ? `Filhos: ${sol.filhos_detalhes || 'Sim'}` : 'Filhos: Não',
+      sol.conjuge_nome ? `Cônjuge: ${sol.conjuge_nome} — ${sol.conjuge_telefone || 'sem telefone'}` : '',
+    ].filter(Boolean).join('\n')
+    if (navigator.share) await navigator.share({ title: `Pedido de célula — ${sol.nome}`, text: texto })
+    else window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank')
+  }
+
   return (
     <Card>
       <CardContent className="py-3 px-4">
@@ -114,6 +127,9 @@ function SolicitacaoCard({ sol, lideres }: { sol: Solicitacao; lideres: Lider[] 
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
+            <button type="button" onClick={compartilhar} className="flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg border border-border hover:bg-muted transition-colors">
+              <Share2 className="h-3.5 w-3.5" /> Compartilhar
+            </button>
             <a
               href={whatsappLink(sol.telefone, sol.nome)}
               target="_blank"
