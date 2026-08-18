@@ -46,7 +46,7 @@ export default async function EntregaAlunoPage({
 
   const { data: inscricao } = await admin
     .from('ensino_inscricoes')
-    .select('id, nome, telefone, user_id, turma_id, profiles!ensino_inscricoes_user_id_fkey(telefone)')
+    .select('id, nome, telefone, user_id, turma_id')
     .eq('id', params.inscricaoId)
     .maybeSingle()
 
@@ -54,7 +54,10 @@ export default async function EntregaAlunoPage({
   // turma abriria a entrega de outra.
   if (!inscricao || inscricao.turma_id !== atividade.turmaId) notFound()
 
-  const telefone = (inscricao.telefone ?? inscricao.profiles?.telefone)?.replace(/\D/g, '')
+  const { data: perfil } = inscricao.user_id
+    ? await admin.from('profiles').select('telefone').eq('id', inscricao.user_id).maybeSingle()
+    : { data: null }
+  const telefone = (inscricao.telefone ?? perfil?.telefone)?.replace(/\D/g, '')
   const whatsapp = telefone
     ? (telefone.startsWith('55') ? telefone : `55${telefone}`)
     : null
