@@ -52,7 +52,7 @@ export default async function PastorPage({
 
   const admin = createAdminClient()
   const ehLideranca = profile.role === 'pastor' || profile.role === 'admin'
-  const { data: acessoDelegado } = await admin.from('solicitacoes_acesso_delegado').select('usuario_id').eq('igreja_id', profile.igreja_id).eq('usuario_id', user.id).maybeSingle()
+  const { data: acessoDelegado } = await (admin as any).from('solicitacoes_acesso_delegado').select('usuario_id').eq('igreja_id', profile.igreja_id).eq('usuario_id', user.id).maybeSingle()
   const somentePedidos = !ehLideranca && Boolean(acessoDelegado)
 
   if (!ehLideranca && !somentePedidos) {
@@ -74,7 +74,7 @@ export default async function PastorPage({
   const [{ data: pessoasAcesso }, { data: acessosData }] = ehLideranca
     ? await Promise.all([
         admin.from('profiles').select('id, nome, email, avatar_url').eq('igreja_id', profile.igreja_id).in('role', ['membro', 'convidado']).order('nome'),
-        admin.from('solicitacoes_acesso_delegado').select('usuario_id').eq('igreja_id', profile.igreja_id),
+        (admin as any).from('solicitacoes_acesso_delegado').select('usuario_id').eq('igreja_id', profile.igreja_id),
       ])
     : [{ data: [] }, { data: [] }]
 
