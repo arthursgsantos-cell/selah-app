@@ -250,8 +250,8 @@ export default async function PastorPage({
 
       {/* Cabeçalho fora das abas: a identidade da igreja fica visível seja qual
           for a aba aberta. */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
+      <div className="flex flex-col items-stretch gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
           <IgrejaLogoUpload
             igrejaId={profile.igreja_id}
             logoUrl={igreja?.logo_url ?? null}
@@ -262,7 +262,7 @@ export default async function PastorPage({
             <p className="text-xs text-muted-foreground mt-0.5">Painel da liderança</p>
           </div>
         </div>
-        <div className="flex gap-2 shrink-0">
+        <div className="flex w-full flex-wrap gap-2 md:w-auto md:shrink-0">
           <CompartilharPedidos />
           <CriarEventoDialog tipoFixo="culto" label="Criar evento" />
           <CriarRedeDialog />
