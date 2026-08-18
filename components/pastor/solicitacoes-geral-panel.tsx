@@ -164,12 +164,6 @@ function Cartao({ sol }: { sol: SolicitacaoGeral }) {
           </p>
           </div>
         </div>
-        <button type="button" onClick={compartilhar} aria-label="Compartilhar pedido" className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold hover:bg-muted">
-          <Share2 className="h-3.5 w-3.5" /> Compartilhar
-        </button>
-        <button type="button" onClick={compartilhar} aria-label="Compartilhar pedido" className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold hover:bg-muted">
-          <Share2 className="h-3.5 w-3.5" /> Compartilhar
-        </button>
         <button
           type="button"
           onClick={() => setAberto((v) => !v)}
@@ -182,6 +176,7 @@ function Cartao({ sol }: { sol: SolicitacaoGeral }) {
 
       {aberto && (
         <div className="mt-3 space-y-2.5 border-t border-border pt-3">
+          <button type="button" onClick={compartilhar} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold hover:bg-muted"><Share2 className="h-3.5 w-3.5" /> Compartilhar</button>
           <Linha rotulo="Telefone" valor={sol.telefone} />
           <Linha rotulo="E-mail" valor={sol.email} />
           <Detalhes sol={sol} />
