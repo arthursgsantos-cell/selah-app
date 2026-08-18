@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Card, CardContent } from '@/components/ui/card'
-import { Camera, Check, Lock } from 'lucide-react'
+import { Camera, Check, Lock, Pencil } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { DataInput } from '@/components/ui/data-input'
@@ -84,6 +84,15 @@ export function EditarPerfilForm({
     .join('')
     .toUpperCase()
 
+  function editarFotoAtual() {
+    const atual = avatarPreview ?? avatarUrl
+    if (!atual) return
+    setCropSrc(atual)
+    setCropZoom(1)
+    setCropX(0)
+    setCropY(0)
+  }
+
   function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -103,6 +112,7 @@ export function EditarPerfilForm({
   function confirmarCorte() {
     if (!cropSrc) return
     const image = new Image()
+    image.crossOrigin = 'anonymous'
     image.onload = () => {
       const tamanho = 512
       const escala = Math.max(tamanho / image.width, tamanho / image.height) * cropZoom
@@ -238,9 +248,20 @@ export function EditarPerfilForm({
                 {initials}
               </AvatarFallback>
             </Avatar>
+            {(avatarPreview || avatarUrl) && (
+              <button
+                type="button"
+                onClick={editarFotoAtual}
+                aria-label="Editar foto atual"
+                className="absolute bottom-0 left-0 h-7 w-7 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center shadow-sm hover:bg-secondary/90 transition-colors"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+            )}
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
+              aria-label="Escolher outra foto"
               className="absolute bottom-0 right-0 h-7 w-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-sm hover:bg-primary/90 transition-colors"
             >
               <Camera className="h-3.5 w-3.5" />
@@ -253,7 +274,7 @@ export function EditarPerfilForm({
               onChange={handleAvatarChange}
             />
           </div>
-          <p className="text-xs text-muted-foreground">Toque na câmera para escolher uma foto da galeria</p>
+          <p className="text-xs text-muted-foreground">Use o lápis para editar a foto atual ou a câmera para escolher outra</p>
         </CardContent>
       </Card>
 
