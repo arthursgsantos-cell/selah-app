@@ -92,7 +92,6 @@ function SolicitacaoCard({ sol, lideres }: { sol: Solicitacao; lideres: Lider[] 
               </div>
             )}
             <div className="min-w-0">
-          <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <p className="text-sm font-semibold">{sol.nome}</p>
               {sol.tipo_membro && (
