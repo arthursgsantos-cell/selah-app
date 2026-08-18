@@ -176,6 +176,11 @@ function Cartao({ sol }: { sol: SolicitacaoGeral }) {
           )}
 
           <div className="flex flex-wrap items-center gap-2 pt-1">
+            {(sol.status === 'arquivado' || sol.status === 'atendido') && (
+              <Button size="sm" variant="outline" className="h-8 text-xs" disabled={isPending} onClick={() => mudar('pendente')}>
+                Voltar para pendentes
+              </Button>
+            )}
             <a
               href={whatsappLink(sol.telefone, sol.nome, sol.tipo)}
               target="_blank"
@@ -218,6 +223,8 @@ function Cartao({ sol }: { sol: SolicitacaoGeral }) {
  * mesmo nome em dois lugares. O selo diz qual é qual.
  */
 export function SolicitacoesGeralPanel({ solicitacoes }: { solicitacoes: SolicitacaoGeral[] }) {
+  const [filtro, setFiltro] = useState<'abertos' | 'atendidos' | 'arquivados' | 'todos'>('abertos')
+  const visiveis = solicitacoes.filter((s) => filtro === 'todos' || filtro === 'abertos' && ['pendente', 'em_andamento'].includes(s.status) || filtro === 'atendidos' && s.status === 'atendido' || filtro === 'arquivados' && s.status === 'arquivado')
   if (solicitacoes.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-border py-10 text-center">
@@ -228,8 +235,15 @@ export function SolicitacoesGeralPanel({ solicitacoes }: { solicitacoes: Solicit
   }
 
   return (
-    <div className="space-y-2">
-      {solicitacoes.map((s) => <Cartao key={s.id} sol={s} />)}
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-1.5">
+        {([['abertos', 'Em aberto'], ['atendidos', 'Concluídos'], ['arquivados', 'Arquivados'], ['todos', 'Todo o histórico']] as const).map(([id, label]) => (
+          <button key={id} type="button" onClick={() => setFiltro(id)} className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${filtro === id ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
+            {label} ({solicitacoes.filter((s) => id === 'todos' || id === 'abertos' && ['pendente', 'em_andamento'].includes(s.status) || id === 'atendidos' && s.status === 'atendido' || id === 'arquivados' && s.status === 'arquivado').length})
+          </button>
+        ))}
+      </div>
+      {visiveis.length === 0 ? <p className="rounded-xl border border-dashed border-border py-6 text-center text-xs text-muted-foreground">Nenhum pedido nesta categoria.</p> : visiveis.map((s) => <Cartao key={s.id} sol={s} />)}
     </div>
   )
 }
