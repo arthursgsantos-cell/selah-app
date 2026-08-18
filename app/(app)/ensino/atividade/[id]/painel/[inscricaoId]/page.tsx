@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
-import { ArrowLeft, Check, Clock, BookOpen, AlertTriangle, MessageSquare } from 'lucide-react'
+import { ArrowLeft, Check, Clock, BookOpen, AlertTriangle, MessageSquare, MessageCircle } from 'lucide-react'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { loginCom } from '@/lib/destino-login'
 import { acessoEnsino, podeLecionar } from '@/lib/ensino/permissoes'
@@ -46,13 +46,15 @@ export default async function EntregaAlunoPage({
 
   const { data: inscricao } = await admin
     .from('ensino_inscricoes')
-    .select('id, nome, turma_id')
+    .select('id, nome, telefone, turma_id')
     .eq('id', params.inscricaoId)
     .maybeSingle()
 
   // A inscrição tem de ser da turma desta atividade — senão o painel de uma
   // turma abriria a entrega de outra.
   if (!inscricao || inscricao.turma_id !== atividade.turmaId) notFound()
+
+  const whatsapp = inscricao.telefone?.replace(/\\D/g, '')
 
   const { data: entregaData } = await admin
     .from('ensino_atividade_entregas')
@@ -128,7 +130,21 @@ export default async function EntregaAlunoPage({
         <p className="text-[10px] font-bold uppercase tracking-widest text-primary">
           {TIPO_ATIVIDADE[atividade.tipo].label} · {atividade.titulo}
         </p>
-        <h1 className="mt-0.5 text-xl font-bold leading-tight">{inscricao.nome}</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="mt-0.5 text-xl font-bold leading-tight">{inscricao.nome}</h1>
+          {whatsapp && (
+            <a
+              href={`https://wa.me/${whatsapp}`}
+              target="_blank"
+              rel="noreferrer"
+              aria-label={`Falar com ${inscricao.nome} no WhatsApp`}
+              title="Falar no WhatsApp"
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-green-100 text-green-700 transition-colors hover:bg-green-200"
+            >
+              <MessageCircle className="h-4 w-4" />
+            </a>
+          )}
+        </div>
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
           <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${status.classe}`}>
             {status.label}
