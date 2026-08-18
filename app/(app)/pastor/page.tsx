@@ -163,6 +163,11 @@ export default async function PastorPage({
       : 'id.eq.00000000-0000-0000-0000-000000000000')
   const fotoPorId = new Map((perfisSolicitantes ?? []).map((p) => [p.id, p.avatar_url]))
   const fotoPorEmail = new Map((perfisSolicitantes ?? []).map((p) => [p.email?.toLowerCase(), p.avatar_url]))
+  const idsSolicitantes = (solicitacoesData ?? []).map((s) => s.user_id).filter(Boolean) as string[]
+  const { data: vinculosCelula } = idsSolicitantes.length > 0
+    ? await admin.from('celula_membros').select('user_id, papel, celulas(nome)').in('user_id', idsSolicitantes)
+    : { data: [] }
+  const celulaPorUsuario = new Map((vinculosCelula ?? []).map((v: any) => [v.user_id, { nome: v.celulas?.nome ?? 'Célula', papel: v.papel }]))
 
   const campanhas = (campanhasData ?? []) as Campanha[]
 
@@ -173,6 +178,8 @@ export default async function PastorPage({
   const solicitacoesComFoto = (solicitacoesData ?? []).map((s) => ({
     ...s,
     avatar_url: s.user_id ? fotoPorId.get(s.user_id) ?? null : null,
+    celula_nome: s.user_id ? celulaPorUsuario.get(s.user_id)?.nome ?? null : null,
+    celula_papel: s.user_id ? celulaPorUsuario.get(s.user_id)?.papel ?? null : null,
   }))
   const pedidosNovos = pedidos.filter((p) => p.status === 'pendente').length
 
