@@ -6,7 +6,7 @@ import { nomeMinisterio } from '@/lib/ministerios'
 import { Button } from '@/components/ui/button'
 import { WhatsAppIcon } from '@/components/ui/whatsapp-icon'
 import {
-  ChevronDown, ChevronUp, CheckCheck, HeartHandshake, BadgeCheck, Inbox,
+  ChevronDown, ChevronUp, CheckCheck, HeartHandshake, BadgeCheck, Inbox, Share2,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -128,6 +128,14 @@ function Cartao({ sol }: { sol: SolicitacaoGeral }) {
     })
   }
 
+  async function compartilhar() {
+    const d = sol.dados ?? {}
+    const linhas = Object.entries(d).filter(([, v]) => v !== null && v !== undefined && v !== '').map(([k, v]) => `${k}: ${typeof v === 'boolean' ? (v ? 'Sim' : 'Não') : String(v)}`)
+    const texto = [`Pedido de ${tipo.label.toLowerCase()} — ${sol.nome}`, `Telefone: ${sol.telefone}`, `E-mail: ${sol.email}`, ...linhas, sol.mensagem ? `Mensagem: ${sol.mensagem}` : ''].filter(Boolean).join('\n')
+    if (navigator.share) await navigator.share({ title: `Pedido — ${sol.nome}`, text: texto })
+    else window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank')
+  }
+
   return (
     <div className="rounded-2xl border border-border bg-card p-3.5">
       <div className="flex items-start justify-between gap-2">
@@ -181,6 +189,9 @@ function Cartao({ sol }: { sol: SolicitacaoGeral }) {
                 Voltar para pendentes
               </Button>
             )}
+            <button type="button" onClick={compartilhar} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-muted">
+              <Share2 className="h-3.5 w-3.5" /> Compartilhar
+            </button>
             <a
               href={whatsappLink(sol.telefone, sol.nome, sol.tipo)}
               target="_blank"
