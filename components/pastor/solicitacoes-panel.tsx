@@ -13,6 +13,8 @@ interface Solicitacao {
   id: string
   user_id?: string | null
   avatar_url?: string | null
+  celula_nome?: string | null
+  celula_papel?: string | null
   nome: string
   telefone: string
   email: string
@@ -106,6 +108,7 @@ function SolicitacaoCard({ sol, lideres }: { sol: Solicitacao; lideres: Lider[] 
             )}
             <div className="min-w-0">
             <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-primary">Pedido de participação em célula</p>
+            {sol.celula_nome && <p className="mb-1 text-xs font-semibold text-emerald-700">Já participa da célula: {sol.celula_nome} · {sol.celula_papel === 'visitante' ? 'Visitante' : 'Membro'}</p>}
             <div className="flex items-center gap-2 flex-wrap">
               <p className="text-sm font-semibold">{sol.nome}</p>
               {sol.tipo_membro && (
