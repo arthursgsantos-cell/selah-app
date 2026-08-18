@@ -27,13 +27,14 @@ import { RegistrarSupervisao } from '@/components/rede/registrar-supervisao'
 import { SupervisoesHistorico } from '@/components/rede/supervisoes-historico'
 import { SaudeAlertas } from '@/components/rede/saude-alertas'
 import { PresencaHistorico } from '@/components/rede/presenca-historico'
+import { CompartilharPedidos } from '@/components/pastor/compartilhar-pedidos'
 
 const GRANULARIDADES: Granularidade[] = ['semana', 'mes', 'ano']
 
 export default async function PastorPage({
   searchParams,
 }: {
-  searchParams: { periodo?: string }
+  searchParams: { periodo?: string; aba?: string }
 }) {
   const supabase = await createClient()
 
@@ -256,12 +257,14 @@ export default async function PastorPage({
           </div>
         </div>
         <div className="flex gap-2 shrink-0">
+          <CompartilharPedidos />
           <CriarEventoDialog tipoFixo="culto" label="Criar evento" />
           <CriarRedeDialog />
         </div>
       </div>
 
       <PainelAbas
+        inicial={searchParams.aba === 'pedidos' ? 'pedidos' : undefined}
         abas={[
           {
             id: 'visao',
