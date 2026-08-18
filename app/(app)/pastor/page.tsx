@@ -34,7 +34,7 @@ const GRANULARIDADES: Granularidade[] = ['semana', 'mes', 'ano']
 export default async function PastorPage({
   searchParams,
 }: {
-  searchParams: { periodo?: string; aba?: string }
+  searchParams: { periodo?: string; aba?: string; compartilhado?: string }
 }) {
   const supabase = await createClient()
 
@@ -270,6 +270,7 @@ export default async function PastorPage({
       </div>
 
       <PainelAbas
+        somente={searchParams.compartilhado === '1' ? 'pedidos' : undefined}
         inicial={searchParams.aba === 'pedidos' ? 'pedidos' : undefined}
         abas={[
           {
