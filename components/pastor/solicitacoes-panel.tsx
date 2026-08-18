@@ -11,6 +11,8 @@ import { ptBR } from 'date-fns/locale'
 
 interface Solicitacao {
   id: string
+  user_id?: string | null
+  avatar_url?: string | null
   nome: string
   telefone: string
   email: string
@@ -78,8 +80,18 @@ function SolicitacaoCard({ sol, lideres }: { sol: Solicitacao; lideres: Lider[] 
   return (
     <Card>
       <CardContent className="py-3 px-4">
-        {/* Header */}
+        {/* Header — a foto grande facilita reconhecer rapidamente quem pediu. */}
         <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-3">
+            {sol.avatar_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={sol.avatar_url} alt={`Foto de ${sol.nome}`} className="h-20 w-20 shrink-0 rounded-2xl object-cover ring-2 ring-background shadow-sm" />
+            ) : (
+              <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-2xl font-bold text-primary">
+                {sol.nome.trim().charAt(0).toUpperCase()}
+              </div>
+            )}
+            <div className="min-w-0">
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <p className="text-sm font-semibold">{sol.nome}</p>
@@ -100,6 +112,7 @@ function SolicitacaoCard({ sol, lideres }: { sol: Solicitacao; lideres: Lider[] 
             {liderAtual && (
               <p className="text-xs text-blue-600 mt-0.5">Encaminhado para: {liderAtual.nome.split(' ')[0]}</p>
             )}
+            </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             <a
@@ -247,3 +260,4 @@ export function SolicitacoesPanel({ solicitacoes, lideres }: Props) {
     </div>
   )
 }
+
