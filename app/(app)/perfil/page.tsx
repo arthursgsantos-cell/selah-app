@@ -166,7 +166,7 @@ function PerfilConteudo() {
       {/* Quem a pessoa é na igreja. No primeiro acesso vem antes de tudo: é a
           resposta que a liderança mais precisa, e a que ninguém pensaria em
           procurar no fim da página. */}
-      <VinculoIgrejaSection primeiroAcesso={Boolean(retorno)} />
+      <VinculoIgrejaSection role={profile.role} primeiroAcesso={Boolean(retorno)} />
 
       <MinhasInscricoes inscricoes={inscricoes} />
 
