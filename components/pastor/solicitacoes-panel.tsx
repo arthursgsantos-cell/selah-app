@@ -140,6 +140,9 @@ function SolicitacaoCard({ sol, lideres }: { sol: Solicitacao; lideres: Lider[] 
               <WhatsAppIcon className="h-3.5 w-3.5" />
               WhatsApp
             </a>
+            <button type="button" onClick={compartilhar} aria-label="Compartilhar pedido" className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold hover:bg-muted">
+              <Share2 className="h-3.5 w-3.5" /> Compartilhar
+            </button>
             <button
               type="button"
               onClick={() => setExpanded((v) => !v)}
@@ -153,9 +156,6 @@ function SolicitacaoCard({ sol, lideres }: { sol: Solicitacao; lideres: Lider[] 
         {/* Expanded details */}
         {expanded && (
           <div className="mt-3 pt-3 border-t border-border space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <button type="button" onClick={compartilhar} className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold hover:bg-muted"><Share2 className="h-3.5 w-3.5" /> Compartilhar</button>
-            </div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
               <div><span className="text-muted-foreground">Telefone: </span>{sol.telefone}</div>
               <div><span className="text-muted-foreground">E-mail: </span>{sol.email}</div>
