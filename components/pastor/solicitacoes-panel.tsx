@@ -105,11 +105,12 @@ function SolicitacaoCard({ sol, lideres }: { sol: Solicitacao; lideres: Lider[] 
               </div>
             )}
             <div className="min-w-0">
+            <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-primary">Pedido de participação em célula</p>
             <div className="flex items-center gap-2 flex-wrap">
               <p className="text-sm font-semibold">{sol.nome}</p>
               {sol.tipo_membro && (
                 <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                  {sol.tipo_membro.charAt(0).toUpperCase() + sol.tipo_membro.slice(1)}
+                  Na célula: {sol.tipo_membro.charAt(0).toUpperCase() + sol.tipo_membro.slice(1)}
                 </span>
               )}
               <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${status.className}`}>
