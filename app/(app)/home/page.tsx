@@ -13,7 +13,6 @@ import { SolicitarCelulaDialog } from '@/components/home/solicitar-celula-dialog
 import { QueroServirDialog } from '@/components/home/quero-servir-dialog'
 import { QueroSerMembroDialog } from '@/components/home/quero-ser-membro-dialog'
 import { ContribuirCard } from '@/components/home/contribuir-card'
-import { CampanhasDestaque, type CampanhaDestaque } from '@/components/home/campanhas-destaque'
 import { ParabensBtn } from '@/components/home/parabens-btn'
 import { SecoesHome } from '@/components/home/secoes-home'
 import {
@@ -374,7 +373,25 @@ export default async function HomePage() {
         .limit(3)
     : { data: null }
 
-  const campanhasDestaque = (campanhasDestaqueData ?? []) as CampanhaDestaque[]
+  const campanhasDestaque = (campanhasDestaqueData ?? []) as {
+    id: string; nome: string; descricao: string | null; centavos: number
+    imagem_url: string | null; video_url: string | null
+  }[]
+
+  // Campanhas destacadas entram no mesmo carrossel dos eventos e do Ensino.
+  // O clique mantém o destino já selecionado na página de contribuição.
+  for (const campanha of campanhasDestaque) {
+    destaques.push({
+      id: `campanha-${campanha.id}`,
+      slug: null,
+      titulo: campanha.nome,
+      data_hora: null,
+      local: null,
+      capa: campanha.imagem_url,
+      href: `/contribuir?campanha=${encodeURIComponent(campanha.id)}`,
+      selo: 'Campanha',
+    })
+  }
 
   /**
    * Ordem e textos dos cartões institucionais, escolhidos no painel "Seções".
@@ -466,28 +483,12 @@ export default async function HomePage() {
           podeEditar={false}
           conteudos={{
             contribuir: contribuicaoNoAr ? (
-              <div className="space-y-3">
-                <ContribuirCard
-                  titulo={textosSecoes.contribuir?.titulo}
-                  subtitulo={textosSecoes.contribuir?.subtitulo}
-                />
-                <CampanhasDestaque campanhas={campanhasDestaque} />
-              </div>
+              <ContribuirCard
+                titulo={textosSecoes.contribuir?.titulo}
+                subtitulo={textosSecoes.contribuir?.subtitulo}
+              />
             ) : null,
-            eventos: eventos && eventos.length > 0 ? (
-              <section className={SECAO}>
-                <div className={SECAO_TITULO}>
-                  <Sparkles className="h-4 w-4 text-[#0F52BA]" />
-                  <h2 className="text-sm font-semibold">Próximos eventos</h2>
-                </div>
-                <div className="space-y-2">
-                  {eventos.map((evento) => {
-                    const p = presencasMap.get(evento.id) ?? { minhaResposta: null, totalVou: 0, totalLikes: 0, euCurtei: false }
-                    return <EventoCard key={evento.id} evento={evento} minhaResposta={p.minhaResposta} totalVou={p.totalVou} redeNome={(evento as { rede_id?: string | null }).rede_id ? redeNomeMap.get((evento as { rede_id: string }).rede_id) ?? null : null} totalLikes={p.totalLikes} euCurtei={p.euCurtei} />
-                  })}
-                </div>
-              </section>
-            ) : null,
+            eventos: <EventosDestaque eventos={destaques} />,
             proximo_passo: (
               <SecaoProximoPassoVisitante
                 titulo={textosSecoes.proximo_passo?.titulo}
@@ -1165,13 +1166,10 @@ export default async function HomePage() {
             />
           ),
           contribuir: contribuicaoNoAr ? (
-            <div className="space-y-3">
-              <ContribuirCard
-                titulo={textosSecoes.contribuir?.titulo}
-                subtitulo={textosSecoes.contribuir?.subtitulo}
-              />
-              <CampanhasDestaque campanhas={campanhasDestaque} />
-            </div>
+            <ContribuirCard
+              titulo={textosSecoes.contribuir?.titulo}
+              subtitulo={textosSecoes.contribuir?.subtitulo}
+            />
           ) : null,
           eventos: <EventosDestaque eventos={destaques} />,
           proximo_passo: (
@@ -1495,4 +1493,5 @@ function SecaoEnsino({ titulo, subtitulo }: { titulo?: string | null; subtitulo?
     </Link>
   )
 }
+
 
