@@ -346,7 +346,7 @@ export default async function PastorPage({
             aviso: celulaPendentes + pedidosNovos,
             conteudo: (
               <>
-                {ehLideranca && <AcessoSolicitacoes pessoas={(pessoasAcesso ?? []) as { id: string; nome: string; email: string | null; avatar_url: string | null }[]} autorizadas={(acessosData ?? []).map((a) => a.usuario_id)} />}
+                {ehLideranca && <AcessoSolicitacoes pessoas={(pessoasAcesso ?? []) as { id: string; nome: string; email: string | null; avatar_url: string | null }[]} autorizadas={(acessosData ?? []).map((a: { usuario_id: string }) => a.usuario_id)} />}
                 <section>
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
