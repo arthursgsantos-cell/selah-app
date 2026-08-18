@@ -54,7 +54,10 @@ export default async function EntregaAlunoPage({
   // turma abriria a entrega de outra.
   if (!inscricao || inscricao.turma_id !== atividade.turmaId) notFound()
 
-  const whatsapp = inscricao.telefone?.replace(/\\D/g, '')
+  const telefone = inscricao.telefone?.replace(/\D/g, '')
+  const whatsapp = telefone
+    ? (telefone.startsWith('55') ? telefone : `55${telefone}`)
+    : null
 
   const { data: entregaData } = await admin
     .from('ensino_atividade_entregas')
