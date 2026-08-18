@@ -164,6 +164,9 @@ function Cartao({ sol }: { sol: SolicitacaoGeral }) {
           </p>
           </div>
         </div>
+        <button type="button" onClick={compartilhar} aria-label="Compartilhar pedido" className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold hover:bg-muted">
+          <Share2 className="h-3.5 w-3.5" /> Compartilhar
+        </button>
         <button
           type="button"
           onClick={() => setAberto((v) => !v)}
@@ -184,7 +187,6 @@ function Cartao({ sol }: { sol: SolicitacaoGeral }) {
           )}
 
           <div className="flex flex-wrap items-center gap-2 pt-1">
-            <button type="button" onClick={compartilhar} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold hover:bg-muted"><Share2 className="h-3.5 w-3.5" /> Compartilhar</button>
             {(sol.status === 'arquivado' || sol.status === 'atendido') && (
               <Button size="sm" variant="outline" className="h-8 text-xs" disabled={isPending} onClick={() => mudar('pendente')}>
                 Voltar para pendentes
