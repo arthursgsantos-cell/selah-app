@@ -94,7 +94,7 @@ export default async function PastorPage({
       .limit(5),
     admin
       .from('solicitacoes_celula')
-      .select('id, nome, telefone, email, idade, estado_civil, tem_filhos, filhos_detalhes, conjuge_nome, conjuge_telefone, conjuge_idade, bairro, tipo_membro, melhor_dia, status, criado_em, lider_encaminhado_id')
+      .select('id, user_id, nome, telefone, email, idade, estado_civil, tem_filhos, filhos_detalhes, conjuge_nome, conjuge_telefone, conjuge_idade, bairro, tipo_membro, melhor_dia, status, criado_em, lider_encaminhado_id')
       .eq('igreja_id', profile.igreja_id)
       .neq('status', 'atendido')
       .order('criado_em', { ascending: false })
@@ -140,9 +140,30 @@ export default async function PastorPage({
       .order('ordem'),
   ])
 
+  // Fotos vêm do perfil: pedidos de célula guardam o user_id; pedidos de
+  // membresia/voluntariado normalmente chegam pelo e-mail.
+  const idsComFoto = (solicitacoesData ?? []).map((s) => s.user_id).filter(Boolean) as string[]
+  const emailsComFoto = (pedidosData ?? []).map((s) => s.email).filter(Boolean) as string[]
+  const { data: perfisSolicitantes } = await admin
+    .from('profiles')
+    .select('id, email, avatar_url')
+    .eq('igreja_id', profile.igreja_id)
+    .or(idsComFoto.length > 0 || emailsComFoto.length > 0
+      ? `${idsComFoto.length > 0 ? `id.in.(${idsComFoto.join(',')})` : ''}${idsComFoto.length > 0 && emailsComFoto.length > 0 ? ',' : ''}${emailsComFoto.length > 0 ? `email.in.(${emailsComFoto.map((e) => `"${e.replace(/"/g, '')}"`).join(',')})` : ''}`
+      : 'id.eq.00000000-0000-0000-0000-000000000000')
+  const fotoPorId = new Map((perfisSolicitantes ?? []).map((p) => [p.id, p.avatar_url]))
+  const fotoPorEmail = new Map((perfisSolicitantes ?? []).map((p) => [p.email?.toLowerCase(), p.avatar_url]))
+
   const campanhas = (campanhasData ?? []) as Campanha[]
 
-  const pedidos = (pedidosData ?? []) as unknown as SolicitacaoGeral[]
+  const pedidos = (pedidosData ?? []).map((p) => ({
+    ...p,
+    avatar_url: fotoPorEmail.get(String(p.email ?? '').toLowerCase()) ?? null,
+  })) as unknown as SolicitacaoGeral[]
+  const solicitacoesComFoto = (solicitacoesData ?? []).map((s) => ({
+    ...s,
+    avatar_url: s.user_id ? fotoPorId.get(s.user_id) ?? null : null,
+  }))
   const pedidosNovos = pedidos.filter((p) => p.status === 'pendente').length
 
   // Quem publicou cada resumo: os importados da planilha trazem o nome escrito
@@ -191,7 +212,7 @@ export default async function PastorPage({
     carregarSupervisoes(redeIds),
   ])
 
-  const solicitacoesCelula = (solicitacoesData ?? []) as Parameters<
+  const solicitacoesCelula = solicitacoesComFoto as Parameters<
     typeof SolicitacoesPanel
   >[0]['solicitacoes']
   const celulaPendentes = solicitacoesCelula.filter((s) => s.status === 'pendente').length
@@ -457,3 +478,4 @@ export default async function PastorPage({
     </div>
   )
 }
+
