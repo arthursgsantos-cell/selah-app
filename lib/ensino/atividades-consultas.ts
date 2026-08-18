@@ -247,7 +247,7 @@ export async function painelDaAtividade(
   const [inscricoesRes, entregasRes] = await Promise.all([
     admin
       .from('ensino_inscricoes')
-      .select('id, nome, telefone, profiles!ensino_inscricoes_user_id_fkey(telefone)')
+      .select('id, nome, telefone, user_id')
       .eq('turma_id', turmaId)
       .in('status', ['aprovada', 'concluida'])
       .order('nome'),
@@ -258,9 +258,15 @@ export async function painelDaAtividade(
   ])
 
   const inscricoes = (inscricoesRes.data ?? []) as {
-    id: string; nome: string; telefone: string | null
-    profiles: { telefone: string | null } | null
+    id: string; nome: string; telefone: string | null; user_id: string | null
   }[]
+  const userIds = [...new Set(inscricoes.map((i) => i.user_id).filter((id): id is string => Boolean(id)))]
+  const { data: perfis } = userIds.length > 0
+    ? await admin.from('profiles').select('id, telefone').in('id', userIds)
+    : { data: [] }
+  const telefones = new Map(
+    ((perfis ?? []) as { id: string; telefone: string | null }[]).map((p) => [p.id, p.telefone])
+  )
   const entregas = new Map(
     ((entregasRes.data ?? []) as {
       id: string; inscricao_id: string; status: StatusEntrega; concluida: boolean
@@ -321,7 +327,7 @@ export async function painelDaAtividade(
       id: entrega?.id ?? '',
       inscricaoId: i.id,
       nome: i.nome,
-      telefone: i.telefone ?? i.profiles?.telefone ?? null,
+      telefone: i.telefone ?? (i.user_id ? telefones.get(i.user_id) ?? null : null),
       status: entrega?.status ?? 'pendente',
       concluida: entrega?.concluida ?? false,
       comentario: entrega?.comentario ?? null,
