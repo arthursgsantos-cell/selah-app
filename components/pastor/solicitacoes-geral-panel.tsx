@@ -167,6 +167,9 @@ function Cartao({ sol }: { sol: SolicitacaoGeral }) {
         <button type="button" onClick={compartilhar} aria-label="Compartilhar pedido" className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold hover:bg-muted">
           <Share2 className="h-3.5 w-3.5" /> Compartilhar
         </button>
+        <button type="button" onClick={compartilhar} aria-label="Compartilhar pedido" className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold hover:bg-muted">
+          <Share2 className="h-3.5 w-3.5" /> Compartilhar
+        </button>
         <button
           type="button"
           onClick={() => setAberto((v) => !v)}
