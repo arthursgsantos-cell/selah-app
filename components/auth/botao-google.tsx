@@ -98,7 +98,10 @@ export function BotaoGoogle({ acao = 'entrar', onErro }: Props) {
   const [ocupado, setOcupado] = useState(false)
   const raiz = useRef<HTMLDivElement>(null)
   const caixa = useRef<HTMLDivElement>(null)
-  const supabase = createClient()
+  // `createClient()` devolve um objeto novo a cada render. Guardado em estado
+  // ele para de mudar de identidade — senão o efeito abaixo, que depende dele,
+  // roda de novo a cada render e reinicializa o Google sem necessidade.
+  const [supabase] = useState(createClient)
 
   const avisarErro = useCallback(
     (mensagem: string) => {
@@ -131,7 +134,6 @@ export function BotaoGoogle({ acao = 'entrar', onErro }: Props) {
       setModo('reserva')
       return
     }
-
     let vivo = true
 
     async function preparar() {
@@ -176,6 +178,10 @@ export function BotaoGoogle({ acao = 'entrar', onErro }: Props) {
       // caixa está escondida, e o que está escondido mede zero — o botão
       // nascia com a largura máxima e estourava a coluna no celular.
       const largura = Math.min(raiz.current?.offsetWidth || LARGURA_MAXIMA, LARGURA_MAXIMA)
+      // Em desenvolvimento o React monta o componente duas vezes de propósito,
+      // e `renderButton` acrescenta em vez de substituir: sem limpar, o botão
+      // apareceria duplicado.
+      caixa.current.replaceChildren()
       contas.renderButton(caixa.current, {
         type: 'standard',
         theme: 'outline',
