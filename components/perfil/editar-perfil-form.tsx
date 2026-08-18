@@ -66,6 +66,12 @@ export function EditarPerfilForm({
   const [avatarUrl, setAvatarUrl] = useState(avatarInit)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [cropSrc, setCropSrc] = useState<string | null>(null)
+  const [cropZoom, setCropZoom] = useState(1)
+  const [cropX, setCropX] = useState(0)
+  const [cropY, setCropY] = useState(0)
+  const dragging = useRef(false)
+  const dragStart = useRef({ x: 0, y: 0, cropX: 0, cropY: 0 })
   const [saved, setSaved] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -81,8 +87,60 @@ export function EditarPerfilForm({
   function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    setAvatarFile(file)
-    setAvatarPreview(URL.createObjectURL(file))
+    const url = URL.createObjectURL(file)
+    setCropSrc(url)
+    setCropZoom(1)
+    setCropX(0)
+    setCropY(0)
+    e.target.value = ''
+  }
+
+  function cancelarCorte() {
+    if (cropSrc) URL.revokeObjectURL(cropSrc)
+    setCropSrc(null)
+  }
+
+  function confirmarCorte() {
+    if (!cropSrc) return
+    const image = new Image()
+    image.onload = () => {
+      const tamanho = 512
+      const escala = Math.max(tamanho / image.width, tamanho / image.height) * cropZoom
+      const largura = image.width * escala
+      const altura = image.height * escala
+      const canvas = document.createElement('canvas')
+      canvas.width = tamanho
+      canvas.height = tamanho
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, tamanho, tamanho)
+      ctx.drawImage(image, (tamanho - largura) / 2 + cropX, (tamanho - altura) / 2 + cropY, largura, altura)
+      canvas.toBlob((blob) => {
+        if (!blob) return
+        setAvatarFile(new File([blob], 'foto-perfil.jpg', { type: 'image/jpeg' }))
+        setAvatarPreview(URL.createObjectURL(blob))
+        URL.revokeObjectURL(cropSrc)
+        setCropSrc(null)
+      }, 'image/jpeg', 0.9)
+    }
+    image.src = cropSrc
+  }
+
+  function iniciarArraste(e: React.PointerEvent<HTMLDivElement>) {
+    e.currentTarget.setPointerCapture(e.pointerId)
+    dragging.current = true
+    dragStart.current = { x: e.clientX, y: e.clientY, cropX, cropY }
+  }
+
+  function moverImagem(e: React.PointerEvent<HTMLDivElement>) {
+    if (!dragging.current) return
+    setCropX(dragStart.current.cropX + e.clientX - dragStart.current.x)
+    setCropY(dragStart.current.cropY + e.clientY - dragStart.current.y)
+  }
+
+  function pararArraste() {
+    dragging.current = false
   }
 
   function submit(e: React.FormEvent) {
@@ -129,6 +187,48 @@ export function EditarPerfilForm({
 
   return (
     <form onSubmit={submit} className="space-y-5">
+      {cropSrc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-sm space-y-4 rounded-2xl bg-background p-4 shadow-xl">
+            <div>
+              <p className="text-base font-semibold">Ajustar foto</p>
+              <p className="text-xs text-muted-foreground">Arraste a imagem e use o zoom até enquadrar como quiser.</p>
+            </div>
+            <div
+              className="mx-auto h-64 w-64 touch-none select-none overflow-hidden rounded-full bg-muted"
+              onPointerDown={iniciarArraste}
+              onPointerMove={moverImagem}
+              onPointerUp={pararArraste}
+              onPointerCancel={pararArraste}
+            >
+              <img
+                src={cropSrc}
+                alt="Pré-visualização da foto"
+                draggable={false}
+                className="h-full w-full object-cover"
+                style={{ transform: `translate(${cropX}px, ${cropY}px) scale(${cropZoom})` }}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="zoom-foto" className="text-xs font-medium text-muted-foreground">Zoom</label>
+              <input
+                id="zoom-foto"
+                type="range"
+                min="1"
+                max="3"
+                step="0.05"
+                value={cropZoom}
+                onChange={(e) => setCropZoom(Number(e.target.value))}
+                className="w-full"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={cancelarCorte} className="flex-1">Cancelar</Button>
+              <Button type="button" onClick={confirmarCorte} className="flex-1">Confirmar corte</Button>
+            </div>
+          </div>
+        </div>
+      )}
       <Card>
         <CardContent className="pt-5 pb-4 flex flex-col items-center gap-2">
           <div className="relative">
