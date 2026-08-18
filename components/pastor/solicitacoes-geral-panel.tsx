@@ -176,7 +176,6 @@ function Cartao({ sol }: { sol: SolicitacaoGeral }) {
 
       {aberto && (
         <div className="mt-3 space-y-2.5 border-t border-border pt-3">
-          <button type="button" onClick={compartilhar} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold hover:bg-muted"><Share2 className="h-3.5 w-3.5" /> Compartilhar</button>
           <Linha rotulo="Telefone" valor={sol.telefone} />
           <Linha rotulo="E-mail" valor={sol.email} />
           <Detalhes sol={sol} />
@@ -185,6 +184,7 @@ function Cartao({ sol }: { sol: SolicitacaoGeral }) {
           )}
 
           <div className="flex flex-wrap items-center gap-2 pt-1">
+            <button type="button" onClick={compartilhar} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold hover:bg-muted"><Share2 className="h-3.5 w-3.5" /> Compartilhar</button>
             {(sol.status === 'arquivado' || sol.status === 'atendido') && (
               <Button size="sm" variant="outline" className="h-8 text-xs" disabled={isPending} onClick={() => mudar('pendente')}>
                 Voltar para pendentes
