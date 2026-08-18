@@ -45,6 +45,10 @@ export function PixIgreja({ chave, tipo, nome, cidade, campanhas = [] }: Props) 
       const id = (e as CustomEvent<string>).detail
       if (campanhas.some((c) => c.id === id)) setCampanhaId(id)
     }
+    const campanhaDaUrl = new URLSearchParams(window.location.search).get('campanha')
+    if (campanhaDaUrl && campanhas.some((c) => c.id === campanhaDaUrl)) {
+      setCampanhaId(campanhaDaUrl)
+    }
     window.addEventListener(EVENTO_ESCOLHER_CAMPANHA, escolher)
     return () => window.removeEventListener(EVENTO_ESCOLHER_CAMPANHA, escolher)
   }, [campanhas])
@@ -203,3 +207,4 @@ export function PixIgreja({ chave, tipo, nome, cidade, campanhas = [] }: Props) 
     </div>
   )
 }
+
