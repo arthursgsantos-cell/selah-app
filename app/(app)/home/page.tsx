@@ -889,7 +889,14 @@ export default async function HomePage() {
           <div className="rounded-2xl overflow-hidden border border-rose-100 divide-y divide-rose-50">
             {aniversariantesMes.map((p) => {
               const ini = p.nome.split(' ').slice(0, 2).map((n: string) => n[0]).join('').toUpperCase()
+              const mes = parseInt(p.data_nascimento_1!.slice(5, 7), 10)
               const dia = parseInt(p.data_nascimento_1!.slice(8, 10), 10)
+              // O dia da semana considera o aniversário no ano atual, para
+              // que a informação exibida seja útil no calendário deste ano.
+              const dataAniversario = new Date(new Date().getFullYear(), mes - 1, dia)
+              const dataFormatada = format(dataAniversario, 'dd/MM')
+              const diaSemana = format(dataAniversario, 'EEEE', { locale: ptBR })
+              const diaSemanaCapitalizado = diaSemana.charAt(0).toUpperCase() + diaSemana.slice(1)
               const isPast = p.daysUntil > 300
               const isToday = p.daysUntil === 0
               const label = isToday ? 'Hoje! 🎉' : p.daysUntil === 1 ? 'Amanhã' : isPast ? `Dia ${dia}` : `Em ${p.daysUntil} dias`
@@ -907,7 +914,10 @@ export default async function HomePage() {
                   <div className={`h-9 w-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0 overflow-hidden ring-2 ${isToday ? 'ring-rose-300 bg-rose-100 text-rose-600' : 'ring-transparent bg-muted text-muted-foreground'}`}>
                     {p.avatar_url ? <img referrerPolicy="no-referrer" src={p.avatar_url} alt={p.nome} className="h-full w-full object-cover" /> : ini}
                   </div>
-                  <p className={`text-sm flex-1 min-w-0 truncate ${isToday ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'}`}>{p.nome}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm truncate ${isToday ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'}`}>{p.nome}</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">{dataFormatada} · {diaSemanaCapitalizado}</p>
+                  </div>
                   <span className={`text-xs font-semibold shrink-0 px-2 py-0.5 rounded-full ${
                     isToday
                       ? 'bg-rose-100 text-rose-600'
@@ -1485,3 +1495,4 @@ function SecaoEnsino({ titulo, subtitulo }: { titulo?: string | null; subtitulo?
     </Link>
   )
 }
+
