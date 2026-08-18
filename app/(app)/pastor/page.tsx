@@ -172,9 +172,15 @@ export default async function PastorPage({
 
   const campanhas = (campanhasData ?? []) as Campanha[]
 
+  const responsavelIds = (pedidosData ?? []).map((p) => p.responsavel_id).filter(Boolean) as string[]
+  const { data: responsaveisData } = responsavelIds.length > 0
+    ? await admin.from('profiles').select('id, nome').in('id', responsavelIds)
+    : { data: [] }
+  const nomeResponsavel = new Map((responsaveisData ?? []).map((p) => [p.id, p.nome]))
   const pedidos = (pedidosData ?? []).map((p) => ({
     ...p,
     avatar_url: fotoPorEmail.get(String(p.email ?? '').toLowerCase()) ?? null,
+    responsavel_nome: p.responsavel_id ? nomeResponsavel.get(p.responsavel_id) ?? null : null,
   })) as unknown as SolicitacaoGeral[]
   const solicitacoesComFoto = (solicitacoesData ?? []).map((s) => ({
     ...s,
