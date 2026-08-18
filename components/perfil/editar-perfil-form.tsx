@@ -148,12 +148,12 @@ export function EditarPerfilForm({
             <input
               ref={fileRef}
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept="image/*"
               className="hidden"
               onChange={handleAvatarChange}
             />
           </div>
-          <p className="text-xs text-muted-foreground">Toque na câmera para trocar a foto</p>
+          <p className="text-xs text-muted-foreground">Toque na câmera para escolher uma foto da galeria</p>
         </CardContent>
       </Card>
 
