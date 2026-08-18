@@ -139,6 +139,9 @@ function SolicitacaoCard({ sol, lideres }: { sol: Solicitacao; lideres: Lider[] 
               <WhatsAppIcon className="h-3.5 w-3.5" />
               WhatsApp
             </a>
+            <button type="button" onClick={compartilhar} aria-label="Compartilhar pedido" className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold hover:bg-muted">
+              <Share2 className="h-3.5 w-3.5" /> Compartilhar
+            </button>
             <button
               type="button"
               onClick={() => setExpanded((v) => !v)}
