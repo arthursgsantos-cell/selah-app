@@ -30,6 +30,8 @@ const FUNCOES: { v: CargoSolicitado | ''; nome: string }[] = [
 ]
 
 interface Props {
+  /** O perfil já confirmado não precisa declarar o vínculo novamente. */
+  role?: string
   /** Destaca a seção e abre já preenchendo — o caso do primeiro acesso. */
   primeiroAcesso?: boolean
 }
@@ -45,7 +47,10 @@ interface Props {
  * administrador confirmar. É pré-cadastro, não autoatribuição — a tela deixa
  * isso escrito para ninguém achar que virou pastor sozinho.
  */
-export function VinculoIgrejaSection({ primeiroAcesso = false }: Props) {
+export function VinculoIgrejaSection({ role, primeiroAcesso = false }: Props) {
+  // Quem já tem vínculo confirmado não deve receber novamente o formulário.
+  const ocultar = Boolean(role && role !== 'convidado')
+
   const [celulas, setCelulas] = useState<{ id: string; nome: string; rede: string | null }[]>([])
   const [jaDeclarado, setJaDeclarado] = useState<Awaited<ReturnType<typeof minhaDeclaracaoAction>>>(null)
   const [carregando, setCarregando] = useState(true)
@@ -87,7 +92,7 @@ export function VinculoIgrejaSection({ primeiroAcesso = false }: Props) {
     })
   }
 
-  if (carregando) return null
+  if (carregando || ocultar) return null
 
   const pendente = !enviado && jaDeclarado?.status === 'pendente'
 
