@@ -16,6 +16,8 @@ export interface Aba {
 
 interface Props {
   abas: Aba[]
+  /** Quando definido, mostra apenas a aba compartilhada. */
+  somente?: string
   /** Aba aberta ao chegar. Sem isso, abre a primeira. */
   inicial?: string
 }
@@ -32,9 +34,10 @@ interface Props {
  * necessariamente quem tem intimidade com aplicativo. O conteúdo de cada aba
  * continua vindo pronto do servidor; aqui só se decide qual mostrar.
  */
-export function PainelAbas({ abas, inicial }: Props) {
-  const [ativa, setAtiva] = useState(inicial ?? abas[0]?.id)
-  const atual = abas.find((a) => a.id === ativa) ?? abas[0]
+export function PainelAbas({ abas, somente, inicial }: Props) {
+  const abasVisiveis = somente ? abas.filter((a) => a.id === somente) : abas
+  const [ativa, setAtiva] = useState(inicial ?? abasVisiveis[0]?.id)
+  const atual = abasVisiveis.find((a) => a.id === ativa) ?? abasVisiveis[0]
 
   return (
     <div className="space-y-4">
@@ -42,7 +45,7 @@ export function PainelAbas({ abas, inicial }: Props) {
           linhas, que empurrava o conteúdo para fora da tela. */}
       <div className="-mx-4 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0">
         <div className="flex gap-2 min-w-max">
-          {abas.map((aba) => {
+          {abasVisiveis.map((aba) => {
             const selecionada = aba.id === atual?.id
             return (
               <button
@@ -79,3 +82,4 @@ export function PainelAbas({ abas, inicial }: Props) {
     </div>
   )
 }
+
