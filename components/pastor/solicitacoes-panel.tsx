@@ -127,9 +127,6 @@ function SolicitacaoCard({ sol, lideres }: { sol: Solicitacao; lideres: Lider[] 
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            <button type="button" onClick={compartilhar} className="flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg border border-border hover:bg-muted transition-colors">
-              <Share2 className="h-3.5 w-3.5" /> Compartilhar
-            </button>
             <a
               href={whatsappLink(sol.telefone, sol.nome)}
               target="_blank"
