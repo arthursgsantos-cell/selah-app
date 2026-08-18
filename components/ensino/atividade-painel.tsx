@@ -66,8 +66,10 @@ export function AtividadePainel({
     : 0
 
   function whatsappHref(telefone: string | null): string | null {
-    const numero = telefone?.replace(/\\D/g, '')
-    return numero ? `https://wa.me/${numero}` : null
+    const numero = telefone?.replace(/\D/g, '')
+    if (!numero) return null
+    const internacional = numero.startsWith('55') ? numero : `55${numero}`
+    return `https://wa.me/${internacional}`
   }
 
   return (
