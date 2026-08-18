@@ -20,6 +20,7 @@ import { CampanhasSection } from '@/components/pastor/campanhas-section'
 import type { Campanha } from '@/app/actions/campanhas'
 import { SolicitacoesPanel } from '@/components/pastor/solicitacoes-panel'
 import { SolicitacoesGeralPanel, type SolicitacaoGeral } from '@/components/pastor/solicitacoes-geral-panel'
+import { AcessoSolicitacoes } from '@/components/pastor/acesso-solicitacoes'
 import { GaleriaComunidadeSection } from '@/components/pastor/galeria-comunidade-section'
 import { carregarSaudeRede, carregarSupervisoes, type Granularidade } from '@/lib/saude-rede'
 import { RegistrarSupervisao } from '@/components/rede/registrar-supervisao'
@@ -49,7 +50,12 @@ export default async function PastorPage({
 
   if (!profile) redirect('/onboarding')
 
-  if (profile.role !== 'pastor' && profile.role !== 'admin') {
+  const admin = createAdminClient()
+  const ehLideranca = profile.role === 'pastor' || profile.role === 'admin'
+  const { data: acessoDelegado } = await admin.from('solicitacoes_acesso_delegado').select('usuario_id').eq('igreja_id', profile.igreja_id).eq('usuario_id', user.id).maybeSingle()
+  const somentePedidos = !ehLideranca && Boolean(acessoDelegado)
+
+  if (!ehLideranca && !somentePedidos) {
     return (
       <div className="max-w-2xl mx-auto">
         <Card>
@@ -65,7 +71,12 @@ export default async function PastorPage({
     )
   }
 
-  const admin = createAdminClient()
+  const [{ data: pessoasAcesso }, { data: acessosData }] = ehLideranca
+    ? await Promise.all([
+        admin.from('profiles').select('id, nome, email, avatar_url').eq('igreja_id', profile.igreja_id).in('role', ['membro', 'convidado']).order('nome'),
+        admin.from('solicitacoes_acesso_delegado').select('usuario_id').eq('igreja_id', profile.igreja_id),
+      ])
+    : [{ data: [] }, { data: [] }]
 
   const [
     { data: igreja },
@@ -336,6 +347,7 @@ export default async function PastorPage({
             aviso: celulaPendentes + pedidosNovos,
             conteudo: (
               <>
+                {ehLideranca && <AcessoSolicitacoes pessoas={(pessoasAcesso ?? []) as { id: string; nome: string; email: string | null; avatar_url: string | null }[]} autorizadas={(acessosData ?? []).map((a) => a.usuario_id)} />}
                 <section>
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
@@ -378,7 +390,7 @@ export default async function PastorPage({
                   <SolicitacoesGeralPanel solicitacoes={pedidos} />
                 </section>
 
-                <Link
+                {!somentePedidos && <Link
                   href="/pendencias"
                   className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3.5 transition-colors hover:bg-accent"
                 >
@@ -392,7 +404,7 @@ export default async function PastorPage({
                     </p>
                   </div>
                   <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-                </Link>
+                </Link>}
               </>
             ),
           },
