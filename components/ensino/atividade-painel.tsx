@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Search, X, ChevronRight, Users, AlertTriangle, Check, Clock } from 'lucide-react'
+import { Search, X, ChevronRight, Users, AlertTriangle, Check, Clock, MessageCircle } from 'lucide-react'
 import { STATUS_ENTREGA } from '@/lib/ensino/atividades'
 import type { EntregaResumo } from '@/lib/ensino/atividades-consultas'
 import type { TipoAtividade } from '@/lib/supabase/types'
@@ -64,6 +64,11 @@ export function AtividadePainel({
   const percentual = contagem.total > 0
     ? Math.round((contagem.concluidas / contagem.total) * 100)
     : 0
+
+  function whatsappHref(telefone: string | null): string | null {
+    const numero = telefone?.replace(/\\D/g, '')
+    return numero ? `https://wa.me/${numero}` : null
+  }
 
   return (
     <div className="space-y-4">
@@ -145,11 +150,14 @@ export function AtividadePainel({
               : null
 
             return (
-              <Link
+              <div
                 key={e.inscricaoId}
-                href={`/ensino/atividade/${atividadeId}/painel/${e.inscricaoId}`}
-                className="flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-accent"
+                className="flex items-center gap-2 px-3 py-2.5 transition-colors hover:bg-accent"
               >
+                <Link
+                  href={`/ensino/atividade/${atividadeId}/painel/${e.inscricaoId}`}
+                  className="flex min-w-0 flex-1 items-center gap-3"
+                >
                 <span
                   className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
                     e.concluida ? 'bg-green-100 text-green-700' : 'bg-muted text-muted-foreground'
@@ -200,8 +208,21 @@ export function AtividadePainel({
                   )}
                 </div>
 
-                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-              </Link>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </Link>
+                {whatsappHref(e.telefone) && (
+                  <a
+                    href={whatsappHref(e.telefone)!}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={`Falar com ${e.nome} no WhatsApp`}
+                    title="Falar no WhatsApp"
+                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-100 text-green-700 transition-colors hover:bg-green-200"
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                  </a>
+                )}
+              </div>
             )
           })}
         </div>
