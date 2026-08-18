@@ -141,7 +141,6 @@ export default async function PastorPage({
       .from('solicitacoes')
       .select('id, tipo, nome, telefone, email, dados, mensagem, status, criado_em, responsavel_id')
       .eq('igreja_id', profile.igreja_id)
-      .in('status', ['pendente', 'em_andamento'])
       .order('criado_em', { ascending: false })
       .limit(50),
     admin
