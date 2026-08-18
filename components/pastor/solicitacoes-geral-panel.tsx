@@ -14,6 +14,7 @@ import type { TipoSolicitacao, StatusSolicitacao } from '@/lib/supabase/types'
 
 export interface SolicitacaoGeral {
   id: string
+  avatar_url?: string | null
   tipo: TipoSolicitacao
   nome: string
   telefone: string
@@ -130,7 +131,16 @@ function Cartao({ sol }: { sol: SolicitacaoGeral }) {
   return (
     <div className="rounded-2xl border border-border bg-card p-3.5">
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
+        <div className="flex min-w-0 items-start gap-3">
+          {sol.avatar_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={sol.avatar_url} alt={`Foto de ${sol.nome}`} className="h-20 w-20 shrink-0 rounded-2xl object-cover ring-2 ring-background shadow-sm" />
+          ) : (
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-2xl font-bold text-primary">
+              {sol.nome.trim().charAt(0).toUpperCase()}
+            </div>
+          )}
+          <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-1.5">
             <p className="text-sm font-semibold truncate">{sol.nome}</p>
             <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
@@ -144,6 +154,7 @@ function Cartao({ sol }: { sol: SolicitacaoGeral }) {
           <p className="mt-1 text-[11px] text-muted-foreground">
             {format(new Date(sol.criado_em), "d 'de' MMMM 'às' HH:mm", { locale: ptBR })}
           </p>
+          </div>
         </div>
         <button
           type="button"
@@ -222,3 +233,4 @@ export function SolicitacoesGeralPanel({ solicitacoes }: { solicitacoes: Solicit
     </div>
   )
 }
+
