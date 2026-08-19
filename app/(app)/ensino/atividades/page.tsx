@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import {
-  ArrowLeft, BookOpen, Check, ClipboardList, FileQuestion, CalendarClock,
+  ArrowLeft, ArrowLeft as ArrowLeftIcon, ArrowRight, BookOpen, Check, ClipboardList, FileQuestion, CalendarClock,
   AlertTriangle, Sparkles,
 } from 'lucide-react'
 import { loginCom } from '@/lib/destino-login'
@@ -26,13 +26,18 @@ const ICONE: Record<TipoAtividade, React.ComponentType<{ className?: string }>> 
  * de quem abre o app à noite. Por isso junta as turmas e ordena por prazo, com
  * o já entregue no fim.
  */
-export default async function MinhasAtividadesPage() {
+export default async function MinhasAtividadesPage({ searchParams }: { searchParams: { pagina?: string } }) {
   const acesso = await acessoEnsino()
   if (!acesso) redirect(loginCom('/ensino/atividades'))
 
   const atividades = await minhasAtividades(acesso.userId)
   const pendentes = atividades.filter((a) => !a.concluida)
   const atrasadas = pendentes.filter((a) => textoPrazo(a.prazo)?.vencido)
+  const porPagina = 10
+  const paginaAtual = Math.max(1, Number.parseInt(searchParams.pagina ?? '1', 10) || 1)
+  const totalPaginas = Math.max(1, Math.ceil(atividades.length / porPagina))
+  const pagina = Math.min(paginaAtual, totalPaginas)
+  const atividadesDaPagina = atividades.slice((pagina - 1) * porPagina, pagina * porPagina)
 
   return (
     <div className="mx-auto max-w-2xl space-y-5 pb-6">
@@ -70,7 +75,7 @@ export default async function MinhasAtividadesPage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {atividades.map((a) => {
+          {atividadesDaPagina.map((a) => {
             const prazo = textoPrazo(a.prazo)
             const Icone = ICONE[a.tipo]
             const meta = TIPO_ATIVIDADE[a.tipo]
@@ -160,7 +165,27 @@ export default async function MinhasAtividadesPage() {
             )
           })}
         </div>
+        {totalPaginas > 1 && (
+          <div className="flex items-center justify-between border-t pt-3">
+            <Link
+              href={`/ensino/atividades?pagina=${pagina - 1}`}
+              aria-disabled={pagina <= 1}
+              className={`inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-xs font-medium ${pagina <= 1 ? 'pointer-events-none opacity-40' : 'hover:bg-muted'}`}
+            >
+              <ArrowLeftIcon className="h-3.5 w-3.5" /> Anterior
+            </Link>
+            <span className="text-xs text-muted-foreground">Página {pagina} de {totalPaginas}</span>
+            <Link
+              href={`/ensino/atividades?pagina=${pagina + 1}`}
+              aria-disabled={pagina >= totalPaginas}
+              className={`inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-xs font-medium ${pagina >= totalPaginas ? 'pointer-events-none opacity-40' : 'hover:bg-muted'}`}
+            >
+              Próxima <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+        )}
       )}
     </div>
   )
 }
+
