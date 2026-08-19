@@ -43,7 +43,7 @@ export default async function SolicitacoesPage() {
         .from('profiles')
         .select('id, nome')
         .eq('igreja_id', profile.igreja_id)
-        .in('role', ['lider', 'lider_treinamento'])
+        .in('role', ['pastor', 'admin', 'supervisor', 'supervisor_treinamento', 'lider', 'lider_treinamento'])
         .order('nome'),
       adminClient
         .from('solicitacoes')
@@ -96,7 +96,7 @@ export default async function SolicitacoesPage() {
           <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3">
             Voluntariado e membresia · {pedidos.length}
           </p>
-          <SolicitacoesGeralPanel solicitacoes={pedidos} />
+          <SolicitacoesGeralPanel solicitacoes={pedidos} responsaveis={lideres} />
         </section>
       </div>
     )
@@ -177,3 +177,4 @@ export default async function SolicitacoesPage() {
     </div>
   )
 }
+
