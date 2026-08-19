@@ -18,6 +18,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   let churchName: string | null = null
   let notificacoesNaoLidas = 0
   let recebeNotificacoes = false
+  let acessoPedidos = false
 
   if (user) {
     const supabase = await createClient()
@@ -29,6 +30,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
     if (!data) redirect('/onboarding')
     profile = data
+    const { data: acessoPedidosData } = await (supabase as any)
+      .from('solicitacoes_acesso_delegado')
+      .select('usuario_id')
+      .eq('usuario_id', user.id)
+      .maybeSingle()
+    acessoPedidos = Boolean(acessoPedidosData)
 
     const isAdminOrPastor = profile.role === 'admin' || profile.role === 'pastor'
 
@@ -91,6 +98,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           isGuest={!user}
           notificacoesNaoLidas={notificacoesNaoLidas}
           recebeNotificacoes={recebeNotificacoes}
+          acessoPedidos={acessoPedidos}
         />
         {/* O padding de baixo soma a barra de gestos para o último cartão da
             página não ficar embaixo dela. */}
@@ -101,3 +109,4 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     </div>
   )
 }
+
