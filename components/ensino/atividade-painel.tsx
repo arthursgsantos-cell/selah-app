@@ -189,7 +189,9 @@ export function AtividadePainel({
                       </span>
                     )}
                     {e.comentario && (
-                      <span className="italic text-muted-foreground">deixou comentário</span>
+                      <span className="italic text-muted-foreground">
+                        deixou comentário{e.comentarioEm && ` · ${new Date(e.comentarioEm).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}`}
+                      </span>
                     )}
                   </div>
 
@@ -232,3 +234,4 @@ export function AtividadePainel({
     </div>
   )
 }
+
