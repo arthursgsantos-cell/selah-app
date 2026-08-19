@@ -150,6 +150,7 @@ export function AtividadesGestao({ turmaId, atividades }: Props) {
           </p>
         </div>
       ) : (
+        <>
         <div className="divide-y overflow-hidden rounded-2xl border border-border bg-card">
           {atividadesDaPagina.map((a) => {
             const Icone = ICONE[a.tipo]
@@ -230,6 +231,7 @@ export function AtividadesGestao({ turmaId, atividades }: Props) {
             </button>
           </div>
         )}
+        </>
       )}
     </div>
   )
