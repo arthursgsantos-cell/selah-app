@@ -281,7 +281,7 @@ export function SolicitacoesGeralPanel({ solicitacoes, responsaveis }: { solicit
           </button>
         ))}
       </div>
-      {visiveis.length === 0 ? <p className="rounded-xl border border-dashed border-border py-6 text-center text-xs text-muted-foreground">Nenhum pedido nesta categoria.</p> : visiveis.map((s) => <Cartao key={s.id} sol={s} />)}
+      {visiveis.length === 0 ? <p className="rounded-xl border border-dashed border-border py-6 text-center text-xs text-muted-foreground">Nenhum pedido nesta categoria.</p> : visiveis.map((s) => <Cartao key={s.id} sol={s} responsaveis={responsaveis} />)}
     </div>
   )
 }
