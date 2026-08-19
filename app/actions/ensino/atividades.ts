@@ -916,6 +916,7 @@ export async function responderQuizAction(
     .eq('id', entrega.id)
 
   if (erroEntrega) return { ok: false, erro: erroEntrega.message }
+  if (comentario?.trim()) await notificarProfessoresComentario(ctx, ctx.inscricaoId, comentario.trim())
 
   revalidatePath(`/ensino/atividade/${atividadeId}`)
   revalidatePath('/ensino/atividades')
