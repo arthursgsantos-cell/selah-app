@@ -696,7 +696,7 @@ async function minhaInscricao(atividadeId: string) {
   const admin = createAdminClient()
   const { data: atividade } = await admin
     .from('ensino_atividades')
-    .select('id, turma_id, tipo, publicada, abre_em, prazo')
+    .select('id, turma_id, tipo, titulo, igreja_id, publicada, abre_em, prazo')
     .eq('id', atividadeId)
     .maybeSingle()
   if (!atividade) return null
@@ -718,10 +718,10 @@ async function entregaDe(
   admin: ReturnType<typeof createAdminClient>,
   atividadeId: string,
   inscricaoId: string
-): Promise<{ id: string; status: string } | null> {
+): Promise<{ id: string; status: string; comentario: string | null } | null> {
   const { data } = await admin
     .from('ensino_atividade_entregas')
-    .select('id, status')
+    .select('id, status, comentario')
     .eq('atividade_id', atividadeId)
     .eq('inscricao_id', inscricaoId)
     .maybeSingle()
@@ -730,9 +730,32 @@ async function entregaDe(
   const { data: nova } = await admin
     .from('ensino_atividade_entregas')
     .insert({ atividade_id: atividadeId, inscricao_id: inscricaoId })
-    .select('id, status')
+    .select('id, status, comentario')
     .single()
   return nova ?? null
+}
+
+async function notificarProfessoresComentario(
+  ctx: { admin: ReturnType<typeof createAdminClient>; atividade: { turma_id: string; id: string }; acesso: { userId: string } },
+  inscricaoId: string,
+  comentario: string
+) {
+  const [{ data: professores }, { data: aluno }] = await Promise.all([
+    ctx.admin.from('ensino_turma_professores').select('profiles(id)').eq('turma_id', ctx.atividade.turma_id),
+    ctx.admin.from('profiles').select('nome').eq('id', ctx.acesso.userId).maybeSingle(),
+  ])
+  const destinatarios = (professores ?? [])
+    .map((p: any) => p.profiles?.id)
+    .filter((id: string | undefined): id is string => Boolean(id) && id !== ctx.acesso.userId)
+  if (destinatarios.length === 0) return
+  await ctx.admin.from('notificacoes').insert(destinatarios.map((destinatario_id) => ({
+    igreja_id: (ctx.atividade as any).igreja_id ?? undefined,
+    destinatario_id,
+    tipo: 'ensino_comentario_atividade',
+    titulo: 'Nova pergunta em uma atividade',
+    mensagem: `${aluno?.nome ?? 'Um aluno'} deixou uma pergunta ou comentário em “${(ctx.atividade as any).titulo ?? 'uma atividade'}”.`,
+    dados: { href: `/ensino/atividade/${ctx.atividade.id}/painel`, atividade_id: ctx.atividade.id, inscricao_id: inscricaoId },
+  })).map((n) => ({ ...n, igreja_id: n.igreja_id ?? null })))
 }
 
 /** O "marcar feito" da tarefa, com o comentário opcional do aluno. */
@@ -759,6 +782,9 @@ export async function concluirTarefaAction(
     .eq('id', entrega.id)
 
   if (error) return { ok: false, erro: error.message }
+  if (dados.comentario !== undefined && dados.comentario.trim() !== (entrega.comentario ?? '').trim() && dados.comentario.trim()) {
+    await notificarProfessoresComentario(ctx, ctx.inscricaoId, dados.comentario.trim())
+  }
   revalidatePath(`/ensino/atividade/${atividadeId}`)
   revalidatePath('/ensino/atividades')
   return { ok: true }
@@ -976,3 +1002,4 @@ export async function comentarEntregaAction(
   revalidatePath(`/ensino/atividade/${atividadeId}/painel`)
   return { ok: true }
 }
+
