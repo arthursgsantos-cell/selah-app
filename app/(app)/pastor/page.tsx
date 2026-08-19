@@ -115,7 +115,6 @@ export default async function PastorPage({
       .from('profiles')
       .select('id, nome')
       .eq('igreja_id', profile.igreja_id)
-      .in('role', ['pastor', 'admin', 'supervisor', 'supervisor_treinamento', 'lider', 'lider_treinamento'])
       .order('nome'),
     admin
       .from('fotos_comunidade')
@@ -506,4 +505,5 @@ export default async function PastorPage({
     </div>
   )
 }
+
 
