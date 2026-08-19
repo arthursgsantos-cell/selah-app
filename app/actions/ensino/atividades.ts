@@ -748,7 +748,7 @@ async function notificarProfessoresComentario(
   const destinatarios = (professores ?? [])
     .map((p: any) => p.profiles?.id)
     .filter((id: string | undefined): id is string => Boolean(id) && id !== ctx.acesso.userId)
-  if (destinatarios.length === 0) return
+  if (destinatarios.length === 0 || !turma?.igreja_id) return
   await ctx.admin.from('notificacoes').insert(destinatarios.map((destinatario_id) => ({
     igreja_id: turma?.igreja_id,
     destinatario_id,
