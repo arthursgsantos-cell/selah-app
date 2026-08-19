@@ -74,6 +74,7 @@ export default async function MinhasAtividadesPage({ searchParams }: { searchPar
           </p>
         </div>
       ) : (
+        <>
         <div className="space-y-2">
           {atividadesDaPagina.map((a) => {
             const prazo = textoPrazo(a.prazo)
@@ -184,6 +185,7 @@ export default async function MinhasAtividadesPage({ searchParams }: { searchPar
             </Link>
           </div>
         )}
+        </>
       )}
     </div>
   )
