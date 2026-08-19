@@ -76,28 +76,36 @@ export async function criarSolicitacaoAction(entrada: NovaSolicitacao) {
   revalidatePath('/solicitacoes')
 }
 
-async function exigirLideranca() {
+async function exigirAcessoPedidos() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Não autenticado')
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, igreja_id')
     .eq('id', user.id)
     .single()
+  if (!profile) throw new Error('Perfil não encontrado')
 
-  const pode = ['pastor', 'admin', 'supervisor', 'supervisor_treinamento'].includes(profile?.role ?? '')
-  if (!pode) throw new Error('Sem permissão')
+  const ehLideranca = ['pastor', 'admin', 'supervisor', 'supervisor_treinamento'].includes(profile.role)
+  const admin = createAdminClient()
+  const { data: delegado } = await (admin as any)
+    .from('solicitacoes_acesso_delegado')
+    .select('usuario_id')
+    .eq('igreja_id', profile.igreja_id)
+    .eq('usuario_id', user.id)
+    .maybeSingle()
+  if (!ehLideranca && !delegado) throw new Error('Sem permissão')
 
-  return user
+  return { user, igrejaId: profile.igreja_id }
 }
 
 export async function atualizarSolicitacaoAction(
   id: string,
   mudanca: { status?: StatusSolicitacao; responsavel_id?: string | null; observacao?: string | null }
 ) {
-  const user = await exigirLideranca()
+  const { user, igrejaId } = await exigirAcessoPedidos()
 
   // Assumir o pedido sem dizer quem assumiu deixa a lista sem dono aparente;
   // quem mudou para "em andamento" é o responsável até alguém trocar.
@@ -109,6 +117,10 @@ export async function atualizarSolicitacaoAction(
         : undefined
 
   const admin = createAdminClient()
+  if (responsavel !== undefined && responsavel !== null) {
+    const { data: pessoa } = await admin.from('profiles').select('id').eq('id', responsavel).eq('igreja_id', igrejaId).maybeSingle()
+    if (!pessoa) throw new Error('Responsável inválido para esta igreja')
+  }
   const { error } = await admin
     .from('solicitacoes')
     .update({
@@ -124,3 +136,4 @@ export async function atualizarSolicitacaoAction(
   revalidatePath('/pastor')
   revalidatePath('/solicitacoes')
 }
+
