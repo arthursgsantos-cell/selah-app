@@ -163,7 +163,7 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
   const inscrito =
     minhaInscricao !== null && ['aprovada', 'concluida'].includes(minhaInscricao.status)
 
-  const [aulasRes, materiaisRes, registroRes, atividadesRes] = await Promise.all([
+  const [aulasRes, materiaisRes, registroRes, atividadesRes, entregasRes] = await Promise.all([
     inscrito || leciona
       ? supabase
           .from('ensino_aulas')
@@ -194,6 +194,12 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
           .eq('turma_id', turma.id)
           .order('ordem')
           .order('criado_em')
+      : Promise.resolve({ data: [] }),
+    inscrito && minhaInscricao
+      ? supabase
+          .from('ensino_atividade_entregas')
+          .select('atividade_id, concluida')
+          .eq('inscricao_id', minhaInscricao.id)
       : Promise.resolve({ data: [] }),
   ])
 
@@ -236,8 +242,10 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
 
   const atividades = (atividadesRes.data ?? []) as {
     id: string; tipo: 'tarefa' | 'leitura' | 'quiz'; titulo: string
-    prazo: string | null; publicada: boolean
+    prazo: string | null; publicada: boolean; concluida?: boolean
   }[]
+  const feitas = new Map(((entregasRes.data ?? []) as { atividade_id: string; concluida: boolean }[]).map((e) => [e.atividade_id, e.concluida]))
+  for (const atividade of atividades) atividade.concluida = feitas.get(atividade.id) ?? false
   const atividadesCount = atividades.length
 
   const restantes = vagasRestantes(turma.vagas, aprovados)
@@ -528,6 +536,14 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
               />
             )}
           </div>
+          {atividades.length > 10 && (
+            <Link
+              href={leciona ? `/ensino/turma/${chave}/atividades` : '/ensino/atividades'}
+              className="mt-2 flex items-center justify-center rounded-xl border border-border py-2.5 text-xs font-medium text-primary hover:bg-accent"
+            >
+              Ver todas as atividades ({atividades.length})
+            </Link>
+          )}
         </section>
       )}
 
@@ -622,14 +638,14 @@ export default async function TurmaPage({ params }: { params: { id: string } }) 
             )}
           </div>
           <div className={`${CARTAO_ANINHADO} divide-y overflow-hidden p-0`}>
-            {atividades.map((a) => (
+            {atividades.slice(0, 10).map((a) => (
               <Link
                 key={a.id}
                 href={`/ensino/atividade/${a.id}`}
                 className="flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-accent"
               >
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  {a.tipo === 'leitura' ? (
+                <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${a.concluida ? 'bg-green-100 text-green-700' : 'bg-primary/10 text-primary'}`}>
+                  {a.concluida ? <Check className="h-4 w-4" /> : a.tipo === 'leitura' ? (
                     <BookOpen className="h-4 w-4" />
                   ) : a.tipo === 'quiz' ? (
                     <ClipboardList className="h-4 w-4" />
@@ -782,3 +798,4 @@ function AtalhoGestao({
     </Link>
   )
 }
+
