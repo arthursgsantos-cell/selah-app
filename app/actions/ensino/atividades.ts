@@ -17,7 +17,7 @@ import { BUCKET_CAPAS, type ResultadoAcao } from '@/lib/ensino/tipos'
 import { corrigir, hojeIso, somarNota } from '@/lib/ensino/atividades'
 import { montarCronograma, type LivroBiblia } from '@/lib/ensino/leitura'
 import type {
-  ConfigLeitura, OpcaoPergunta, TipoAtividade, TipoPergunta, TipoSecaoAtividade,
+  ConfigLeitura, OpcaoPergunta, TipoAtividade, TipoPergunta, TipoSecaoAtividade, TipoNotificacao,
 } from '@/lib/supabase/types'
 
 /** Teto por imagem. Acima disso o navegador já devia ter comprimido. */
@@ -752,7 +752,7 @@ async function notificarProfessoresComentario(
   await ctx.admin.from('notificacoes').insert(destinatarios.map((destinatario_id) => ({
     igreja_id: turma?.igreja_id,
     destinatario_id,
-    tipo: 'ensino_comentario_atividade',
+    tipo: 'ensino_comentario_atividade' as TipoNotificacao,
     titulo: 'Nova pergunta em uma atividade',
     mensagem: `${aluno?.nome ?? 'Um aluno'} deixou uma pergunta ou comentário em “${(ctx.atividade as any).titulo ?? 'uma atividade'}”.`,
     dados: { href: `/ensino/atividade/${ctx.atividade.id}/painel`, atividade_id: ctx.atividade.id, inscricao_id: inscricaoId },
