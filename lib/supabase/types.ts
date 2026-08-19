@@ -6,6 +6,8 @@ export type TipoNotificacao =
   | 'match_confirmado'
   /** Pedido de inscrição numa turma, enviado aos professores dela. */
   | 'inscricao_ensino'
+  /** Pergunta ou comentário de aluno em uma atividade. */
+  | 'ensino_comentario_atividade'
 export type StatusPresenca = 'confirmado' | 'ausente' | 'pendente'
 export type Frequencia = 'semanal' | 'quinzenal'
 export type StatusEncontro = 'agendado' | 'realizado' | 'cancelado'
@@ -2866,3 +2868,4 @@ export type EnsinoMaterial = Tables<'ensino_materiais'>
 export type Consolidacao = Tables<'consolidacao'>
 export type ConsolidacaoContato = Tables<'consolidacao_contatos'>
 export type Supervisao = Tables<'supervisoes'>
+
