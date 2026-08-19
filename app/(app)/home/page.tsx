@@ -141,7 +141,7 @@ export default async function HomePage() {
           .order('nome')
       : Promise.resolve({ data: [] }),
     igrejaId
-      ? admin.from('fotos_comunidade').select('url, criado_em, celulas(nome, redes(nome))').eq('igreja_id', igrejaId).order('criado_em', { ascending: false }).limit(30)
+      ? admin.from('fotos_comunidade').select('url, criado_em, celulas(nome, redes(nome))').eq('igreja_id', igrejaId).order('criado_em', { ascending: false }).limit(200)
       : Promise.resolve({ data: [] }),
     igrejaId
       ? admin.from('encontros').select('card_imagem_url, data_hora').eq('igreja_id', igrejaId).not('card_imagem_url', 'is', null).order('data_hora', { ascending: false }).limit(20)
@@ -316,7 +316,7 @@ export default async function HomePage() {
     ...(encontroFotos ?? []).filter((e: any) => e.card_imagem_url).map((e: any) => ({ src: e.card_imagem_url as string, date: e.data_hora as string })),
   ]
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, 30)
+    .slice(0, 200)
 
   const staticPhotos = [
     '/fotos/foto-01.png', '/fotos/foto-02.png', '/fotos/foto-03.png',
