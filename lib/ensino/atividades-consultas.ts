@@ -78,6 +78,7 @@ export interface EntregaResumo {
   nota: number | null
   observacao: string | null
   entregueEm: string | null
+  comentarioEm: string | null
   /** Só no desafio de leitura. */
   leituraFeitos: number
   leituraTotal: number
@@ -253,7 +254,7 @@ export async function painelDaAtividade(
       .order('nome'),
     admin
       .from('ensino_atividade_entregas')
-      .select('id, inscricao_id, status, concluida, comentario, nota, observacao, entregue_em')
+      .select('id, inscricao_id, status, concluida, comentario, nota, observacao, entregue_em, atualizado_em')
       .eq('atividade_id', atividadeId),
   ])
 
@@ -271,7 +272,7 @@ export async function painelDaAtividade(
     ((entregasRes.data ?? []) as {
       id: string; inscricao_id: string; status: StatusEntrega; concluida: boolean
       comentario: string | null; nota: number | null; observacao: string | null
-      entregue_em: string | null
+      entregue_em: string | null; atualizado_em: string | null
     }[]).map((e) => [e.inscricao_id, e])
   )
 
@@ -334,6 +335,7 @@ export async function painelDaAtividade(
       nota: entrega?.nota === null || entrega?.nota === undefined ? null : Number(entrega.nota),
       observacao: entrega?.observacao ?? null,
       entregueEm: entrega?.entregue_em ?? null,
+      comentarioEm: entrega?.atualizado_em ?? null,
       leituraFeitos: leitura?.feitos ?? 0,
       leituraTotal: leitura?.total ?? 0,
       leituraAtrasados: leitura?.atrasados ?? 0,
@@ -450,3 +452,4 @@ export async function livrosDaBiblia() {
     id: number; sigla: string; nome: string; testamento: 'AT' | 'NT'; capitulos: number
   }[]
 }
+
