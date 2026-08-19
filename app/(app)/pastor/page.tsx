@@ -270,7 +270,7 @@ export default async function PastorPage({
       </div>
 
       <PainelAbas
-        somente={searchParams.compartilhado === '1' ? 'pedidos' : undefined}
+        somente={searchParams.compartilhado === '1' || (!ehLideranca && searchParams.aba === 'pedidos') ? 'pedidos' : undefined}
         inicial={searchParams.aba === 'pedidos' ? 'pedidos' : undefined}
         abas={[
           {
