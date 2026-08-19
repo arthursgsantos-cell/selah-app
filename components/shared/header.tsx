@@ -29,6 +29,8 @@ interface HeaderProps {
    * vive em `Role` — o layout é quem sabe consultar `ensino_equipe`.
    */
   recebeNotificacoes?: boolean
+  /** Membro autorizado a acessar a lista compartilhada de pedidos. */
+  acessoPedidos?: boolean
 }
 
 const roleLabels: Record<string, string> = {
@@ -48,7 +50,7 @@ const tipoIcon: Record<string, React.ReactNode> = {
   inscricao_ensino: <GraduationCap className="h-4 w-4 text-primary" />,
 }
 
-export function Header({ userName = 'Usuário', userRole = 'membro', avatarUrl, churchLogoUrl, churchName, isGuest = false, notificacoesNaoLidas = 0, recebeNotificacoes }: HeaderProps) {
+export function Header({ userName = 'Usuário', userRole = 'membro', avatarUrl, churchLogoUrl, churchName, isGuest = false, notificacoesNaoLidas = 0, recebeNotificacoes, acessoPedidos = false }: HeaderProps) {
   const [navOpen, setNavOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
@@ -78,13 +80,16 @@ export function Header({ userName = 'Usuário', userRole = 'membro', avatarUrl, 
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [menuOpen, notifOpen, navOpen])
 
-  const visibleSections = NAV_SECTIONS
+  const visibleSectionsBase = NAV_SECTIONS
     .map((s) => ({
       ...s,
       label: s.label === 'Igreja' ? (churchName ?? 'Igreja') : s.label,
       items: s.items.filter((item) => canSeeNavItem(userRole, item)),
     }))
     .filter((s) => s.items.length > 0)
+  const visibleSections = acessoPedidos
+    ? [...visibleSectionsBase, { label: 'Acesso compartilhado', items: [{ href: '/pastor?aba=pedidos&compartilhado=1', label: 'Pedidos', icon: ClipboardList, minRole: null }] }]
+    : visibleSectionsBase
 
   async function handleAbrirNotificacoes() {
     setMenuOpen(false)
@@ -365,3 +370,4 @@ export function Header({ userName = 'Usuário', userRole = 'membro', avatarUrl, 
     </header>
   )
 }
+
