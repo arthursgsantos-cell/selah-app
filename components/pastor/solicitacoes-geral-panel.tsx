@@ -12,6 +12,8 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import type { TipoSolicitacao, StatusSolicitacao } from '@/lib/supabase/types'
 
+export interface ResponsavelAcolhimento { id: string; nome: string }
+
 export interface SolicitacaoGeral {
   id: string
   avatar_url?: string | null
@@ -110,7 +112,7 @@ function Linha({ rotulo, valor }: { rotulo: string; valor: string | null }) {
   )
 }
 
-function Cartao({ sol }: { sol: SolicitacaoGeral }) {
+function Cartao({ sol, responsaveis }: { sol: SolicitacaoGeral; responsaveis: ResponsavelAcolhimento[] }) {
   const [aberto, setAberto] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [erro, setErro] = useState<string | null>(null)
@@ -125,6 +127,17 @@ function Cartao({ sol }: { sol: SolicitacaoGeral }) {
         await atualizarSolicitacaoAction(sol.id, { status: novo })
       } catch (e) {
         setErro(e instanceof Error ? e.message : 'Não foi possível atualizar.')
+      }
+    })
+  }
+
+  function mudarResponsavel(responsavel_id: string) {
+    setErro(null)
+    startTransition(async () => {
+      try {
+        await atualizarSolicitacaoAction(sol.id, { responsavel_id: responsavel_id || null })
+      } catch (e) {
+        setErro(e instanceof Error ? e.message : 'Não foi possível alterar o responsável.')
       }
     })
   }
@@ -182,7 +195,19 @@ function Cartao({ sol }: { sol: SolicitacaoGeral }) {
         <div className="mt-3 space-y-2.5 border-t border-border pt-3">
           <Linha rotulo="Telefone" valor={sol.telefone} />
           <Linha rotulo="E-mail" valor={sol.email} />
-          <Linha rotulo="Responsável pelo acolhimento" valor={sol.responsavel_nome ?? null} />
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-muted-foreground">Responsável pelo acolhimento:</span>
+            <select
+              value={sol.responsavel_id ?? ''}
+              onChange={(e) => mudarResponsavel(e.target.value)}
+              disabled={isPending}
+              className="h-8 rounded-md border border-border bg-background px-2 text-xs font-medium"
+              aria-label={`Alterar responsável pelo acolhimento de ${sol.nome}`}
+            >
+              <option value="">Sem responsável</option>
+              {responsaveis.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
+            </select>
+          </div>
           <Detalhes sol={sol} />
           {sol.mensagem && (
             <p className="rounded-lg bg-muted/60 p-2.5 text-xs leading-relaxed">{sol.mensagem}</p>
@@ -235,7 +260,7 @@ function Cartao({ sol }: { sol: SolicitacaoGeral }) {
  * coisas na mesma conversa, e separar em duas telas faria a pessoa procurar o
  * mesmo nome em dois lugares. O selo diz qual é qual.
  */
-export function SolicitacoesGeralPanel({ solicitacoes }: { solicitacoes: SolicitacaoGeral[] }) {
+export function SolicitacoesGeralPanel({ solicitacoes, responsaveis }: { solicitacoes: SolicitacaoGeral[]; responsaveis: ResponsavelAcolhimento[] }) {
   const [filtro, setFiltro] = useState<'abertos' | 'acolhimento' | 'atendidos' | 'arquivados' | 'todos'>('abertos')
   const visiveis = solicitacoes.filter((s) => filtro === 'todos' || filtro === 'abertos' && ['pendente', 'em_andamento'].includes(s.status) || filtro === 'acolhimento' && s.status === 'em_andamento' || filtro === 'atendidos' && s.status === 'atendido' || filtro === 'arquivados' && s.status === 'arquivado')
   if (solicitacoes.length === 0) {
@@ -260,4 +285,5 @@ export function SolicitacoesGeralPanel({ solicitacoes }: { solicitacoes: Solicit
     </div>
   )
 }
+
 
