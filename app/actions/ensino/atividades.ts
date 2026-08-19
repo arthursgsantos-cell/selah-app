@@ -783,8 +783,9 @@ export async function concluirTarefaAction(
     .eq('id', entrega.id)
 
   if (error) return { ok: false, erro: error.message }
-  if (dados.comentario !== undefined && dados.comentario.trim() !== (entrega.comentario ?? '').trim() && dados.comentario.trim()) {
-    await notificarProfessoresComentario(ctx, ctx.inscricaoId, dados.comentario.trim())
+  const comentarioNovo = dados.comentario?.trim() ?? ''
+  if (dados.comentario !== undefined && comentarioNovo !== (entrega.comentario ?? '').trim() && comentarioNovo) {
+    await notificarProfessoresComentario(ctx, ctx.inscricaoId, comentarioNovo)
   }
   revalidatePath(`/ensino/atividade/${atividadeId}`)
   revalidatePath('/ensino/atividades')
