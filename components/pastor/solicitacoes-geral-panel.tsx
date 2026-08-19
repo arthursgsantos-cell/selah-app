@@ -116,6 +116,7 @@ function Cartao({ sol, responsaveis }: { sol: SolicitacaoGeral; responsaveis: Re
   const [aberto, setAberto] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [erro, setErro] = useState<string | null>(null)
+  const [buscaResponsavel, setBuscaResponsavel] = useState('')
 
   const status = STATUS[sol.status] ?? STATUS.pendente
   const tipo = TIPO[sol.tipo]
@@ -197,16 +198,27 @@ function Cartao({ sol, responsaveis }: { sol: SolicitacaoGeral; responsaveis: Re
           <Linha rotulo="E-mail" valor={sol.email} />
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs text-muted-foreground">Responsável pelo acolhimento:</span>
-            <select
-              value={sol.responsavel_id ?? ''}
-              onChange={(e) => mudarResponsavel(e.target.value)}
-              disabled={isPending}
-              className="h-8 rounded-md border border-border bg-background px-2 text-xs font-medium"
-              aria-label={`Alterar responsável pelo acolhimento de ${sol.nome}`}
-            >
-              <option value="">Sem responsável</option>
-              {responsaveis.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
-            </select>
+            <div className="flex flex-col gap-1">
+              <input
+                value={buscaResponsavel}
+                onChange={(e) => setBuscaResponsavel(e.target.value)}
+                placeholder="Pesquisar pessoa..."
+                className="h-7 w-48 rounded-md border border-border bg-background px-2 text-[11px]"
+                aria-label="Pesquisar responsável"
+              />
+              <select
+                value={sol.responsavel_id ?? ''}
+                onChange={(e) => mudarResponsavel(e.target.value)}
+                disabled={isPending}
+                className="h-8 rounded-md border border-border bg-background px-2 text-xs font-medium"
+                aria-label={`Alterar responsável pelo acolhimento de ${sol.nome}`}
+              >
+                <option value="">Sem responsável</option>
+                {responsaveis
+                  .filter((p) => !buscaResponsavel || p.nome.toLocaleLowerCase().includes(buscaResponsavel.toLocaleLowerCase()))
+                  .map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
+              </select>
+            </div>
           </div>
           <Detalhes sol={sol} />
           {sol.mensagem && (
