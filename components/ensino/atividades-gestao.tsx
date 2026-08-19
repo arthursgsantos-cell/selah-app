@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   BookOpen, ClipboardList, FileQuestion, Loader2, Plus, X, CalendarClock,
-  EyeOff, ChevronRight,
+  EyeOff, ChevronRight, ChevronLeft, Check,
 } from 'lucide-react'
 import { criarAtividadeAction } from '@/app/actions/ensino/atividades'
 import { textoPrazo, TIPO_ATIVIDADE } from '@/lib/ensino/atividades'
@@ -44,6 +44,10 @@ export function AtividadesGestao({ turmaId, atividades }: Props) {
   const [titulo, setTitulo] = useState('')
   const [erro, setErro] = useState<string | null>(null)
   const [pendente, iniciar] = useTransition()
+  const [pagina, setPagina] = useState(1)
+  const porPagina = 10
+  const totalPaginas = Math.max(1, Math.ceil(atividades.length / porPagina))
+  const atividadesDaPagina = atividades.slice((pagina - 1) * porPagina, pagina * porPagina)
 
   function criar() {
     if (!titulo.trim()) { setErro('Dê um título à atividade.'); return }
@@ -147,7 +151,7 @@ export function AtividadesGestao({ turmaId, atividades }: Props) {
         </div>
       ) : (
         <div className="divide-y overflow-hidden rounded-2xl border border-border bg-card">
-          {atividades.map((a) => {
+          {atividadesDaPagina.map((a) => {
             const Icone = ICONE[a.tipo]
             const prazo = textoPrazo(a.prazo)
             const percentual = a.total > 0 ? Math.round((a.entregues / a.total) * 100) : 0
@@ -160,10 +164,10 @@ export function AtividadesGestao({ turmaId, atividades }: Props) {
               >
                 <div
                   className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
-                    a.publicada ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+                    a.total > 0 && a.entregues === a.total ? 'bg-green-100 text-green-700' : a.publicada ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
                   }`}
                 >
-                  <Icone className="h-4 w-4" />
+                  {a.total > 0 && a.entregues === a.total ? <Check className="h-4 w-4" /> : <Icone className="h-4 w-4" />}
                 </div>
 
                 <div className="min-w-0 flex-1">
@@ -215,7 +219,19 @@ export function AtividadesGestao({ turmaId, atividades }: Props) {
             )
           })}
         </div>
+        {totalPaginas > 1 && (
+          <div className="flex items-center justify-between border-t pt-3">
+            <button type="button" onClick={() => setPagina((p) => Math.max(1, p - 1))} disabled={pagina <= 1} className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-xs font-medium disabled:pointer-events-none disabled:opacity-40">
+              <ChevronLeft className="h-3.5 w-3.5" /> Anterior
+            </button>
+            <span className="text-xs text-muted-foreground">Página {pagina} de {totalPaginas}</span>
+            <button type="button" onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))} disabled={pagina >= totalPaginas} className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-xs font-medium disabled:pointer-events-none disabled:opacity-40">
+              Próxima <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
       )}
     </div>
   )
 }
+
