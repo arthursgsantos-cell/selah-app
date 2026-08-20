@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { encaminharSolicitacaoAction, marcarAtendidoAction } from '@/app/actions/solicitar-celula'
+import { encaminharSolicitacaoAction, marcarAtendidoAction, confirmarMembroCelulaAction } from '@/app/actions/solicitar-celula'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { CheckCheck, ChevronDown, ChevronUp, Users, Share2 } from 'lucide-react'
@@ -28,6 +28,8 @@ interface Solicitacao {
   status: string
   criado_em: string
   lider_encaminhado_id: string | null
+  celula_id?: string | null
+  user_id?: string | null
   conjuge_nome?: string | null
   conjuge_telefone?: string | null
   conjuge_idade?: number | null
@@ -41,6 +43,7 @@ interface Lider {
 interface Props {
   solicitacoes: Solicitacao[]
   lideres: Lider[]
+  podeConfirmar?: boolean
 }
 
 const statusConfig: Record<string, { label: string; className: string }> = {
@@ -58,7 +61,7 @@ function whatsappLink(telefone: string, nome: string) {
   return `https://wa.me/${full}?text=${msg}`
 }
 
-function SolicitacaoCard({ sol, lideres }: { sol: Solicitacao; lideres: Lider[] }) {
+function SolicitacaoCard({ sol, lideres, podeConfirmar }: { sol: Solicitacao; lideres: Lider[]; podeConfirmar?: boolean }) {
   const [expanded, setExpanded] = useState(false)
   const [liderSel, setLiderSel] = useState(sol.lider_encaminhado_id ?? '')
   const [isPending, startTransition] = useTransition()
@@ -71,6 +74,10 @@ function SolicitacaoCard({ sol, lideres }: { sol: Solicitacao; lideres: Lider[] 
     startTransition(async () => {
       await encaminharSolicitacaoAction(sol.id, liderSel)
     })
+  }
+
+  function handleConfirmar() {
+    startTransition(async () => { await confirmarMembroCelulaAction(sol.id) })
   }
 
   function handleAtendido() {
@@ -217,6 +224,11 @@ function SolicitacaoCard({ sol, lideres }: { sol: Solicitacao; lideres: Lider[] 
                 >
                   Encaminhar
                 </Button>
+                {podeConfirmar && sol.status !== 'atendido' && sol.tipo_membro === 'membro' && sol.celula_id && sol.user_id && (
+                  <Button size="sm" disabled={isPending} onClick={handleConfirmar} className="text-xs shrink-0 bg-emerald-600 text-white hover:bg-emerald-700">
+                    Confirmar membro
+                  </Button>
+                )}
                 {sol.status === 'encaminhado' && (
                   <Button
                     size="sm"
@@ -238,7 +250,7 @@ function SolicitacaoCard({ sol, lideres }: { sol: Solicitacao; lideres: Lider[] 
   )
 }
 
-export function SolicitacoesPanel({ solicitacoes, lideres }: Props) {
+export function SolicitacoesPanel({ solicitacoes, lideres, podeConfirmar = false }: Props) {
   const pendentes = solicitacoes.filter((s) => s.status === 'pendente')
   const encaminhados = solicitacoes.filter((s) => s.status === 'encaminhado')
   const atendidos = solicitacoes.filter((s) => s.status === 'atendido')
@@ -258,7 +270,7 @@ export function SolicitacoesPanel({ solicitacoes, lideres }: Props) {
   return (
     <div className="space-y-2">
       {[...pendentes, ...encaminhados].map((s) => (
-        <SolicitacaoCard key={s.id} sol={s} lideres={lideres} />
+        <SolicitacaoCard key={s.id} sol={s} lideres={lideres} podeConfirmar={podeConfirmar} />
       ))}
 
       {atendidos.length > 0 && (
@@ -272,7 +284,7 @@ export function SolicitacoesPanel({ solicitacoes, lideres }: Props) {
             {atendidos.length} atendido{atendidos.length > 1 ? 's' : ''}
           </button>
           {mostrarAtendidos && atendidos.map((s) => (
-            <SolicitacaoCard key={s.id} sol={s} lideres={lideres} />
+            <SolicitacaoCard key={s.id} sol={s} lideres={lideres} podeConfirmar={podeConfirmar} />
           ))}
         </>
       )}
