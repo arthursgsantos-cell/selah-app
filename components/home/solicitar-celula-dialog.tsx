@@ -29,9 +29,10 @@ interface Props {
   idadeInicial?: number | null
   estadoCivilInicial?: string
   buttonClassName?: string
+  celulas?: { id: string; nome: string }[]
 }
 
-export function SolicitarCelulaDialog({ email, nomeInicial, telefoneInicial = '', idadeInicial = null, estadoCivilInicial = '', buttonClassName }: Props) {
+export function SolicitarCelulaDialog({ email, nomeInicial, telefoneInicial = '', idadeInicial = null, estadoCivilInicial = '', buttonClassName, celulas = [] }: Props) {
   const isGuest = !email
   const [open, setOpen] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -50,6 +51,7 @@ export function SolicitarCelulaDialog({ email, nomeInicial, telefoneInicial = ''
   const [filhosDetalhes, setFilhosDetalhes] = useState('')
   const [bairro, setBairro] = useState('')
   const [tipoMembro, setTipoMembro] = useState('')
+  const [celulaId, setCelulaId] = useState('')
   const [melhorDia, setMelhorDia] = useState('')
 
   const casado = ehCasado(estadoCivil)
@@ -67,6 +69,7 @@ export function SolicitarCelulaDialog({ email, nomeInicial, telefoneInicial = ''
     setFilhosDetalhes('')
     setBairro('')
     setTipoMembro('')
+    setCelulaId('')
     setMelhorDia('')
     setErro(null)
     setSuccess(false)
@@ -82,6 +85,10 @@ export function SolicitarCelulaDialog({ email, nomeInicial, telefoneInicial = ''
     setErro(null)
     if (!nome.trim() || !telefone.trim() || !estadoCivil || !tipoMembro || !melhorDia) {
       setErro('Preencha todos os campos obrigatórios.')
+      return
+    }
+    if (tipoMembro === 'membro' && celulas.length > 0 && !celulaId) {
+      setErro('Selecione a célula da qual você participa.')
       return
     }
     if (isGuest && !emailInput.trim()) {
@@ -105,6 +112,7 @@ export function SolicitarCelulaDialog({ email, nomeInicial, telefoneInicial = ''
           conjuge_nome: conjugeNome.trim(),
           conjuge_telefone: conjugeTelefone.trim(),
           conjuge_idade: conjugeIdade ? parseInt(conjugeIdade, 10) : null,
+          celula_id: celulaId || null,
         })
         setSuccess(true)
       } catch (err) {
@@ -308,6 +316,17 @@ export function SolicitarCelulaDialog({ email, nomeInicial, telefoneInicial = ''
                 ))}
               </div>
             </div>
+
+            {tipoMembro === 'membro' && celulas.length > 0 && (
+              <div className="space-y-1">
+                <Label htmlFor="sc-celula">Sua célula *</Label>
+                <select id="sc-celula" className={selectClass} value={celulaId} onChange={(e) => setCelulaId(e.target.value)} required>
+                  <option value="">Selecione a célula...</option>
+                  {celulas.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                </select>
+                <p className="text-[11px] text-muted-foreground">O pedido será enviado somente aos líderes desta célula.</p>
+              </div>
+            )}
 
             {/* Melhor dia */}
             <div className="space-y-1">
