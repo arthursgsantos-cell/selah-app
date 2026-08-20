@@ -60,7 +60,7 @@ export async function solicitarCelulaAction(data: SolicitacaoData) {
   let liderId: string | null = null
   if (data.tipo_membro === 'membro') {
     if (user) {
-      const { data: vinculo } = await admin.from('celula_membros').select('celula_id').eq('user_id', user.id).in('papel', ['membro', 'visitante', 'lider']).limit(1).maybeSingle()
+      const { data: vinculo } = await admin.from('celula_membros').select('celula_id').eq('user_id', user.id).in('papel', ['membro', 'lider']).limit(1).maybeSingle()
       celulaId = vinculo?.celula_id ?? null
     }
     celulaId = celulaId ?? data.celula_id ?? null
