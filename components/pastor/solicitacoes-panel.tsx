@@ -29,7 +29,6 @@ interface Solicitacao {
   criado_em: string
   lider_encaminhado_id: string | null
   celula_id?: string | null
-  user_id?: string | null
   conjuge_nome?: string | null
   conjuge_telefone?: string | null
   conjuge_idade?: number | null
@@ -291,4 +290,5 @@ export function SolicitacoesPanel({ solicitacoes, lideres, podeConfirmar = false
     </div>
   )
 }
+
 
