@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { marcarAtendidoAction } from '@/app/actions/solicitar-celula'
+import { marcarAtendidoAction, confirmarMembroCelulaAction } from '@/app/actions/solicitar-celula'
 
 export interface SolicitacaoNotificacao {
   id: string
@@ -27,6 +27,7 @@ export interface SolicitacaoNotificacao {
   criado_em: string
   idade?: number | null
   tipo_membro?: string | null
+  user_id?: string | null
   status?: string
 }
 
@@ -42,12 +43,15 @@ function buildWaLink(sol: SolicitacaoNotificacao) {
 export function SolicitacaoNotificacaoCard({
   sol,
   showAtendido = true,
+  celulas = [],
 }: {
   sol: SolicitacaoNotificacao
   showAtendido?: boolean
+  celulas?: { id: string; nome: string }[]
 }) {
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const [celulaSel, setCelulaSel] = useState(celulas[0]?.id ?? '')
 
   const primeiroNome = sol.nome.split(' ')[0]
   const waLink = buildWaLink(sol)
@@ -55,6 +59,14 @@ export function SolicitacaoNotificacaoCard({
   function handleAtendido() {
     startTransition(async () => {
       await marcarAtendidoAction(sol.id)
+      setOpen(false)
+    })
+  }
+
+  function handleConfirmarMembro() {
+    if (!celulaSel) return
+    startTransition(async () => {
+      await confirmarMembroCelulaAction(sol.id, celulaSel)
       setOpen(false)
     })
   }
@@ -206,6 +218,15 @@ export function SolicitacaoNotificacaoCard({
                 <WhatsAppIcon className="h-4 w-4" />
                 Falar com {primeiroNome}
               </a>
+              {showAtendido && sol.status !== 'atendido' && sol.tipo_membro === 'membro' && sol.user_id && celulas.length > 0 && (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 space-y-2">
+                  <p className="text-xs font-semibold text-emerald-800">A pessoa se declarou membro de uma célula</p>
+                  <select value={celulaSel} onChange={(e) => setCelulaSel(e.target.value)} className="h-9 w-full rounded-lg border border-emerald-200 bg-white px-2 text-xs">
+                    {celulas.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                  </select>
+                  <Button size="sm" onClick={handleConfirmarMembro} disabled={isPending || !celulaSel} className="w-full bg-emerald-600 text-white hover:bg-emerald-700">Confirmar membro da célula</Button>
+                </div>
+              )}
               {showAtendido && sol.status !== 'atendido' && (
                 <Button
                   variant="outline"
@@ -225,3 +246,4 @@ export function SolicitacaoNotificacaoCard({
     </>
   )
 }
+
