@@ -96,6 +96,9 @@ export default async function HomePage() {
     : { data: null }
 
   const admin = createAdminClient()
+  const { data: celulasDisponiveis } = igrejaId
+    ? await admin.from('celulas').select('id, nome, redes!inner(igreja_id)').eq('redes.igreja_id', igrejaId).order('nome')
+    : { data: [] }
 
   const [{ data: eventos }, { data: profilesIgreja }, { data: ultimosEncontrosCelula }, { data: ultimosEventosPast }, { data: pastorProfiles }, { data: fotosComunidade }, { data: encontroFotos }, { data: destaquesData }] = await Promise.all([
     // Estas quatro consultas rodam também para o visitante não logado, que é
@@ -600,7 +603,7 @@ export default async function HomePage() {
               <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
                 As células são grupos pequenos que se reúnem semanalmente para crescer na fé, compartilhar a vida e se apoiar mutuamente.
               </p>
-              <SolicitarCelulaDialog email="" nomeInicial="" buttonClassName="mt-3" />
+              <SolicitarCelulaDialog email="" nomeInicial="" celulas={celulasDisponiveis ?? []} buttonClassName="mt-3" />
             </div>
           </div>
         </div>
@@ -805,7 +808,7 @@ export default async function HomePage() {
           <p className="text-xs text-muted-foreground mt-1">
             Solicite e nossa equipe vai te indicar a melhor célula
           </p>
-          <SolicitarCelulaDialog email={user?.email ?? ''} nomeInicial={profile?.nome ?? ''} />
+          <SolicitarCelulaDialog email={user?.email ?? ''} nomeInicial={profile?.nome ?? ''} celulas={celulasDisponiveis ?? []} />
         </div>
       )}
     </>
@@ -1236,6 +1239,7 @@ export default async function HomePage() {
                     : null
                 }
                 estadoCivilInicial={(profile as any).data_casamento ? 'Casado(a)' : ''}
+                celulas={celulasDisponiveis ?? []}
                 buttonClassName="mt-3"
               />
             </div>
