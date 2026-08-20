@@ -115,3 +115,28 @@ export async function marcarAtendidoAction(solicitacaoId: string) {
   revalidatePath('/pastor')
   revalidatePath('/supervisor')
 }
+
+
+
+/** Líder confirma que a pessoa realmente pertence à célula e cria o vínculo. */
+export async function confirmarMembroCelulaAction(solicitacaoId: string, celulaId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Não autenticado')
+  const admin = createAdminClient()
+  const { data: perfil } = await admin.from('profiles').select('igreja_id, role').eq('id', user.id).single()
+  if (!perfil) throw new Error('Perfil não encontrado')
+  const { data: celula } = await admin.from('celulas').select('id, redes(igreja_id)').eq('id', celulaId).maybeSingle()
+  const igrejaCelula = (celula as any)?.redes?.igreja_id
+  if (!celula || igrejaCelula !== perfil.igreja_id) throw new Error('Célula inválida')
+  const lideranca = ['pastor', 'admin', 'supervisor', 'supervisor_treinamento'].includes(perfil.role)
+  const { data: vinculo } = await admin.from('celula_membros').select('user_id').eq('celula_id', celulaId).eq('user_id', user.id).eq('papel', 'lider').maybeSingle()
+  if (!lideranca && !vinculo) throw new Error('Você não lidera esta célula')
+  const { data: solicitacao } = await admin.from('solicitacoes_celula').select('user_id, igreja_id, tipo_membro').eq('id', solicitacaoId).maybeSingle()
+  if (!solicitacao || solicitacao.igreja_id !== perfil.igreja_id || !solicitacao.user_id) throw new Error('Solicitação sem usuário vinculado')
+  if (solicitacao.tipo_membro !== 'membro') throw new Error('Esta confirmação é apenas para quem se declarou membro')
+  const { error } = await admin.from('celula_membros').upsert({ celula_id: celulaId, user_id: solicitacao.user_id, papel: 'membro' }, { onConflict: 'celula_id,user_id' })
+  if (error) throw new Error(error.message)
+  await admin.from('solicitacoes_celula').update({ status: 'atendido' }).eq('id', solicitacaoId)
+  revalidatePath('/solicitacoes'); revalidatePath('/celula'); revalidatePath('/pastor')
+}
