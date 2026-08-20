@@ -154,7 +154,7 @@ export async function confirmarMembroCelulaAction(solicitacaoId: string) {
   if (solicitacao.status === 'atendido') throw new Error('Solicitação já atendida')
   const privilegiado = ['pastor', 'admin', 'supervisor', 'supervisor_treinamento'].includes(perfil.role)
   if (!privilegiado) {
-    const { data: vinculo } = await admin.from('celula_membros').select('user_id').eq('celula_id', solicitacao.celula_id).eq('user_id', user.id).in('papel', ['lider', 'lider_treinamento']).maybeSingle()
+    const { data: vinculo } = await admin.from('celula_membros').select('user_id').eq('celula_id', solicitacao.celula_id).eq('user_id', user.id).eq('papel', 'lider').maybeSingle()
     if (!vinculo) throw new Error('Você não lidera esta célula')
   }
   const { error } = await admin.from('celula_membros').upsert({ celula_id: solicitacao.celula_id, user_id: solicitacao.user_id, papel: 'membro' }, { onConflict: 'celula_id,user_id' })
@@ -163,4 +163,5 @@ export async function confirmarMembroCelulaAction(solicitacaoId: string) {
   if (updateError) throw new Error(updateError.message)
   revalidatePath('/solicitacoes'); revalidatePath('/celula'); revalidatePath('/pastor'); revalidatePath('/home')
 }
+
 
