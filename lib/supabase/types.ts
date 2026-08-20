@@ -1208,6 +1208,7 @@ export type Database = {
           id: string
           igreja_id: string
           user_id: string | null
+          celula_id: string | null
           nome: string
           telefone: string
           email: string
@@ -1229,6 +1230,7 @@ export type Database = {
           id?: string
           igreja_id: string
           user_id?: string | null
+          celula_id?: string | null
           nome: string
           telefone: string
           email: string
@@ -1250,6 +1252,7 @@ export type Database = {
           id?: string
           igreja_id?: string
           user_id?: string | null
+          celula_id?: string | null
           nome?: string
           telefone?: string
           email?: string
@@ -2868,4 +2871,5 @@ export type EnsinoMaterial = Tables<'ensino_materiais'>
 export type Consolidacao = Tables<'consolidacao'>
 export type ConsolidacaoContato = Tables<'consolidacao_contatos'>
 export type Supervisao = Tables<'supervisoes'>
+
 
