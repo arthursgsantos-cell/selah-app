@@ -106,11 +106,17 @@ export default async function SolicitacoesPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: todasSolicitacoes } = await (supabase as any)
     .from('solicitacoes_celula')
-    .select('id, nome, telefone, email, idade, bairro, melhor_dia, estado_civil, tem_filhos, filhos_detalhes, conjuge_nome, conjuge_telefone, conjuge_idade, tipo_membro, criado_em, status')
+    .select('id, user_id, nome, telefone, email, idade, bairro, melhor_dia, estado_civil, tem_filhos, filhos_detalhes, conjuge_nome, conjuge_telefone, conjuge_idade, tipo_membro, criado_em, status')
     .eq('lider_encaminhado_id', user.id)
     .order('criado_em', { ascending: false })
 
   const solicitacoes = (todasSolicitacoes ?? []) as any[]
+  const { data: celulasDoLider } = await (supabase as any)
+    .from('celula_membros')
+    .select('celula_id, celulas(id, nome)')
+    .eq('user_id', user.id)
+    .eq('papel', 'lider')
+  const celulasLider = (celulasDoLider ?? []).map((v: any) => v.celulas).filter(Boolean)
   const ativas = solicitacoes.filter((s) => s.status === 'encaminhado')
   const atendidas = solicitacoes.filter((s) => s.status === 'atendido')
 
@@ -144,7 +150,7 @@ export default async function SolicitacoesPage() {
           </p>
           <div className="space-y-2">
             {ativas.map((sol) => (
-              <SolicitacaoNotificacaoCard key={sol.id} sol={sol} />
+              <SolicitacaoNotificacaoCard key={sol.id} sol={sol} celulas={celulasLider} />
             ))}
           </div>
         </section>
