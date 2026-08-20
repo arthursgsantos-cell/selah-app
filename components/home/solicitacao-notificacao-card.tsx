@@ -66,7 +66,7 @@ export function SolicitacaoNotificacaoCard({
   function handleConfirmarMembro() {
     if (!celulaSel) return
     startTransition(async () => {
-      await confirmarMembroCelulaAction(sol.id, celulaSel)
+      await confirmarMembroCelulaAction(sol.id)
       setOpen(false)
     })
   }
@@ -220,10 +220,7 @@ export function SolicitacaoNotificacaoCard({
               </a>
               {showAtendido && sol.status !== 'atendido' && sol.tipo_membro === 'membro' && sol.user_id && celulas.length > 0 && (
                 <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 space-y-2">
-                  <p className="text-xs font-semibold text-emerald-800">A pessoa se declarou membro de uma célula</p>
-                  <select value={celulaSel} onChange={(e) => setCelulaSel(e.target.value)} className="h-9 w-full rounded-lg border border-emerald-200 bg-white px-2 text-xs">
-                    {celulas.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
-                  </select>
+                  <p className="text-xs font-semibold text-emerald-800">Confirmar participação na célula</p>
                   <Button size="sm" onClick={handleConfirmarMembro} disabled={isPending || !celulaSel} className="w-full bg-emerald-600 text-white hover:bg-emerald-700">Confirmar membro da célula</Button>
                 </div>
               )}
