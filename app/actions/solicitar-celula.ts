@@ -67,7 +67,7 @@ export async function solicitarCelulaAction(data: SolicitacaoData) {
     if (!celulaId) throw new Error('Selecione a célula da qual você participa.')
     const { data: celula } = await admin.from('celulas').select('id, redes!inner(igreja_id)').eq('id', celulaId).eq('redes.igreja_id', igrejaId).maybeSingle()
     if (!celula) throw new Error('Célula inválida para esta igreja.')
-    const { data: lider } = await admin.from('celula_membros').select('user_id').eq('celula_id', celulaId).in('papel', ['lider', 'lider_treinamento']).limit(1).maybeSingle()
+    const { data: lider } = await admin.from('celula_membros').select('user_id').eq('celula_id', celulaId).eq('papel', 'lider').limit(1).maybeSingle()
     liderId = lider?.user_id ?? null
     if (!liderId) throw new Error('Esta célula ainda não possui líder cadastrado.')
   }
@@ -163,3 +163,4 @@ export async function confirmarMembroCelulaAction(solicitacaoId: string) {
   if (updateError) throw new Error(updateError.message)
   revalidatePath('/solicitacoes'); revalidatePath('/celula'); revalidatePath('/pastor'); revalidatePath('/home')
 }
+
