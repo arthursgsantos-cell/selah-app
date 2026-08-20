@@ -23,6 +23,7 @@ export type SolicitacaoData = {
   conjuge_nome?: string | null
   conjuge_telefone?: string | null
   conjuge_idade?: number | null
+  celula_id?: string | null
 }
 
 export async function solicitarCelulaAction(data: SolicitacaoData) {
@@ -52,8 +53,29 @@ export async function solicitarCelulaAction(data: SolicitacaoData) {
   // estado civil.
   const casado = ehCasado(data.estado_civil)
 
+  // A member request is tied to a real cell. Prefer the user's existing
+  // membership; otherwise validate the selected cell and route only to its
+  // leaders. Anonymous/general requests remain unassigned for supervisors.
+  let celulaId: string | null = null
+  let liderId: string | null = null
+  if (data.tipo_membro === 'membro') {
+    if (user) {
+      const { data: vinculo } = await admin.from('celula_membros').select('celula_id').eq('user_id', user.id).in('papel', ['membro', 'visitante', 'lider']).limit(1).maybeSingle()
+      celulaId = vinculo?.celula_id ?? null
+    }
+    celulaId = celulaId ?? data.celula_id ?? null
+    if (!celulaId) throw new Error('Selecione a célula da qual você participa.')
+    const { data: celula } = await admin.from('celulas').select('id, redes!inner(igreja_id)').eq('id', celulaId).eq('redes.igreja_id', igrejaId).maybeSingle()
+    if (!celula) throw new Error('Célula inválida para esta igreja.')
+    const { data: lider } = await admin.from('celula_membros').select('user_id').eq('celula_id', celulaId).in('papel', ['lider', 'lider_treinamento']).limit(1).maybeSingle()
+    liderId = lider?.user_id ?? null
+    if (!liderId) throw new Error('Esta célula ainda não possui líder cadastrado.')
+  }
+
   const { error } = await admin.from('solicitacoes_celula').insert({
     ...data,
+    celula_id: celulaId,
+    lider_encaminhado_id: liderId,
     conjuge_nome: casado ? data.conjuge_nome?.trim() || null : null,
     conjuge_telefone: casado ? data.conjuge_telefone?.trim() || null : null,
     conjuge_idade: casado ? data.conjuge_idade ?? null : null,
@@ -118,25 +140,26 @@ export async function marcarAtendidoAction(solicitacaoId: string) {
 
 
 
-/** Líder confirma que a pessoa realmente pertence à célula e cria o vínculo. */
-export async function confirmarMembroCelulaAction(solicitacaoId: string, celulaId: string) {
+/** Approve a member request, scoped to its requested cell. */
+export async function confirmarMembroCelulaAction(solicitacaoId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Não autenticado')
   const admin = createAdminClient()
   const { data: perfil } = await admin.from('profiles').select('igreja_id, role').eq('id', user.id).single()
   if (!perfil) throw new Error('Perfil não encontrado')
-  const { data: celula } = await admin.from('celulas').select('id, redes(igreja_id)').eq('id', celulaId).maybeSingle()
-  const igrejaCelula = (celula as any)?.redes?.igreja_id
-  if (!celula || igrejaCelula !== perfil.igreja_id) throw new Error('Célula inválida')
-  const lideranca = ['pastor', 'admin', 'supervisor', 'supervisor_treinamento'].includes(perfil.role)
-  const { data: vinculo } = await admin.from('celula_membros').select('user_id').eq('celula_id', celulaId).eq('user_id', user.id).eq('papel', 'lider').maybeSingle()
-  if (!lideranca && !vinculo) throw new Error('Você não lidera esta célula')
-  const { data: solicitacao } = await admin.from('solicitacoes_celula').select('user_id, igreja_id, tipo_membro').eq('id', solicitacaoId).maybeSingle()
-  if (!solicitacao || solicitacao.igreja_id !== perfil.igreja_id || !solicitacao.user_id) throw new Error('Solicitação sem usuário vinculado')
+  const { data: solicitacao } = await admin.from('solicitacoes_celula').select('user_id, igreja_id, tipo_membro, celula_id, status').eq('id', solicitacaoId).maybeSingle()
+  if (!solicitacao || solicitacao.igreja_id !== perfil.igreja_id || !solicitacao.user_id || !solicitacao.celula_id) throw new Error('Solicitação sem célula ou usuário vinculado')
   if (solicitacao.tipo_membro !== 'membro') throw new Error('Esta confirmação é apenas para quem se declarou membro')
-  const { error } = await admin.from('celula_membros').upsert({ celula_id: celulaId, user_id: solicitacao.user_id, papel: 'membro' }, { onConflict: 'celula_id,user_id' })
+  if (solicitacao.status === 'atendido') throw new Error('Solicitação já atendida')
+  const privilegiado = ['pastor', 'admin', 'supervisor', 'supervisor_treinamento'].includes(perfil.role)
+  if (!privilegiado) {
+    const { data: vinculo } = await admin.from('celula_membros').select('user_id').eq('celula_id', solicitacao.celula_id).eq('user_id', user.id).in('papel', ['lider', 'lider_treinamento']).maybeSingle()
+    if (!vinculo) throw new Error('Você não lidera esta célula')
+  }
+  const { error } = await admin.from('celula_membros').upsert({ celula_id: solicitacao.celula_id, user_id: solicitacao.user_id, papel: 'membro' }, { onConflict: 'celula_id,user_id' })
   if (error) throw new Error(error.message)
-  await admin.from('solicitacoes_celula').update({ status: 'atendido' }).eq('id', solicitacaoId)
-  revalidatePath('/solicitacoes'); revalidatePath('/celula'); revalidatePath('/pastor')
+  const { error: updateError } = await admin.from('solicitacoes_celula').update({ status: 'atendido' }).eq('id', solicitacaoId).eq('igreja_id', perfil.igreja_id)
+  if (updateError) throw new Error(updateError.message)
+  revalidatePath('/solicitacoes'); revalidatePath('/celula'); revalidatePath('/pastor'); revalidatePath('/home')
 }
