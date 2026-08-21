@@ -18,7 +18,9 @@ import {
   type ArvoreDaRede, type CelulaLinhagem, type NoArvore,
 } from '@/lib/multiplicacao'
 import { batizarCelulaAction } from '@/app/actions/multiplicacao'
-import { RegistrarMultiplicacao } from '@/components/rede/registrar-multiplicacao'
+import {
+  RegistrarMultiplicacao, type CelulaParaMultiplicar,
+} from '@/components/rede/registrar-multiplicacao'
 
 interface Props {
   celulas: CelulaLinhagem[]
@@ -164,7 +166,7 @@ function LinhaNo({
   celulasDaRede,
 }: {
   no: NoArvore<CelulaLinhagem>
-  celulasDaRede: { id: string; nome: string; redeId: string; redeNome: string }[]
+  celulasDaRede: CelulaParaMultiplicar[]
 }) {
   const { celula, filhas } = no
   const raiz = no.geracao === 1
@@ -232,7 +234,7 @@ function Galho({
   no: NoArvore<CelulaLinhagem>
   guias: boolean[]
   ultimo: boolean
-  celulasDaRede: { id: string; nome: string; redeId: string; redeNome: string }[]
+  celulasDaRede: CelulaParaMultiplicar[]
 }) {
   return (
     <div>
@@ -273,7 +275,7 @@ function Soltas({
   celulasDaRede,
 }: {
   celulas: CelulaLinhagem[]
-  celulasDaRede: { id: string; nome: string; redeId: string; redeNome: string }[]
+  celulasDaRede: CelulaParaMultiplicar[]
 }) {
   const [aberto, setAberto] = useState(false)
   if (celulas.length === 0) return null
@@ -312,7 +314,7 @@ function BlocoRede({
   celulasDaRede,
 }: {
   arvore: ArvoreDaRede<CelulaLinhagem>
-  celulasDaRede: { id: string; nome: string; redeId: string; redeNome: string }[]
+  celulasDaRede: CelulaParaMultiplicar[]
 }) {
   const total = arvore.soltas.length + arvore.raizes.reduce((s, r) => s + 1 + r.descendentes, 0)
 
@@ -374,7 +376,11 @@ export function ArvoreMultiplicacao({ celulas }: Props) {
   const arvores = useMemo(() => montarArvores(celulas), [celulas])
 
   const paraDialogo = useMemo(
-    () => celulas.map((c) => ({ id: c.id, nome: c.nome, redeId: c.redeId, redeNome: c.redeNome })),
+    () =>
+      celulas.map((c) => ({
+        id: c.id, nome: c.nome, redeId: c.redeId, redeNome: c.redeNome,
+        celulaMaeId: c.celulaMaeId,
+      })),
     [celulas],
   )
 

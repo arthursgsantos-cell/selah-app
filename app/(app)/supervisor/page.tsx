@@ -300,6 +300,7 @@ export default async function SupervisorPage({
           <RegistrarMultiplicacao
             celulas={saude.celulas.map((c) => ({
               id: c.id, nome: c.nome, redeId: c.redeId, redeNome: c.redeNome,
+              celulaMaeId: c.celulaMaeId,
             }))}
           />
         </div>

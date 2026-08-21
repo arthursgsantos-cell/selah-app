@@ -4,14 +4,28 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { nomeProvisorioDe, MAX_FILHAS } from '@/lib/multiplicacao'
+import type { PessoaDaIgreja } from '@/app/actions/pessoas'
 
 const CARGOS_GESTAO = ['admin', 'pastor', 'supervisor', 'supervisor_treinamento']
 
 export interface FilhaNova {
+  /**
+   * Célula que já existe no app e passa a constar como filha desta
+   * multiplicação. Quando vem preenchido, nada é criado: a célula existente é
+   * que ganha a linhagem, porque duas fichas para a mesma célula é o estrago
+   * que este campo evita.
+   */
+  celulaExistenteId?: string | null
   /** Vazio = a célula nasce com nome provisório e a árvore passa a pedir o nome. */
   nome?: string
-  /** Quem vai liderar, quando já está definido. Texto solto, como na importação. */
-  liderNome?: string
+  /**
+   * Quem vai liderar, quando já está definido.
+   *
+   * Vem do seletor de pessoas da igreja — perfil de quem já usa o app ou ficha
+   * de quem ainda não entrou —, e não como texto solto: líder digitado à mão
+   * vira um nome que o app não reconhece em lugar nenhum.
+   */
+  lider?: PessoaDaIgreja | null
 }
 
 export interface ResultadoMultiplicacao {
@@ -72,16 +86,45 @@ export async function registrarMultiplicacaoAction(dados: {
 
   if (!mae) return { ok: false, erro: 'Célula-mãe não encontrada.' }
 
-  const linhas = filhas.map((f, i) => {
+  const existentes = filhas
+    .map((f) => f.celulaExistenteId)
+    .filter((id): id is string => !!id)
+
+  if (existentes.includes(mae.id)) {
+    return { ok: false, erro: 'Uma célula não pode ser filha de si mesma.' }
+  }
+  if (new Set(existentes).size !== existentes.length) {
+    return { ok: false, erro: 'A mesma célula foi escolhida duas vezes.' }
+  }
+
+  // Pendurar a mãe debaixo de uma descendente dela fecharia um ciclo, e a
+  // árvore passaria a se desenhar para sempre. A checagem sobe a linhagem da
+  // mãe: se a candidata está lá em cima, ela é ancestral e não pode ser filha.
+  if (existentes.length > 0) {
+    const ancestrais = await linhagemAcima(mae.id)
+    const conflito = existentes.find((id) => ancestrais.includes(id))
+    if (conflito) {
+      return { ok: false, erro: 'Essa célula já é origem desta linhagem — seria um ciclo.' }
+    }
+  }
+
+  // O id de cada filha é sorteado aqui, e não deixado para o banco: é ele que
+  // amarra a linha inserida ao líder escolhido para ela. Confiar na ordem em
+  // que o PostgREST devolve as linhas arriscaria ligar o líder na célula errada.
+  const novas = filhas.filter((f) => !f.celulaExistenteId)
+  const linhas = novas.map((f, i) => {
     const nome = (f.nome ?? '').trim()
     const semNome = nome.length === 0
     return {
+      id: crypto.randomUUID(),
       rede_id: mae.rede_id,
-      nome: semNome ? nomeProvisorioDe(mae.nome, i, filhas.length) : nome,
+      nome: semNome ? nomeProvisorioDe(mae.nome, i, novas.length) : nome,
       nome_provisorio: semNome,
       celula_mae_id: mae.id,
       multiplicada_em: dados.data,
-      lider_nome: (f.liderNome ?? '').trim() || null,
+      // O nome também vai para a coluna solta: é o que a árvore e as listas
+      // mostram antes de a pessoa criar a conta.
+      lider_nome: f.lider?.nome ?? null,
       // A filha estreia parecida com a mãe: mesma rede, mesmas cores, mesmo
       // ritmo de encontro. É o ponto de partida mais provável, e cada uma
       // muda o que quiser depois na própria página.
@@ -95,12 +138,64 @@ export async function registrarMultiplicacaoAction(dados: {
     }
   })
 
-  const { data: criadas, error } = await admin
-    .from('celulas')
-    .insert(linhas as never)
-    .select('id')
+  if (linhas.length > 0) {
+    const { error } = await admin.from('celulas').insert(linhas as never)
+    if (error) return { ok: false, erro: error.message }
+  }
 
-  if (error) return { ok: false, erro: error.message }
+  // A célula que já existia não é recriada: ela só passa a constar como filha,
+  // guardando o nome, a página e o histórico que já tinha.
+  const adotadas = filhas.filter((f) => f.celulaExistenteId)
+  for (const f of adotadas) {
+    const { error: erroAdocao } = await admin
+      .from('celulas')
+      .update({
+        celula_mae_id: mae.id,
+        multiplicada_em: dados.data,
+        // O nome do líder só é escrito quando um foi escolhido agora: apagar o
+        // que já estava lá seria perder informação por omissão.
+        ...(f.lider ? { lider_nome: f.lider.nome } : {}),
+      } as never)
+      .eq('id', f.celulaExistenteId!)
+    if (erroAdocao) return { ok: false, erro: erroAdocao.message }
+  }
+
+  // Um id por filha, na ordem em que elas foram informadas — inclusive as que
+  // já existiam, porque o líder escolhido vale para as duas situações.
+  let proximaNova = 0
+  const ids = filhas.map((f) => f.celulaExistenteId ?? linhas[proximaNova++]?.id ?? '')
+
+  // Cada líder escolhido é ligado de verdade à célula nova, do jeito que o
+  // resto do app entende: quem tem conta vira membro com papel de líder;
+  // quem ainda não tem passa a apontar para a célula na lista da igreja, e o
+  // vínculo se completa sozinho quando ela criar a conta.
+  const vinculos: PromiseLike<unknown>[] = []
+  filhas.forEach((f, i) => {
+    const lider = f.lider
+    const celulaId = ids[i]
+    if (!lider || !celulaId) return
+
+    if (lider.tipo === 'profile') {
+      vinculos.push(
+        admin
+          .from('celula_membros')
+          .upsert(
+            { celula_id: celulaId, user_id: lider.id, papel: 'lider' } as never,
+            { onConflict: 'celula_id,user_id' },
+          ),
+      )
+      return
+    }
+
+    vinculos.push(
+      admin
+        .from('membros_pre_cadastro')
+        .update({ celula_id: celulaId, updated_at: new Date().toISOString() } as never)
+        .eq('id', lider.id),
+    )
+  })
+
+  await Promise.all(vinculos)
 
   // A data-alvo da mãe já foi cumprida. Deixá-la no lugar faria a célula
   // reaparecer no alerta de multiplicação atrasada no dia seguinte.
@@ -117,7 +212,36 @@ export async function registrarMultiplicacaoAction(dados: {
   revalidatePath('/pastor')
   revalidatePath(`/rede/${mae.rede_id}`)
 
-  return { ok: true, criadas: ((criadas ?? []) as { id: string }[]).map((c) => c.id) }
+  revalidatePath('/usuarios')
+
+  return { ok: true, criadas: ids }
+}
+
+/**
+ * Os ancestrais de uma célula, da mãe para cima.
+ *
+ * Vai subindo com um teto de passos: linhagem quebrada por um ciclo antigo no
+ * banco não pode transformar a checagem num laço infinito.
+ */
+async function linhagemAcima(celulaId: string, teto = 20): Promise<string[]> {
+  const admin = createAdminClient()
+  const acima: string[] = []
+  let atual: string | null = celulaId
+
+  for (let i = 0; i < teto && atual; i++) {
+    const passo: { data: { celula_mae_id: string | null } | null } = await admin
+      .from('celulas')
+      .select('celula_mae_id')
+      .eq('id', atual)
+      .maybeSingle()
+
+    const mae: string | null = passo.data?.celula_mae_id ?? null
+    if (!mae || acima.includes(mae)) break
+    acima.push(mae)
+    atual = mae
+  }
+
+  return acima
 }
 
 /**
