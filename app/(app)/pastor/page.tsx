@@ -87,7 +87,6 @@ export default async function PastorPage({
     { data: solicitacoesData },
     { data: lideresData },
     { data: fotosData },
-    { data: encontroFotosData },
     { data: importacoesData },
     { data: pedidosData },
     { data: campanhasData },
@@ -122,13 +121,6 @@ export default async function PastorPage({
       .eq('igreja_id', profile.igreja_id)
       .order('criado_em', { ascending: false })
       .limit(60),
-    admin
-      .from('encontros')
-      .select('card_imagem_url, data_hora')
-      .eq('igreja_id', profile.igreja_id)
-      .not('card_imagem_url', 'is', null)
-      .order('data_hora', { ascending: false })
-      .limit(40),
     admin
       .from('importacoes')
       .select('tipo, chave, arquivo_nome, grupo_origem, status, motivo, importado_em')
@@ -489,7 +481,6 @@ export default async function PastorPage({
                   celula: f.celulas?.nome ?? null,
                   rede: f.celulas?.redes?.nome ?? null,
                 }))}
-                fotosEncontro={(encontroFotosData ?? []).filter((e) => e.card_imagem_url).map((e) => ({ url: e.card_imagem_url!, criado_em: e.data_hora }))}
               />
             ),
           },

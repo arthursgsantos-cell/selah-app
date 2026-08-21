@@ -35,6 +35,14 @@ import { HomePalco } from '@/components/home/home-palco'
 import { HomeIcones, type CartaoVida } from '@/components/home/home-icones'
 import { ConviteLayoutHome } from '@/components/home/convite-layout-home'
 import { pendenciasDoPerfil } from '@/lib/perfil-pendencias'
+import { RodapeIgreja } from '@/components/home/rodape-igreja'
+
+/** Atalhos do rodapé para quem já entrou — iguais nas duas homes. */
+const LINKS_RODAPE_MEMBRO = [
+  { href: '/celula', label: 'Minha célula' },
+  { href: '/eventos', label: 'Eventos' },
+  { href: '/perfil', label: 'Meu perfil' },
+]
 
 const roleLabels: Record<Role, string> = {
   admin: 'Admin',
@@ -104,7 +112,7 @@ export default async function HomePage() {
     ? await admin.from('celulas').select('id, nome, redes!inner(igreja_id)').eq('redes.igreja_id', igrejaId).order('nome')
     : { data: [] }
 
-  const [{ data: eventos }, { data: profilesIgreja }, { data: ultimosEncontrosCelula }, { data: ultimosEventosPast }, { data: pastorProfiles }, { data: fotosComunidade }, { data: encontroFotos }, { data: destaquesData }] = await Promise.all([
+  const [{ data: eventos }, { data: profilesIgreja }, { data: ultimosEncontrosCelula }, { data: ultimosEventosPast }, { data: pastorProfiles }, { data: fotosComunidade }, { data: destaquesData }] = await Promise.all([
     // Estas quatro consultas rodam também para o visitante não logado, que é
     // quem vê a home pública. Vão pela service role de propósito: o que a
     // página publica para quem não entrou é decisão do servidor, e não de uma
@@ -149,9 +157,6 @@ export default async function HomePage() {
       : Promise.resolve({ data: [] }),
     igrejaId
       ? admin.from('fotos_comunidade').select('url, criado_em, celulas(nome, redes(nome))').eq('igreja_id', igrejaId).order('criado_em', { ascending: false }).limit(200)
-      : Promise.resolve({ data: [] }),
-    igrejaId
-      ? admin.from('encontros').select('card_imagem_url, data_hora').eq('igreja_id', igrejaId).not('card_imagem_url', 'is', null).order('data_hora', { ascending: false }).limit(20)
       : Promise.resolve({ data: [] }),
     // Destaques: escolhidos à mão na página do evento. Evento que já passou
     // sai sozinho pelo filtro de data, sem ninguém precisar desmarcar.
@@ -311,17 +316,24 @@ export default async function HomePage() {
     ? diasAteAnivHome(profile.data_nascimento_1) === 0
     : false
 
-  // Merge community photos + encontro cover photos, dedupe, sort newest first
+  /**
+   * As fotos da comunidade — só fotos.
+   *
+   * Aqui também entrava o card do encontro (`encontros.card_imagem_url`), que
+   * é arte de divulgação, não retrato de ninguém: no meio das fotos da igreja
+   * virava cartaz solto, e na cascata do fundo era o pior dos dois mundos,
+   * porque um card cheio de texto por trás da página não se lê nem sai da
+   * frente. O card continua onde é dele — na página do encontro, no histórico
+   * e no cartão do próximo encontro.
+   */
   type GalleryItem = { src: string; date: string; celula?: string | null; rede?: string | null }
-  const galleryItems: GalleryItem[] = [
-    ...(fotosComunidade ?? []).map((f: any) => ({
+  const galleryItems: GalleryItem[] = (fotosComunidade ?? [])
+    .map((f: any) => ({
       src: f.url as string,
       date: f.criado_em as string,
       celula: f.celulas?.nome ?? null,
       rede: f.celulas?.redes?.nome ?? null,
-    })),
-    ...(encontroFotos ?? []).filter((e: any) => e.card_imagem_url).map((e: any) => ({ src: e.card_imagem_url as string, date: e.data_hora as string })),
-  ]
+    }))
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 200)
 
@@ -343,10 +355,6 @@ export default async function HomePage() {
   const hora = new Date().getHours()
   const saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite'
 
-  const igSvg = <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
-  const fbSvg = <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-  const ytSvg = <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
-  const spSvg = <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.56 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
 
   // Card da transmissão só existe quando a liderança marcou que está no ar.
   const aoVivo = church?.ao_vivo_ativo && church?.ao_vivo_url
@@ -433,7 +441,7 @@ export default async function HomePage() {
   if (!profile) {
     // ── GUEST / PUBLIC VIEW ──────────────────────────────────────────
     return (
-      <div className="space-y-4 max-w-2xl mx-auto pb-8">
+      <div className="space-y-4 max-w-2xl mx-auto">
         {/* Mesmo fundo personalizado (cor/gradiente/nébula) da home de quem
             está logado. Sem `canEdit`: visitante nunca vê o botão de editar,
             só o resultado. Galeria da comunidade fica de fora — reservada
@@ -613,86 +621,16 @@ export default async function HomePage() {
 
 
         {/* Rodapé */}
-        <footer className="-mx-4 -mb-4 md:-mx-6 md:-mb-6 bg-[#0B2447] text-white px-6 pt-8 pb-10 rounded-t-3xl mt-2">
-          {/* Logo + nome */}
-          <div className="flex items-center gap-3 mb-5">
-            {church?.logo_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={church.logo_url} alt={church?.nome ?? ''} className="h-10 w-10 rounded-xl bg-white p-1.5 object-contain shrink-0" />
-            ) : (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src="/logo.png" alt="Logo" className="h-10 w-10 rounded-xl bg-white p-1.5 object-contain shrink-0" />
-            )}
-            <div>
-              <p className="font-bold text-base leading-tight">{church?.nome ?? 'Igreja Batista Zona Sul'}</p>
-              {church?.descricao && (
-                <p className="text-xs text-blue-200/70 mt-0.5 line-clamp-1">{church.descricao}</p>
-              )}
-            </div>
-          </div>
-
-          {/* Endereço e horários */}
-          <div className="space-y-2 mb-5">
-            {church?.endereco && (
-              <div className="flex items-start gap-2 text-xs text-blue-100/80">
-                <MapPin className="h-3.5 w-3.5 mt-0.5 shrink-0 text-blue-300" />
-                <span>{church.endereco}</span>
-              </div>
-            )}
-            {church?.horario_culto && (
-              <div className="flex items-start gap-2 text-xs text-blue-100/80">
-                <CalendarDays className="h-3.5 w-3.5 mt-0.5 shrink-0 text-blue-300" />
-                <span>{church.horario_culto}</span>
-              </div>
-            )}
-          </div>
-
-          {/* Redes sociais */}
-          {(church?.instagram_url || church?.facebook_url || church?.youtube_url || church?.spotify_url) && (
-            <div className="flex flex-wrap gap-2 mb-6">
-              {church?.instagram_url && (
-                <a href={church.instagram_url} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-white text-xs font-semibold hover:opacity-90 transition-opacity"
-                  style={{ background: 'linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)' }}>
-                  {igSvg} Instagram
-                </a>
-              )}
-              {church?.facebook_url && (
-                <a href={church.facebook_url} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#1877F2] text-white text-xs font-semibold hover:opacity-90 transition-opacity">
-                  {fbSvg} Facebook
-                </a>
-              )}
-              {church?.youtube_url && (
-                <a href={church.youtube_url} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#FF0000] text-white text-xs font-semibold hover:opacity-90 transition-opacity">
-                  {ytSvg} YouTube
-                </a>
-              )}
-              {church?.spotify_url && (
-                <a href={church.spotify_url} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#1DB954] text-white text-xs font-semibold hover:opacity-90 transition-opacity">
-                  {spSvg} Mensagens
-                </a>
-              )}
-            </div>
-          )}
-
-          {/* Links rápidos */}
-          <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-blue-200/70 border-t border-white/10 pt-5 mb-4">
-            <Link href="/login" className="hover:text-white transition-colors">Entrar</Link>
-            <Link href="/cadastro" className="hover:text-white transition-colors">Criar conta</Link>
-            <Link href="/eventos" className="hover:text-white transition-colors">Eventos</Link>
-            {contribuicaoNoAr && (
-              <Link href="/contribuir" className="hover:text-white transition-colors">Dízimos e ofertas</Link>
-            )}
-          </div>
-
-          {/* Copyright */}
-          <p className="text-[10px] text-blue-200/40">
-            © {new Date().getFullYear()} {church?.nome ?? 'Igreja Batista Zona Sul'} · Todos os direitos reservados
-          </p>
-        </footer>
+        <RodapeIgreja
+          igreja={church}
+          className="-mx-4 md:-mx-6"
+          links={[
+            { href: '/login', label: 'Entrar' },
+            { href: '/cadastro', label: 'Criar conta' },
+            { href: '/eventos', label: 'Eventos' },
+            ...(contribuicaoNoAr ? [{ href: '/contribuir', label: 'Dízimos e ofertas' }] : []),
+          ]}
+        />
 
       </div>
     )
@@ -787,6 +725,13 @@ export default async function HomePage() {
           eventosProximos={(eventos ?? []).length}
           destaques={destaques}
           vida={vida}
+          rodape={
+            <RodapeIgreja
+              igreja={church}
+              className="-mx-4 md:-mx-6"
+              links={LINKS_RODAPE_MEMBRO}
+            />
+          }
         />
       </HomePalco>
     )
@@ -1183,7 +1128,7 @@ export default async function HomePage() {
   )
 
   return (
-    <HomePalco modo="landing" className="space-y-6 max-w-2xl mx-auto pb-6">
+    <HomePalco modo="landing" className="space-y-6 max-w-2xl mx-auto">
       {/* Uma vez só, para quem nunca escolheu: as duas homes lado a lado. */}
       {mostrarConviteLayout && <ConviteLayoutHome primeiroNome={primeiroNome} />}
 
@@ -1375,84 +1320,11 @@ export default async function HomePage() {
       )}
 
       {/* Rodapé */}
-      <footer className="-mx-4 -mb-6 md:-mx-6 bg-[#0B2447] text-white px-6 pt-8 pb-10 rounded-t-3xl mt-2">
-        {/* Logo + nome */}
-        <div className="flex items-center gap-3 mb-5">
-          {church?.logo_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={church.logo_url} alt={church?.nome ?? ''} className="h-10 w-10 rounded-xl bg-white p-1.5 object-contain shrink-0" />
-          ) : (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src="/logo.png" alt="Logo" className="h-10 w-10 rounded-xl bg-white p-1.5 object-contain shrink-0" />
-          )}
-          <div>
-            <p className="font-bold text-base leading-tight">{church?.nome ?? 'Igreja Batista Zona Sul'}</p>
-            {church?.descricao && (
-              <p className="text-xs text-blue-200/70 mt-0.5 line-clamp-1">{church.descricao}</p>
-            )}
-          </div>
-        </div>
-
-        {/* Endereço e horários */}
-        <div className="space-y-2 mb-5">
-          {church?.endereco && (
-            <div className="flex items-start gap-2 text-xs text-blue-100/80">
-              <MapPin className="h-3.5 w-3.5 mt-0.5 shrink-0 text-blue-300" />
-              <span>{church.endereco}</span>
-            </div>
-          )}
-          {church?.horario_culto && (
-            <div className="flex items-start gap-2 text-xs text-blue-100/80">
-              <CalendarDays className="h-3.5 w-3.5 mt-0.5 shrink-0 text-blue-300" />
-              <span>{church.horario_culto}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Redes sociais. `flex-wrap` porque com quatro botões a linha estoura
-            na largura de celular — sem ele o último fica cortado fora da tela. */}
-        {(church?.instagram_url || church?.facebook_url || church?.youtube_url || church?.spotify_url) && (
-          <div className="flex flex-wrap gap-2 mb-6">
-            {church?.instagram_url && (
-              <a href={church.instagram_url} target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-white text-xs font-semibold hover:opacity-90 transition-opacity"
-                style={{ background: 'linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)' }}>
-                {igSvg} Instagram
-              </a>
-            )}
-            {church?.facebook_url && (
-              <a href={church.facebook_url} target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#1877F2] text-white text-xs font-semibold hover:opacity-90 transition-opacity">
-                {fbSvg} Facebook
-              </a>
-            )}
-            {church?.youtube_url && (
-              <a href={church.youtube_url} target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#FF0000] text-white text-xs font-semibold hover:opacity-90 transition-opacity">
-                {ytSvg} YouTube
-              </a>
-            )}
-            {church?.spotify_url && (
-              <a href={church.spotify_url} target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#1DB954] text-white text-xs font-semibold hover:opacity-90 transition-opacity">
-                {spSvg} Mensagens
-              </a>
-            )}
-          </div>
-        )}
-
-        {/* Links rápidos — versão para membros logados */}
-        <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-blue-200/70 border-t border-white/10 pt-5 mb-4">
-          <Link href="/celula" className="hover:text-white transition-colors">Minha célula</Link>
-          <Link href="/eventos" className="hover:text-white transition-colors">Eventos</Link>
-          <Link href="/perfil" className="hover:text-white transition-colors">Meu perfil</Link>
-        </div>
-
-        {/* Copyright */}
-        <p className="text-[10px] text-blue-200/40">
-          © {new Date().getFullYear()} {church?.nome ?? 'Igreja Batista Zona Sul'} · Todos os direitos reservados
-        </p>
-      </footer>
+      <RodapeIgreja
+        igreja={church}
+        className="-mx-4 md:-mx-6"
+        links={LINKS_RODAPE_MEMBRO}
+      />
 
     </HomePalco>
   )

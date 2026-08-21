@@ -8,16 +8,19 @@ import { Button } from '@/components/ui/button'
 import { ChevronRight, ImagePlus, Images, X, Loader2 } from 'lucide-react'
 
 type FotoGaleria = { id: string; url: string; criado_em: string; celula?: string | null; rede?: string | null }
-type FotoEncontro = { url: string; criado_em: string }
-
 interface Props {
   fotosInit: FotoGaleria[]
-  fotosEncontro?: FotoEncontro[]
 }
 
-type ItemGrid =
-  | { tipo: 'galeria'; id: string; url: string; criado_em: string; celula?: string | null; rede?: string | null }
-  | { tipo: 'encontro'; url: string; criado_em: string }
+/**
+ * Só foto que alguém subiu.
+ *
+ * O card do encontro entrava aqui junto com as fotos. É arte de divulgação, e
+ * no mural da comunidade lia como cartaz no meio do álbum — além de não poder
+ * ser apagado por este painel, o que fazia metade das imagens não ter o botão
+ * de excluir. Ver `components/celula/galeria-celula-tab.tsx`.
+ */
+type ItemGrid = { id: string; url: string; criado_em: string; celula?: string | null; rede?: string | null }
 
 async function comprimirImagem(file: File, maxPx = 1200, quality = 0.82): Promise<File> {
   return new Promise((resolve, reject) => {
@@ -42,7 +45,7 @@ async function comprimirImagem(file: File, maxPx = 1200, quality = 0.82): Promis
   })
 }
 
-export function GaleriaComunidadeSection({ fotosInit, fotosEncontro = [] }: Props) {
+export function GaleriaComunidadeSection({ fotosInit }: Props) {
   const [fotos, setFotos] = useState<FotoGaleria[]>(fotosInit)
   const [uploading, setUploading] = useState(false)
   const [progresso, setProgresso] = useState<{ preview: string; done: boolean }[]>([])
@@ -89,11 +92,10 @@ export function GaleriaComunidadeSection({ fotosInit, fotosEncontro = [] }: Prop
     }
   }
 
-  // Mescla fotos da galeria + fotos de encontros, ordena pela mais recente
-  const grid: ItemGrid[] = [
-    ...fotos.map((f): ItemGrid => ({ tipo: 'galeria', ...f })),
-    ...fotosEncontro.map((f): ItemGrid => ({ tipo: 'encontro', ...f })),
-  ].sort((a, b) => new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime())
+  // Mais recentes primeiro.
+  const grid: ItemGrid[] = [...fotos].sort(
+    (a, b) => new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime()
+  )
 
   // O painel é um resumo: seis fotos dão o pulso da semana sem virar um mural
   // de rolagem infinita. O acervo inteiro, separado por rede e célula, fica em
@@ -153,7 +155,7 @@ export function GaleriaComunidadeSection({ fotosInit, fotosEncontro = [] }: Prop
             </div>
           ))}
           {visiveis.map((item, i) => (
-            <div key={item.tipo === 'galeria' ? item.id : `enc-${i}`} className="relative aspect-square rounded-xl overflow-hidden group">
+            <div key={item.id} className="relative aspect-square rounded-xl overflow-hidden group">
               <button
                 type="button"
                 onClick={() => setAmpliada(i)}
@@ -167,15 +169,13 @@ export function GaleriaComunidadeSection({ fotosInit, fotosEncontro = [] }: Prop
                   className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
                 />
               </button>
-              {item.tipo === 'galeria' && (
-                <button
+              <button
                   type="button"
                   onClick={() => handleDelete(item)}
                   className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
-              )}
             </div>
           ))}
         </div>
@@ -199,8 +199,8 @@ export function GaleriaComunidadeSection({ fotosInit, fotosEncontro = [] }: Prop
       <Lightbox
         fotos={visiveis.map((item) => ({
           url: item.url,
-          celula: item.tipo === 'galeria' ? item.celula : null,
-          rede: item.tipo === 'galeria' ? item.rede : null,
+          celula: item.celula ?? null,
+          rede: item.rede ?? null,
           data: item.criado_em,
         }))}
         indice={ampliada}

@@ -143,6 +143,19 @@
      Fora do iPhone os valores são 0 e nada muda. */
   .pt-safe { padding-top: env(safe-area-inset-top); }
   .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+  /* O rodapé da home encosta no fim da tela.
+     O `<main>` reserva um respiro embaixo (1rem, 1.5rem no desktop, mais a
+     barra de gestos do aparelho); sem cancelar isso, a faixa escura do rodapé
+     parava antes da borda e sobrava um risco branco embaixo dela — que lê como
+     defeito, não como espaçamento. O mesmo espaço volta como padding do
+     próprio rodapé, senão o texto ficaria por baixo da barra de gestos. */
+  .rodape-ate-o-fim {
+    margin-bottom: calc(-1rem - env(safe-area-inset-bottom));
+    padding-bottom: calc(2.5rem + env(safe-area-inset-bottom));
+  }
+  @media (min-width: 768px) {
+    .rodape-ate-o-fim { margin-bottom: calc(-1.5rem - env(safe-area-inset-bottom)); }
+  }
   .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;

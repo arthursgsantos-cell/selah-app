@@ -28,6 +28,14 @@ interface Props extends ContextoAtalhos {
   destaques: EventoDestaque[]
   /** O que está por acontecer: encontro da célula, próximo evento, aniversário. */
   vida: CartaoVida[]
+  /**
+   * O rodapé da igreja, montado no servidor pela página.
+   *
+   * Chega pronto em vez de por um punhado de campos porque é o mesmo
+   * `RodapeIgreja` das outras duas homes — quem sabe o que a igreja tem
+   * cadastrado é a página, e não esta grade.
+   */
+  rodape?: React.ReactNode
 }
 
 /**
@@ -45,13 +53,13 @@ interface Props extends ContextoAtalhos {
  */
 export function HomeIcones({
   igrejaNome, logoUrl, cor, primeiroNome, iniciais, avatarUrl, saudacao, papel,
-  destaques, vida, ...contexto
+  destaques, vida, rodape, ...contexto
 }: Props) {
   const atalhos = montarAtalhos(contexto)
   const corBase = cor?.trim() || '#0F52BA'
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 pb-4">
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-5">
       {/* Identidade — logo, nome da igreja e a saudação de quem entrou.
           Compacto de propósito: o assunto desta tela é a grade abaixo. */}
       <header
@@ -163,6 +171,12 @@ export function HomeIcones({
       {/* A saída. No fim da página, e não boiando num canto da tela: é decisão
           que se toma depois de olhar a grade, não durante. */}
       <TrocarLayoutHome destino="landing" />
+
+      {/* O rodapé fecha a página aqui como fecha a Home completa: endereço,
+          horário de culto e redes não deixam de existir porque a pessoa
+          escolheu ver a home em grade — é onde se procura o endereço da
+          igreja para mandar a alguém. */}
+      {rodape}
     </div>
   )
 }

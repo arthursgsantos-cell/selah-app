@@ -419,11 +419,6 @@ export function CelulaTabs({
   // Birthdays always computed from all members (not filtered)
   const familias = buildFamilias(membros, dependentes)
 
-  // Gallery: encontros with cover images for GaleriaCelulaTab
-  const encontroFotos = encontros
-    .filter((e) => e.card_imagem_url)
-    .map((e) => ({ id: e.id, url: e.card_imagem_url!, data_hora: e.data_hora }))
-
   const triggerCls = "rounded-none px-3 pb-2.5 pt-1 text-sm font-medium data-active:text-primary data-active:after:bg-primary"
 
   return (
@@ -608,7 +603,6 @@ export function CelulaTabs({
           fotosInit={fotosInit}
           celulaNome={celulaNome}
           redeNome={redeNome}
-          encontroFotos={encontroFotos}
           canUpload={canUpload}
         />
       </TabsContent>

@@ -64,7 +64,6 @@ export default async function RedeDetalhesPage({ params }: { params: { id: strin
     { data: supData },
     { data: eventosRedeData },
     { data: fotosData },
-    { data: encontrosComCapa },
   ] = await Promise.all([
     celulaIds.length > 0
       ? admin.from('celula_membros').select('celula_id, user_id, papel').in('celula_id', celulaIds)
@@ -82,11 +81,6 @@ export default async function RedeDetalhesPage({ params }: { params: { id: strin
     celulaIds.length > 0
       ? admin.from('fotos_comunidade').select('url, criado_em, celulas(nome)')
           .in('celula_id', celulaIds).order('criado_em', { ascending: false }).limit(30)
-      : Promise.resolve({ data: [] }),
-    celulaIds.length > 0
-      ? admin.from('encontros').select('card_imagem_url, data_hora')
-          .in('celula_id', celulaIds).not('card_imagem_url', 'is', null)
-          .order('data_hora', { ascending: false }).limit(20)
       : Promise.resolve({ data: [] }),
   ])
 
@@ -143,11 +137,12 @@ export default async function RedeDetalhesPage({ params }: { params: { id: strin
   const encontrosEstaSemana = encontros.filter((e) => isThisWeek(new Date(e.data_hora), { locale: ptBR })).length
   const totalMembros = membros.length
 
-  // Galeria: fotos da comunidade + capas de encontros das células desta rede
+  // Galeria: fotos das células desta rede. Sem os cards dos encontros — arte
+  // de divulgação não é foto de ninguém, e no meio da galeria virava cartaz
+  // solto. O card segue na página do encontro, que é onde ele diz alguma coisa.
   type GalleryPhoto = { src: string; date: string; celula?: string | null }
   const galleryPhotos: GalleryPhoto[] = [
     ...(fotosData ?? []).map((f: any) => ({ src: f.url as string, date: f.criado_em as string, celula: f.celulas?.nome ?? null })),
-    ...(encontrosComCapa ?? []).filter((e: any) => e.card_imagem_url).map((e: any) => ({ src: e.card_imagem_url as string, date: e.data_hora as string, celula: null })),
   ]
     .filter((item, idx, arr) => arr.findIndex((x) => x.src === item.src) === idx)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())

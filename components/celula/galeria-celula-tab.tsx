@@ -4,21 +4,24 @@ import { useState, useRef, useCallback } from 'react'
 import { uploadFotoCelulaAction, deleteFotoCelulaAction } from '@/app/actions/fotos-comunidade'
 import { Button } from '@/components/ui/button'
 import { Heart, ImagePlus, Images, Loader2, X } from 'lucide-react'
-import { format } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
 import { Lightbox } from '@/components/shared/lightbox'
 
 type UploadedPhoto = { id: string; url: string; criado_em?: string | null }
-type EncontroPhoto = { id: string; url: string; data_hora: string }
 
-type GalleryItem =
-  | { kind: 'upload'; id: string; url: string; label?: undefined; data?: string | null }
-  | { kind: 'encontro'; id: string; url: string; label: string; data?: string | null }
+/**
+ * Só foto que alguém subiu.
+ *
+ * A galeria também mostrava o card do encontro (`encontros.card_imagem_url`).
+ * Card é arte de divulgação — data, tema e um monte de texto —, e no meio das
+ * fotos da célula ele lê como cartaz colado no álbum de retrato. Continua
+ * aparecendo na página do encontro e na lista de encontros, que é onde ele
+ * serve para alguma coisa.
+ */
+type GalleryItem = { id: string; url: string; data?: string | null }
 
 interface Props {
   celulaId: string
   fotosInit: UploadedPhoto[]
-  encontroFotos: EncontroPhoto[]
   canUpload?: boolean
   celulaNome?: string | null
   redeNome?: string | null
@@ -49,7 +52,7 @@ async function comprimirImagem(file: File, maxPx = 1200, quality = 0.82): Promis
   })
 }
 
-export function GaleriaCelulaTab({ celulaId, fotosInit, encontroFotos, canUpload = false, celulaNome = null, redeNome = null }: Props) {
+export function GaleriaCelulaTab({ celulaId, fotosInit, canUpload = false, celulaNome = null, redeNome = null }: Props) {
   const [fotosUpload, setFotosUpload] = useState<UploadedPhoto[]>(fotosInit)
   const [previews, setPreviews] = useState<string[]>([])
   const [isUploading, setIsUploading] = useState(false)
@@ -57,16 +60,11 @@ export function GaleriaCelulaTab({ celulaId, fotosInit, encontroFotos, canUpload
   const [liked, setLiked] = useState<Set<string>>(new Set())
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const allItems: GalleryItem[] = [
-    ...fotosUpload.map((f): GalleryItem => ({ kind: 'upload', id: f.id, url: f.url, data: f.criado_em ?? null })),
-    ...encontroFotos.map((e): GalleryItem => ({
-      kind: 'encontro',
-      id: e.id,
-      url: e.url,
-      data: e.data_hora,
-      label: format(new Date(e.data_hora), "d 'de' MMM", { locale: ptBR }),
-    })),
-  ]
+  const allItems: GalleryItem[] = fotosUpload.map((f) => ({
+    id: f.id,
+    url: f.url,
+    data: f.criado_em ?? null,
+  }))
 
   const isEmpty = allItems.length === 0 && previews.length === 0
   // Teclado, trava de scroll e navegação agora vivem no <Lightbox>; manter
@@ -139,7 +137,7 @@ export function GaleriaCelulaTab({ celulaId, fotosInit, encontroFotos, canUpload
         <div className="py-10 text-center">
           <Images className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
           <p className="text-sm text-muted-foreground">Nenhuma foto ainda</p>
-          <p className="text-xs text-muted-foreground mt-1">As capas dos encontros e fotos adicionadas aparecem aqui</p>
+          <p className="text-xs text-muted-foreground mt-1">As fotos que a célula adicionar aparecem aqui</p>
           {canUpload && (
             <button
               type="button"
@@ -168,7 +166,7 @@ export function GaleriaCelulaTab({ celulaId, fotosInit, encontroFotos, canUpload
 
           {/* Gallery items */}
           {allItems.map((item, idx) => (
-            <div key={item.kind + item.id} className="relative aspect-square rounded-xl overflow-hidden group">
+            <div key={item.id} className="relative aspect-square rounded-xl overflow-hidden group">
               <button
                 type="button"
                 className="block w-full h-full"
@@ -181,15 +179,10 @@ export function GaleriaCelulaTab({ celulaId, fotosInit, encontroFotos, canUpload
                   className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-200"
                 />
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-colors rounded-xl" />
-                {item.kind === 'encontro' && (
-                  <div className="absolute bottom-0 left-0 right-0 px-2 py-1.5 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-                    <p className="text-[10px] text-white font-medium capitalize">{item.label}</p>
-                  </div>
-                )}
               </button>
 
               {/* Delete button (upload only) */}
-              {item.kind === 'upload' && canUpload && (
+              {canUpload && (
                 <button
                   type="button"
                   onClick={() => handleDelete(item.id, item.url)}
