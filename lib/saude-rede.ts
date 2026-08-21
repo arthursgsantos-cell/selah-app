@@ -49,6 +49,7 @@ export interface CelulaSaude {
   ultimaSupervisao: string | null
   diasSemSupervisao: number | null
   multiplicacaoPrevista: string | null
+  celulaMaeId: string | null
   /** Nunca registrou, ou parou de registrar há mais de `SEMANAS_ALERTA`. */
   inatingivel: boolean
 }
@@ -106,6 +107,7 @@ type CelulaRow = {
   rede_id: string
   lider_nome: string | null
   multiplicacao_prevista: string | null
+  celula_mae_id: string | null
 }
 
 type RedeRow = { id: string; nome: string; cor: string | null }
@@ -130,7 +132,7 @@ export async function carregarSaudeRede(
   const [{ data: celulasData }, { data: redesData }] = await Promise.all([
     admin
       .from('celulas')
-      .select('id, nome, rede_id, lider_nome, multiplicacao_prevista')
+      .select('id, nome, rede_id, lider_nome, celula_mae_id, multiplicacao_prevista')
       .in('rede_id', redeIds)
       .neq('ativa', false),
     admin.from('redes').select('id, nome, cor').in('id', redeIds),
@@ -206,6 +208,7 @@ export async function carregarSaudeRede(
       ultimaSupervisao,
       diasSemSupervisao,
       multiplicacaoPrevista: c.multiplicacao_prevista,
+      celulaMaeId: c.celula_mae_id ?? null,
       // Nunca registrou também é alerta: é o líder que nunca começou.
       inatingivel: semanasSemRegistro === null || semanasSemRegistro >= SEMANAS_ALERTA,
     }
@@ -370,3 +373,4 @@ export function rotuloPeriodo(inicio: string, granularidade: Granularidade): str
   }
   return `${d.getDate()}/${d.getMonth() + 1}`
 }
+
