@@ -12,6 +12,7 @@ import { ptBR } from 'date-fns/locale'
 import type { CelulaSaude } from '@/lib/saude-rede'
 
 interface Props {
+  celulas: CelulaSaude[]
   inatingiveis: CelulaSaude[]
   semSupervisao: CelulaSaude[]
   multiplicandoEmBreve: CelulaSaude[]
@@ -94,6 +95,7 @@ function LinhaCelula({
  * mais de uma.
  */
 export function SaudeAlertas({
+  celulas,
   inatingiveis,
   semSupervisao,
   multiplicandoEmBreve,
@@ -104,22 +106,22 @@ export function SaudeAlertas({
   const abas = useMemo(
     () => [
       {
-        chave: 'registro' as const,
-        rotulo: 'Sem registro',
-        icone: <AlertTriangle className="h-4 w-4 text-red-500" />,
-        celulas: inatingiveis,
-        urgente: true,
-        ajuda: 'Não quer dizer que a célula parou — quer dizer que ninguém sabe.',
-        vazio: `As ${totalCelulas} células registraram encontro recente.`,
-        detalhe: silencio,
+        chave: 'multiplicacao' as const,
+        rotulo: 'Multiplicação',
+        icone: <GitBranch className="h-4 w-4 text-red-500" />,
+        celulas: multiplicandoEmBreve,
+        urgente: false,
+        ajuda: 'Células com multiplicação prevista nos próximos 90 dias ou já vencida.',
+        vazio: 'Nenhuma multiplicação prevista para os próximos 90 dias.',
+        detalhe: (c: CelulaSaude) => c.multiplicacaoPrevista ? `prevista para ${format(new Date(`${c.multiplicacaoPrevista}T12:00:00`), "d 'de' MMMM", { locale: ptBR })}` : 'sem data definida',
       },
       {
         chave: 'supervisao' as const,
-        rotulo: 'Sem supervisão',
+        rotulo: 'Supervisão atrasada',
         icone: <UserCheck className="h-4 w-4 text-amber-500" />,
         celulas: semSupervisao,
         urgente: false,
-        ajuda: 'Faz tempo demais que ninguém senta com estes líderes.',
+        ajuda: 'Sem reunião de supervisão registrada há 60 dias ou mais.',
         vazio: 'Nenhuma célula esperando supervisão.',
         detalhe: (c: CelulaSaude) =>
           c.diasSemSupervisao === null
@@ -127,19 +129,14 @@ export function SaudeAlertas({
             : `há ${c.diasSemSupervisao} dias`,
       },
       {
-        chave: 'multiplicacao' as const,
-        rotulo: 'Multiplicação',
-        icone: <GitBranch className="h-4 w-4 text-primary" />,
-        celulas: multiplicandoEmBreve,
-        urgente: false,
-        ajuda: 'Data-alvo combinada chegando ou já vencida.',
-        vazio: 'Nenhuma multiplicação prevista para os próximos 90 dias.',
-        detalhe: (c: CelulaSaude) => {
-          const data = c.multiplicacaoPrevista!
-          const vencida = data < hoje
-          const quando = format(new Date(`${data}T12:00:00`), "d 'de' MMMM", { locale: ptBR })
-          return `${vencida ? `prevista para ${quando} — já passou` : `prevista ${quando}`}`
-        },
+        chave: 'registro' as const,
+        rotulo: 'Registro atrasado',
+        icone: <AlertTriangle className="h-4 w-4 text-red-500" />,
+        celulas: inatingiveis,
+        urgente: true,
+        ajuda: `Sem encontro registrado há ${3} semanas ou mais — ou nunca registraram.`,
+        vazio: `As ${totalCelulas} células têm registro recente.`,
+        detalhe: silencio,
       },
     ],
     [inatingiveis, semSupervisao, multiplicandoEmBreve, totalCelulas, hoje]
@@ -232,6 +229,18 @@ export function SaudeAlertas({
                 </span>
               </p>
 
+              {aba.chave === 'multiplicacao' && (
+                <div className="mb-3 rounded-xl border border-primary/15 bg-primary/5 p-3">
+                  <p className="mb-2 text-xs font-semibold">Árvore de multiplicação</p>
+                  <div className="space-y-1">
+                    {celulas.filter((c) => c.celulaMaeId || c.multiplicacaoPrevista).map((c) => {
+                      const mae = celulas.find((m) => m.id === c.celulaMaeId)
+                      return <div key={`arvore-${c.id}`} className="flex items-center gap-1 text-xs"><span className="text-muted-foreground">{mae ? `${mae.nome} →` : 'Origem →'}</span><Link href={`/celula/${c.id}`} className="font-medium text-primary hover:underline">{c.nome}</Link></div>
+                    })}
+                  </div>
+                </div>
+              )}
+
               {visiveis.map((c) => (
                 <LinhaCelula
                   key={c.id}
@@ -280,3 +289,4 @@ export function SaudeAlertas({
     </Card>
   )
 }
+
