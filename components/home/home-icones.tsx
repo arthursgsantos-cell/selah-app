@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { ArrowUpRight, Cake, CalendarDays, ChevronRight, ChurchIcon, MapPin } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { EventosDestaque, type EventoDestaque } from '@/components/home/eventos-destaque'
 import { montarAtalhos, type Atalho, type ContextoAtalhos } from '@/lib/home-atalhos'
 import { TrocarLayoutHome } from '@/components/home/trocar-layout-home'
 
@@ -23,6 +24,8 @@ interface Props extends ContextoAtalhos {
   avatarUrl: string | null
   saudacao: string
   papel: string
+  /** O carrossel de destaques — o mesmo da Home completa. */
+  destaques: EventoDestaque[]
   /** O que está por acontecer: encontro da célula, próximo evento, aniversário. */
   vida: CartaoVida[]
 }
@@ -42,7 +45,7 @@ interface Props extends ContextoAtalhos {
  */
 export function HomeIcones({
   igrejaNome, logoUrl, cor, primeiroNome, iniciais, avatarUrl, saudacao, papel,
-  vida, ...contexto
+  destaques, vida, ...contexto
 }: Props) {
   const atalhos = montarAtalhos(contexto)
   const corBase = cor?.trim() || '#0F52BA'
@@ -97,6 +100,16 @@ export function HomeIcones({
         </div>
       </header>
 
+      {/* Os destaques vêm antes dos atalhos, e são exatamente os mesmos da Home
+          completa — evento em cartaz, turma do Ensino, campanha. É a única
+          coisa nesta tela que a igreja escolhe mostrar; o resto é navegação, e
+          navegação não anuncia nada. Some sozinho quando não há destaque. */}
+      {destaques.length > 0 && (
+        <div className="atalho-entra" style={{ '--atraso': '0ms' } as React.CSSProperties}>
+          <EventosDestaque eventos={destaques} />
+        </div>
+      )}
+
       {/* A grade se ajusta pela largura do quadrado, e não por um número fixo
           de colunas: no celular dá três, no computador dá sete, e o quadrado
           tem o mesmo tamanho nos dois — que é o que faz parecer a tela de um
@@ -121,7 +134,7 @@ export function HomeIcones({
               <Link
                 key={item.id}
                 href={item.href}
-                style={{ '--atraso': `${(atalhos.length + i) * 32}ms` } as React.CSSProperties}
+                style={{ '--atraso': `${(atalhos.length + 1 + i) * 32}ms` } as React.CSSProperties}
                 className="atalho-entra group flex min-w-0 items-center gap-3 rounded-2xl bg-card p-3 shadow-sm ring-1 ring-border/60 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -157,7 +170,8 @@ export function HomeIcones({
 /** Um quadrado da grade. */
 function Quadrado({ atalho, indice }: { atalho: Atalho; indice: number }) {
   const { icon: Icone, cores, largo, selo, externo } = atalho
-  const estilo = { '--atraso': `${indice * 32}ms` } as React.CSSProperties
+  // Começa em 1: o zero é do carrossel de destaques, logo acima.
+  const estilo = { '--atraso': `${(indice + 1) * 32}ms` } as React.CSSProperties
 
   if (largo) {
     // A transmissão no ar: deitada, ocupando a linha, com o ponto pulsando.

@@ -785,6 +785,7 @@ export default async function HomePage() {
           aoVivoUrl={aoVivo}
           contribuicaoAtiva={contribuicaoNoAr}
           eventosProximos={(eventos ?? []).length}
+          destaques={destaques}
           vida={vida}
         />
       </HomePalco>
