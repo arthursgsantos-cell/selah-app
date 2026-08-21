@@ -352,7 +352,9 @@ export async function fichaDoAluno(igrejaId: string, slug: string): Promise<Fich
       ? admin
           .from('dependentes')
           .select('nome, tipo, data_nascimento')
-          .eq('profile_id', resumo.userId)
+          // Filho compartilhado pelo casal pertence aos dois, mesmo que quem
+          // tenha digitado seja o cônjuge.
+          .or(`profile_id.eq.${resumo.userId},co_profile_id.eq.${resumo.userId}`)
           .order('data_nascimento')
       : Promise.resolve({ data: [] }),
     admin

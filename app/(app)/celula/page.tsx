@@ -151,7 +151,12 @@ export default async function MinhasCelulaPage() {
   const membroIds = membros.map((m) => m.user_id)
   const [{ data: dependentesData }, { data: presencasMembros }] = await Promise.all([
     membroIds.length
-      ? admin.from('dependentes').select('profile_id, nome, data_nascimento, tipo, sexo').in('profile_id', membroIds)
+      ? admin
+          .from('dependentes')
+          .select('profile_id, co_profile_id, nome, data_nascimento, tipo, sexo')
+          // Filho do casal tem um dono só. Se quem cadastrou não está nesta
+          // célula, é o segundo responsável que traz a criança para a lista.
+          .or(`profile_id.in.(${membroIds.join(',')}),co_profile_id.in.(${membroIds.join(',')})`)
       : Promise.resolve({ data: [] }),
     membroIds.length
       ? admin.from('evento_presencas').select('evento_id, user_id').eq('resposta', 'vou').in('user_id', membroIds)

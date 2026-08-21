@@ -29,6 +29,8 @@ interface Props {
   enderecoMaps: string | null
   dependentesInit: DependenteItem[]
   conjugeFilhos?: Array<{ nome: string; data_nascimento: string | null }>
+  /** Filhos do cônjuge que ainda podem ser assumidos em vez de redigitados. */
+  filhosDoConjuge?: DependenteItem[]
   /**
    * Para onde voltar depois de salvar. Vem do `?retorno=` que o convite de
    * primeiro acesso põe na URL — quem foi interrompido no meio de uma
@@ -51,6 +53,7 @@ export function EditarPerfilForm({
   enderecoMaps: endMapsInit,
   dependentesInit,
   conjugeFilhos = [],
+  filhosDoConjuge = [],
   retorno = null,
 }: Props) {
   const router = useRouter()
@@ -402,7 +405,11 @@ export function EditarPerfilForm({
                 <p className="text-xs text-muted-foreground pl-0.5">Do cônjuge vinculado — edite no perfil dele(a)</p>
               </div>
             )}
-            <DependentesForm value={dependentes} onChange={setDependentes} />
+            <DependentesForm
+              value={dependentes}
+              onChange={setDependentes}
+              filhosDoConjuge={filhosDoConjuge}
+            />
           </div>
         </CardContent>
       </Card>

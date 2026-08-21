@@ -6,12 +6,17 @@ import { uploadAvatarAdminAction } from '@/app/actions/meu-perfil'
 import {
   buscarDependentesAdminAction,
   salvarDependentesAdminAction,
+  filhosDoConjugeDisponiveisAdminAction,
   type DependenteItem,
 } from '@/app/actions/dependentes'
 import {
   vincularConjugeAdminAction,
   desvincularConjugeAdminAction,
+  analisarVinculoConjugeAdminAction,
+  type AnaliseVinculo,
+  type ResolucaoDuplicata,
 } from '@/app/actions/conjuge'
+import { DuplicatasFamilia } from '@/components/perfil/duplicatas-familia'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { DataInput } from '@/components/ui/data-input'
@@ -64,6 +69,7 @@ export function EditarPerfilAdmin({ usuario, todosUsuarios }: Props) {
 
   // Dependentes (carregados ao abrir)
   const [dependentes, setDependentes] = useState<DependenteItem[] | null>(null)
+  const [filhosDoConjuge, setFilhosDoConjuge] = useState<DependenteItem[]>([])
   const [loadingDeps, setLoadingDeps] = useState(false)
 
   // Cônjuge
@@ -72,6 +78,9 @@ export function EditarPerfilAdmin({ usuario, todosUsuarios }: Props) {
   const [buscaConjuge, setBuscaConjuge] = useState('')
   const [conjugePending, startConjugeTransition] = useTransition()
   const [erroConjuge, setErroConjuge] = useState<string | null>(null)
+  // Conferência dos filhos antes de ligar os dois perfis.
+  const [analise, setAnalise] = useState<{ id: string; nome: string; dados: AnaliseVinculo } | null>(null)
+  const [resolucoes, setResolucoes] = useState<ResolucaoDuplicata[]>([])
 
   // Save
   const [saved, setSaved] = useState(false)
@@ -86,6 +95,9 @@ export function EditarPerfilAdmin({ usuario, todosUsuarios }: Props) {
         .then(setDependentes)
         .catch(() => setDependentes([]))
         .finally(() => setLoadingDeps(false))
+      filhosDoConjugeDisponiveisAdminAction(usuario.id)
+        .then(setFilhosDoConjuge)
+        .catch(() => setFilhosDoConjuge([]))
     }
   }, [aberto, dependentes, loadingDeps, usuario.id])
 
@@ -147,14 +159,42 @@ export function EditarPerfilAdmin({ usuario, todosUsuarios }: Props) {
       ).slice(0, 6)
     : []
 
-  function vincular(id: string, nome: string) {
+  /** Confere os cadastros de filhos dos dois lados antes de ligar os perfis. */
+  function conferir(id: string, nomeConjuge: string) {
     setErroConjuge(null)
     startConjugeTransition(async () => {
       try {
-        await vincularConjugeAdminAction(usuario.id, id)
-        setConjugeId(id)
-        setConjugeNome(nome)
+        const dados = await analisarVinculoConjugeAdminAction(usuario.id, id)
+        setResolucoes(
+          dados.confirmar.map((item) => ({
+            meuId: item.meu.id,
+            deleId: item.dele.id,
+            mesclar: true,
+            ...item.sugestao,
+          }))
+        )
+        setAnalise({ id, nome: nomeConjuge, dados })
+      } catch (err) {
+        setErroConjuge(err instanceof Error ? err.message : 'Erro ao conferir cadastros')
+      }
+    })
+  }
+
+  function vincular() {
+    if (!analise) return
+    const alvo = analise
+    setErroConjuge(null)
+    startConjugeTransition(async () => {
+      try {
+        await vincularConjugeAdminAction(usuario.id, alvo.id, resolucoes)
+        setConjugeId(alvo.id)
+        setConjugeNome(alvo.nome)
         setBuscaConjuge('')
+        setAnalise(null)
+        setResolucoes([])
+        // A lista na tela ficou velha: a mesclagem mexeu nas linhas.
+        setDependentes(await buscarDependentesAdminAction(usuario.id).catch(() => []))
+        setFilhosDoConjuge(await filhosDoConjugeDisponiveisAdminAction(usuario.id).catch(() => []))
       } catch (err) {
         setErroConjuge(err instanceof Error ? err.message : 'Erro ao vincular')
       }
@@ -168,6 +208,8 @@ export function EditarPerfilAdmin({ usuario, todosUsuarios }: Props) {
         await desvincularConjugeAdminAction(usuario.id)
         setConjugeId(null)
         setConjugeNome(null)
+        setAnalise(null)
+        setResolucoes([])
       } catch (err) {
         setErroConjuge(err instanceof Error ? err.message : 'Erro ao desvincular')
       }
@@ -316,7 +358,11 @@ export function EditarPerfilAdmin({ usuario, todosUsuarios }: Props) {
               {loadingDeps ? (
                 <p className="text-xs text-muted-foreground py-1">Carregando...</p>
               ) : dependentes !== null ? (
-                <DependentesForm value={dependentes} onChange={setDependentes} />
+                <DependentesForm
+                  value={dependentes}
+                  onChange={setDependentes}
+                  filhosDoConjuge={filhosDoConjuge}
+                />
               ) : null}
             </div>
 
@@ -356,6 +402,39 @@ export function EditarPerfilAdmin({ usuario, todosUsuarios }: Props) {
                   {conjugePending ? '...' : 'Desvincular'}
                 </button>
               </div>
+            ) : analise ? (
+              <div className="rounded-lg border border-border/60 bg-background p-3 space-y-3">
+                <p className="text-xs">
+                  Vincular <strong>{nome.split(' ')[0]}</strong> com <strong>{analise.nome}</strong>
+                </p>
+
+                <DuplicatasFamilia
+                  key={analise.id}
+                  analise={analise.dados}
+                  nomeConjuge={analise.nome}
+                  onChange={setResolucoes}
+                />
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={conjugePending}
+                    onClick={vincular}
+                    className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-rose-500 text-white hover:bg-rose-600 disabled:opacity-40 transition-colors"
+                  >
+                    <Heart className="h-3 w-3" />
+                    {conjugePending ? 'Vinculando...' : 'Confirmar vínculo'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={conjugePending}
+                    onClick={() => { setAnalise(null); setResolucoes([]) }}
+                    className="text-xs px-2.5 py-1.5 rounded-lg border border-border/60 text-muted-foreground hover:text-foreground disabled:opacity-40 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
             ) : (
               <div className="space-y-1.5">
                 <Input
@@ -372,7 +451,7 @@ export function EditarPerfilAdmin({ usuario, todosUsuarios }: Props) {
                         key={s.id}
                         type="button"
                         disabled={conjugePending}
-                        onClick={() => vincular(s.id, s.nome)}
+                        onClick={() => conferir(s.id, s.nome)}
                         className="w-full text-left px-3 py-1.5 text-sm hover:bg-rose-50 transition-colors flex items-center gap-2 disabled:opacity-40"
                       >
                         <Heart className="h-3 w-3 text-rose-400 shrink-0" />

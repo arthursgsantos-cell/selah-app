@@ -12,10 +12,15 @@ import {
   buscarConjugeAtualAction,
   buscarSugestaoConjugeAction,
   buscarDadosConjugeAction,
+  analisarVinculoConjugeAction,
+  revisarFamiliaAction,
   type MembroItem,
   type ConjugeInfo,
   type DadosConjuge,
+  type AnaliseVinculo,
+  type ResolucaoDuplicata,
 } from '@/app/actions/conjuge'
+import { DuplicatasFamilia } from '@/components/perfil/duplicatas-familia'
 
 function formatData(iso: string | null) {
   if (!iso) return null
@@ -40,6 +45,14 @@ export function ConjugeVinculoSection() {
   const [dados, setDados] = useState<DadosConjuge | null>(null)
   const [sugestao, setSugestao] = useState<{ profileId: string; nome: string; avatar_url: string | null } | null>(null)
   const [modo, setModo] = useState<'idle' | 'busca' | 'confirmando'>('idle')
+  // Quem vai ser vinculado e o que acontece com os filhos dos dois. Só sai do
+  // nulo depois que o servidor comparou os cadastros.
+  const [analise, setAnalise] = useState<{ alvo: MembroItem; dados: AnaliseVinculo } | null>(null)
+  const [resolucoes, setResolucoes] = useState<ResolucaoDuplicata[]>([])
+  // Pendências de um casal que já está vinculado: duplicata antiga, de antes
+  // do vínculo existir.
+  const [pendencias, setPendencias] = useState<AnaliseVinculo | null>(null)
+  const [erro, setErro] = useState<string | null>(null)
   const [busca, setBusca] = useState('')
   const [resultados, setResultados] = useState<MembroItem[]>([])
   const [selecionado, setSelecionado] = useState<MembroItem | null>(null)
@@ -54,8 +67,10 @@ export function ConjugeVinculoSection() {
   useEffect(() => {
     if (conjuge) {
       buscarDadosConjugeAction().then(setDados)
+      revisarFamiliaAction().then(setPendencias).catch(() => setPendencias(null))
     } else {
       setDados(null)
+      setPendencias(null)
     }
   }, [conjuge])
 
@@ -74,25 +89,71 @@ export function ConjugeVinculoSection() {
     }, 300)
   }
 
-  function confirmarVinculo() {
-    if (!selecionado) return
+  /**
+   * Vincular não é só ligar dois perfis: é decidir o que fazer com os filhos
+   * que os dois cadastraram por conta própria. A análise roda antes para que
+   * a pessoa veja a mesclagem antes dela acontecer, e não depois.
+   */
+  function analisar(alvo: MembroItem) {
+    setErro(null)
     startTransition(async () => {
-      await vincularConjugeAction(selecionado.id)
-      setConjuge({ id: selecionado.id, nome: selecionado.nome, avatar_url: selecionado.avatar_url })
-      setSugestao(null)
-      setModo('idle')
-      setBusca('')
-      setSelecionado(null)
+      try {
+        const dados = await analisarVinculoConjugeAction(alvo.id)
+        setResolucoes(
+          dados.confirmar.map((item) => ({
+            meuId: item.meu.id,
+            deleId: item.dele.id,
+            mesclar: true,
+            ...item.sugestao,
+          }))
+        )
+        setAnalise({ alvo, dados })
+      } catch (e) {
+        setErro(e instanceof Error ? e.message : 'Não foi possível conferir os cadastros')
+      }
     })
   }
 
-  function confirmarSugestao() {
-    if (!sugestao) return
+  /** Abre a mesma conferência para um casal que já está vinculado. */
+  function revisarPendencias() {
+    if (!conjuge || !pendencias) return
+    setResolucoes(
+      pendencias.confirmar.map((item) => ({
+        meuId: item.meu.id,
+        deleId: item.dele.id,
+        mesclar: true,
+        ...item.sugestao,
+      }))
+    )
+    setAnalise({ alvo: conjuge, dados: pendencias })
+  }
+
+  function aplicarVinculo() {
+    if (!analise) return
+    const alvo = analise.alvo
+    setErro(null)
     startTransition(async () => {
-      await vincularConjugeAction(sugestao.profileId)
-      setConjuge({ id: sugestao.profileId, nome: sugestao.nome, avatar_url: sugestao.avatar_url })
-      setSugestao(null)
+      try {
+        await vincularConjugeAction(alvo.id, resolucoes)
+        setConjuge({ id: alvo.id, nome: alvo.nome, avatar_url: alvo.avatar_url })
+        setSugestao(null)
+        setAnalise(null)
+        setResolucoes([])
+        setModo('idle')
+        setBusca('')
+        setSelecionado(null)
+        setPendencias(await revisarFamiliaAction().catch(() => null))
+        setDados(await buscarDadosConjugeAction().catch(() => null))
+      } catch (e) {
+        setErro(e instanceof Error ? e.message : 'Não foi possível vincular')
+      }
     })
+  }
+
+  function cancelarAnalise() {
+    setAnalise(null)
+    setResolucoes([])
+    setErro(null)
   }
 
   function desvincular() {
@@ -114,8 +175,49 @@ export function ConjugeVinculoSection() {
         <p className="text-sm font-semibold">Cônjuge vinculado</p>
       </div>
 
+      {erro && <p className="text-xs text-destructive">{erro}</p>}
+
+      {/* Conferência antes de vincular: o que vai virar um cadastro só, o que
+          precisa de decisão e o que passa a valer para os dois. */}
+      {analise && (
+        <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 space-y-3">
+          <div className="flex items-center gap-2.5">
+            <div className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold shrink-0 overflow-hidden">
+              {analise.alvo.avatar_url ? (
+                <img referrerPolicy="no-referrer" src={analise.alvo.avatar_url} className="h-full w-full object-cover" alt={analise.alvo.nome} />
+              ) : iniciais(analise.alvo.nome)}
+            </div>
+            <p className="text-sm">
+              {conjuge ? 'Cadastros de filhos com ' : 'Vincular com '}
+              <strong>{analise.alvo.nome}</strong>
+            </p>
+          </div>
+
+          <DuplicatasFamilia
+            key={analise.alvo.id}
+            analise={analise.dados}
+            nomeConjuge={analise.alvo.nome}
+            onChange={setResolucoes}
+          />
+
+          <div className="flex gap-2">
+            <Button size="sm" onClick={aplicarVinculo} disabled={isPending}>
+              <Check className="h-3.5 w-3.5 mr-1.5" />
+              {isPending
+                ? 'Salvando...'
+                : conjuge
+                  ? 'Unificar cadastros'
+                  : 'Confirmar vínculo'}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={cancelarAnalise} disabled={isPending}>
+              Cancelar
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Sugestão de vinculação */}
-      {!conjuge && sugestao && (
+      {!conjuge && sugestao && !analise && (
         <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 space-y-2">
           <p className="text-xs text-rose-700 font-medium">Sugestão de vínculo</p>
           <div className="flex items-center gap-2.5">
@@ -127,7 +229,12 @@ export function ConjugeVinculoSection() {
             <p className="text-sm font-medium flex-1">{sugestao.nome} indicou você como cônjuge</p>
           </div>
           <div className="flex gap-2">
-            <Button size="sm" onClick={confirmarSugestao} disabled={isPending} className="flex-1">
+            <Button
+              size="sm"
+              onClick={() => analisar({ id: sugestao.profileId, nome: sugestao.nome, avatar_url: sugestao.avatar_url })}
+              disabled={isPending}
+              className="flex-1"
+            >
               <UserCheck className="h-3.5 w-3.5 mr-1.5" />
               Confirmar vínculo
             </Button>
@@ -162,6 +269,25 @@ export function ConjugeVinculoSection() {
               <Link2Off className="h-4 w-4" />
             </button>
           </div>
+
+          {/* Duplicata que sobrou de antes do vínculo. Só aparece quando há
+              mesmo o que unificar — o resto o sistema resolve sozinho. */}
+          {!analise && pendencias && pendencias.automaticos.length + pendencias.confirmar.length > 0 && (
+            <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 space-y-2">
+              <p className="text-xs font-medium text-amber-900">
+                {pendencias.automaticos.length + pendencias.confirmar.length === 1
+                  ? 'Um filho parece estar cadastrado nos dois perfis'
+                  : `${pendencias.automaticos.length + pendencias.confirmar.length} filhos parecem estar cadastrados nos dois perfis`}
+              </p>
+              <p className="text-[11px] text-amber-800">
+                Enquanto isso, eles aparecem repetidos nos aniversários da célula.
+              </p>
+              <Button size="sm" variant="outline" onClick={revisarPendencias} disabled={isPending}>
+                <UserCheck className="h-3.5 w-3.5 mr-1.5" />
+                Revisar e unificar
+              </Button>
+            </div>
+          )}
 
           {/* Dados compartilhados do cônjuge */}
           {dados && (
@@ -232,7 +358,7 @@ export function ConjugeVinculoSection() {
             </div>
           )}
         </div>
-      ) : modo === 'idle' ? (
+      ) : analise ? null : modo === 'idle' ? (
         <div className="space-y-2">
           <p className="text-xs text-muted-foreground">
             Vincule a conta do seu cônjuge para aparecerem juntos nas atividades da célula.
@@ -288,12 +414,13 @@ export function ConjugeVinculoSection() {
                 <p className="text-sm">Vincular com <strong>{selecionado.nome}</strong>?</p>
               </div>
               <p className="text-xs text-muted-foreground">
-                O perfil de {selecionado.nome.split(' ')[0]} também será atualizado com o vínculo.
+                O perfil de {selecionado.nome.split(' ')[0]} também será atualizado, e os filhos
+                cadastrados pelos dois serão conferidos antes de virarem um cadastro só.
               </p>
               <div className="flex gap-2">
-                <Button size="sm" onClick={confirmarVinculo} disabled={isPending}>
+                <Button size="sm" onClick={() => analisar(selecionado)} disabled={isPending}>
                   <Check className="h-3.5 w-3.5 mr-1.5" />
-                  {isPending ? 'Vinculando...' : 'Confirmar'}
+                  {isPending ? 'Conferindo...' : 'Continuar'}
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => { setSelecionado(null); setModo('busca') }}>
                   Cancelar

@@ -3,6 +3,15 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
+import {
+  analisarVinculo,
+  vincularCasal,
+  desvincularCasal,
+  type AnaliseVinculo,
+  type ResolucaoDuplicata,
+} from '@/lib/familia-vinculo-servidor'
+
+export type { AnaliseVinculo, ResolucaoDuplicata }
 
 async function getUser() {
   const supabase = await createClient()
@@ -49,17 +58,74 @@ export async function buscarConjugeAtualAction(): Promise<ConjugeInfo> {
   return conjuge as ConjugeInfo
 }
 
-export async function vincularConjugeAction(conjugeId: string) {
+async function exigirPermissaoDeEdicao() {
+  const user = await getUser()
+  const supabase = await createClient()
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  const canEdit = ['admin', 'pastor', 'supervisor', 'lider'].includes(profile?.role ?? '')
+  if (!canEdit) throw new Error('Sem permissão')
+  return user
+}
+
+/**
+ * O que vai acontecer com os cadastros de filhos se este vínculo for feito.
+ * A tela chama antes de vincular: é aqui que a duplicata deixa de ser uma
+ * surpresa e vira uma pergunta.
+ */
+export async function analisarVinculoConjugeAction(conjugeId: string): Promise<AnaliseVinculo> {
   const user = await getUser()
   const admin = createAdminClient()
+  await exigirMesmaIgreja(admin, user.id, conjugeId)
+  return analisarVinculo(admin, user.id, conjugeId)
+}
 
-  // Link both ways
-  await Promise.all([
-    admin.from('profiles').update({ conjuge_id: conjugeId }).eq('id', user.id),
-    admin.from('profiles').update({ conjuge_id: user.id }).eq('id', conjugeId),
-  ])
+export async function analisarVinculoConjugeAdminAction(
+  userId: string,
+  conjugeId: string
+): Promise<AnaliseVinculo> {
+  await exigirPermissaoDeEdicao()
+  const admin = createAdminClient()
+  await exigirMesmaIgreja(admin, userId, conjugeId)
+  return analisarVinculo(admin, userId, conjugeId)
+}
+
+async function exigirMesmaIgreja(
+  admin: ReturnType<typeof createAdminClient>,
+  a: string,
+  b: string
+) {
+  if (a === b) throw new Error('Não é possível vincular a própria conta')
+  const { data } = await admin.from('profiles').select('id, igreja_id').in('id', [a, b])
+  const perfis = (data ?? []) as Array<{ id: string; igreja_id: string | null }>
+  if (perfis.length !== 2) throw new Error('Perfil não encontrado')
+  if (perfis[0].igreja_id !== perfis[1].igreja_id) throw new Error('Perfis de igrejas diferentes')
+}
+
+/**
+ * A mesma conferência, para um casal que já está vinculado. Serve para os
+ * cadastros feitos em duplicidade antes do vínculo existir — e para os que
+ * divergem demais para a limpeza automática resolver sozinha.
+ */
+export async function revisarFamiliaAction(): Promise<AnaliseVinculo | null> {
+  const user = await getUser()
+  const admin = createAdminClient()
+  const { data } = await admin.from('profiles').select('conjuge_id').eq('id', user.id).single()
+  const conjugeId = (data?.conjuge_id as string | null) ?? null
+  if (!conjugeId) return null
+  return analisarVinculo(admin, user.id, conjugeId)
+}
+
+export async function vincularConjugeAction(
+  conjugeId: string,
+  resolucoes: ResolucaoDuplicata[] = []
+) {
+  const user = await getUser()
+  const admin = createAdminClient()
+  await exigirMesmaIgreja(admin, user.id, conjugeId)
+  await vincularCasal(admin, user.id, conjugeId, resolucoes)
 
   revalidatePath('/perfil')
+  revalidatePath('/celula')
 }
 
 export async function desvincularConjugeAction() {
@@ -69,48 +135,34 @@ export async function desvincularConjugeAction() {
   const { data: profile } = await admin
     .from('profiles').select('conjuge_id').eq('id', user.id).single()
 
-  await Promise.all([
-    admin.from('profiles').update({ conjuge_id: null }).eq('id', user.id),
-    profile?.conjuge_id
-      ? admin.from('profiles').update({ conjuge_id: null }).eq('id', profile.conjuge_id)
-      : Promise.resolve(),
-  ])
+  await desvincularCasal(admin, user.id, (profile?.conjuge_id as string | null) ?? null)
 
+  revalidatePath('/perfil')
+  revalidatePath('/celula')
+}
+
+export async function vincularConjugeAdminAction(
+  userId: string,
+  conjugeId: string,
+  resolucoes: ResolucaoDuplicata[] = []
+) {
+  await exigirPermissaoDeEdicao()
+  const admin = createAdminClient()
+  await exigirMesmaIgreja(admin, userId, conjugeId)
+  await vincularCasal(admin, userId, conjugeId, resolucoes)
+
+  revalidatePath('/celula')
+  revalidatePath('/usuarios')
   revalidatePath('/perfil')
 }
 
-export async function vincularConjugeAdminAction(userId: string, conjugeId: string) {
-  const user = await getUser()
-  const supabase = await createClient()
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  const canEdit = ['admin', 'pastor', 'supervisor', 'lider'].includes(profile?.role ?? '')
-  if (!canEdit) throw new Error('Sem permissão')
-
-  const admin = createAdminClient()
-  await Promise.all([
-    admin.from('profiles').update({ conjuge_id: conjugeId }).eq('id', userId),
-    admin.from('profiles').update({ conjuge_id: userId }).eq('id', conjugeId),
-  ])
-  revalidatePath('/celula')
-  revalidatePath('/usuarios')
-}
-
 export async function desvincularConjugeAdminAction(userId: string) {
-  const user = await getUser()
-  const supabase = await createClient()
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  const canEdit = ['admin', 'pastor', 'supervisor', 'lider'].includes(profile?.role ?? '')
-  if (!canEdit) throw new Error('Sem permissão')
-
+  await exigirPermissaoDeEdicao()
   const admin = createAdminClient()
   const { data: target } = await admin.from('profiles').select('conjuge_id').eq('id', userId).single()
 
-  await Promise.all([
-    admin.from('profiles').update({ conjuge_id: null }).eq('id', userId),
-    target?.conjuge_id
-      ? admin.from('profiles').update({ conjuge_id: null }).eq('id', target.conjuge_id)
-      : Promise.resolve(),
-  ])
+  await desvincularCasal(admin, userId, (target?.conjuge_id as string | null) ?? null)
+
   revalidatePath('/celula')
   revalidatePath('/usuarios')
   revalidatePath('/perfil')
@@ -141,19 +193,30 @@ export async function buscarDadosConjugeAction(): Promise<DadosConjuge | null> {
 
   if (!conjuge) return null
 
-  const { data: filhos } = await admin
+  // Só o que ainda é exclusivamente dele(a): filho já compartilhado aparece na
+  // minha própria lista editável, e listar de novo aqui seria a duplicata de
+  // volta, agora só na tela.
+  const { data: filhosBrutos } = await admin
     .from('dependentes')
-    .select('nome, data_nascimento')
+    .select('nome, data_nascimento, co_profile_id')
     .eq('profile_id', profile.conjuge_id)
     .eq('tipo', 'filho')
     .order('data_nascimento', { ascending: true })
+
+  const filhos = ((filhosBrutos ?? []) as Array<{
+    nome: string
+    data_nascimento: string | null
+    co_profile_id: string | null
+  }>)
+    .filter((f) => f.co_profile_id !== user.id)
+    .map(({ nome, data_nascimento }) => ({ nome, data_nascimento }))
 
   return {
     endereco: conjuge.endereco,
     endereco_maps: conjuge.endereco_maps,
     data_nascimento_1: conjuge.data_nascimento_1,
     data_casamento: conjuge.data_casamento ?? profile.data_casamento,
-    filhos: (filhos ?? []) as Array<{ nome: string; data_nascimento: string | null }>,
+    filhos,
   }
 }
 

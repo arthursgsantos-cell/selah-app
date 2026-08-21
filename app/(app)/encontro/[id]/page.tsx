@@ -122,9 +122,13 @@ export default async function EncontroPage({ params }: { params: { id: string } 
     conjugeNome = dep?.nome?.split(' ')[0] ?? null
   }
 
-  // Fetch tem filhos
+  // Fetch tem filhos — inclusive os que o cônjuge cadastrou e valem para os dois.
   const { data: filhosDep } = await admin
-    .from('dependentes').select('id').eq('profile_id', user.id).eq('tipo', 'filho').limit(1)
+    .from('dependentes')
+    .select('id')
+    .or(`profile_id.eq.${user.id},co_profile_id.eq.${user.id}`)
+    .eq('tipo', 'filho')
+    .limit(1)
   const temFilhos = (filhosDep?.length ?? 0) > 0
 
   // Fetch presença

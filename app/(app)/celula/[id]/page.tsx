@@ -139,8 +139,9 @@ export default async function CelulaDetalhesPage({ params }: { params: { id: str
   const { data: dependentesData } = membroIds.length
     ? await admin
         .from('dependentes')
-        .select('profile_id, nome, data_nascimento, tipo, sexo')
-        .in('profile_id', membroIds)
+        .select('profile_id, co_profile_id, nome, data_nascimento, tipo, sexo')
+        // Ver a nota em `celula/page.tsx`: o cadastro do casal tem um dono só.
+        .or(`profile_id.in.(${membroIds.join(',')}),co_profile_id.in.(${membroIds.join(',')})`)
     : { data: [] }
 
   const iniciais = celula.nome

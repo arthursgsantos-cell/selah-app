@@ -10,7 +10,11 @@ import { createClient } from '@/lib/supabase/client'
 import { EditarPerfilForm } from '@/components/perfil/editar-perfil-form'
 import { ConjugeVinculoSection } from '@/components/perfil/conjuge-vinculo-section'
 import { VinculoIgrejaSection } from '@/components/perfil/vinculo-igreja-section'
-import { buscarDependentesAction, type DependenteItem } from '@/app/actions/dependentes'
+import {
+  buscarDependentesAction,
+  filhosDoConjugeDisponiveisAction,
+  type DependenteItem,
+} from '@/app/actions/dependentes'
 import { buscarDadosConjugeAction } from '@/app/actions/conjuge'
 import { minhasInscricoesAction } from '@/app/actions/inscricoes-membro'
 import { MinhasInscricoes, type InscricaoResumo } from '@/components/perfil/minhas-inscricoes'
@@ -54,6 +58,7 @@ function PerfilConteudo() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [dependentes, setDependentes] = useState<DependenteItem[]>([])
   const [conjugeFilhos, setConjugeFilhos] = useState<Array<{ nome: string; data_nascimento: string | null }>>([])
+  const [filhosDoConjuge, setFilhosDoConjuge] = useState<DependenteItem[]>([])
   const [erro, setErro] = useState<string | null>(null)
   const [inscricoes, setInscricoes] = useState<InscricaoResumo[]>([])
 
@@ -70,7 +75,7 @@ function PerfilConteudo() {
         setErro('Sessão não encontrada. Tente recarregar a página.')
         return
       }
-      const [profileResult, deps, conjugeDados] = await Promise.all([
+      const [profileResult, deps, conjugeDados, disponiveis] = await Promise.all([
         supabase
           .from('profiles')
           .select('nome, role, titulo, telefone, email, avatar_url, data_nascimento_1, data_nascimento_2, data_casamento, endereco, endereco_maps, home_layout')
@@ -78,6 +83,7 @@ function PerfilConteudo() {
           .single(),
         buscarDependentesAction().catch(() => [] as DependenteItem[]),
         buscarDadosConjugeAction().catch(() => null),
+        filhosDoConjugeDisponiveisAction().catch(() => [] as DependenteItem[]),
       ])
       if (profileResult.error || !profileResult.data) {
         setErro('Erro ao carregar perfil: ' + (profileResult.error?.message ?? 'sem dados'))
@@ -96,6 +102,7 @@ function PerfilConteudo() {
       })
       setDependentes(deps)
       setConjugeFilhos(conjugeDados?.filhos ?? [])
+      setFilhosDoConjuge(disponiveis)
     })
   }, [])
 
@@ -192,6 +199,7 @@ function PerfilConteudo() {
         enderecoMaps={profile.endereco_maps}
         dependentesInit={dependentes}
         conjugeFilhos={conjugeFilhos}
+        filhosDoConjuge={filhosDoConjuge}
         retorno={retorno}
       />
       <div className="rounded-xl border border-border bg-card p-4">

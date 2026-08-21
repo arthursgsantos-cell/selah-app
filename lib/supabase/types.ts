@@ -420,6 +420,7 @@ export type Database = {
         Row: {
           id: number
           profile_id: string
+          co_profile_id: string | null
           nome: string
           data_nascimento: string | null
           tipo: 'cônjuge' | 'filho'
@@ -430,6 +431,7 @@ export type Database = {
         Insert: {
           id?: number
           profile_id: string
+          co_profile_id?: string | null
           nome: string
           data_nascimento?: string | null
           tipo: 'cônjuge' | 'filho'
@@ -440,6 +442,7 @@ export type Database = {
         Update: {
           id?: number
           profile_id?: string
+          co_profile_id?: string | null
           nome?: string
           data_nascimento?: string | null
           tipo?: 'cônjuge' | 'filho'
@@ -451,6 +454,13 @@ export type Database = {
           {
             foreignKeyName: 'dependentes_profile_id_fkey'
             columns: ['profile_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'dependentes_co_profile_id_fkey'
+            columns: ['co_profile_id']
             isOneToOne: false
             referencedRelation: 'profiles'
             referencedColumns: ['id']

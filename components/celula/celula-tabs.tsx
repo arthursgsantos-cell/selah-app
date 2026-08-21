@@ -13,6 +13,7 @@ import { GaleriaCelulaTab } from '@/components/celula/galeria-celula-tab'
 import { CalendarioCelulaTab } from '@/components/celula/calendario-celula-tab'
 import { PreCadastradosCelula, type PreCadastrado } from '@/components/celula/pre-cadastrados-celula'
 import type { DataCalendario, EscalaCalendario } from '@/lib/calendario-celula'
+import { deduplicarDependentes } from '@/lib/familia-dependentes'
 
 interface Membro {
   user_id: string
@@ -36,8 +37,11 @@ interface Encontro {
   card_imagem_url: string | null
 }
 
+// Ver `lib/familia-dependentes.ts` para o critério de "mesma criança".
 interface Dependente {
   profile_id: string
+  /** Segundo responsável, quando o cadastro vale para o casal. */
+  co_profile_id?: string | null
   nome: string
   data_nascimento: string | null
   tipo: string
@@ -255,10 +259,19 @@ function buildFamilias(membros: Membro[], dependentes: Dependente[]): FamiliaGro
       ? (dependentes.find((d) => d.profile_id === m.user_id && d.tipo === 'cônjuge') ?? null)
       : null
 
-    const filhos = dependentes.filter((d) => {
-      if (d.tipo !== 'filho') return false
-      return d.profile_id === m.user_id || (conjugeMembro && d.profile_id === conjugeMembro.user_id)
-    })
+    // Filho do casal aparece uma vez só. O cadastro compartilhado já garante
+    // isso na origem; a deduplicação aqui cobre os cadastros antigos, feitos
+    // pelos dois antes do vínculo existir, que nunca passaram pela mesclagem.
+    const responsaveis = new Set(
+      [m.user_id, conjugeMembro?.user_id].filter(Boolean) as string[]
+    )
+    const filhos = deduplicarDependentes(
+      dependentes.filter(
+        (d) =>
+          d.tipo === 'filho' &&
+          (responsaveis.has(d.profile_id) || (d.co_profile_id ? responsaveis.has(d.co_profile_id) : false))
+      )
+    )
 
     const dataCasamento = m.data_casamento ?? conjugeMembro?.data_casamento ?? null
 
