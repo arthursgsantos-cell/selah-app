@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ArrowUpRight, Cake, CalendarDays, ChevronRight, MapPin } from 'lucide-react'
+import { ArrowUpRight, Cake, CalendarDays, ChevronRight, ChurchIcon, MapPin } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { montarAtalhos, type Atalho, type ContextoAtalhos } from '@/lib/home-atalhos'
 import { TrocarLayoutHome } from '@/components/home/trocar-layout-home'
@@ -69,10 +69,11 @@ export function HomeIcones({
               <img src={logoUrl} alt="" aria-hidden className="h-full w-full object-contain" />
             </span>
           ) : (
-            <Avatar className="h-14 w-14 shrink-0 ring-2 ring-white/40">
-              <AvatarImage src={avatarUrl ?? undefined} alt="" />
-              <AvatarFallback className="bg-white/20 text-lg font-bold text-white">{iniciais}</AvatarFallback>
-            </Avatar>
+            /* Sem logo, a igreja entra pelo símbolo — e não pela foto de quem
+               está logado, que já está do outro lado do cabeçalho. */
+            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/25">
+              <ChurchIcon className="h-7 w-7" />
+            </span>
           )}
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-lg font-bold leading-tight tracking-tight">{igrejaNome}</h1>
