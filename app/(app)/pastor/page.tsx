@@ -314,6 +314,7 @@ export default async function PastorPage({
                     Precisam de atenção
                   </p>
                   <SaudeAlertas
+                    celulas={saude.celulas}
                     inatingiveis={saude.inatingiveis}
                     semSupervisao={saude.semSupervisao}
                     multiplicandoEmBreve={saude.multiplicandoEmBreve}
@@ -496,5 +497,6 @@ export default async function PastorPage({
     </div>
   )
 }
+
 
 
