@@ -338,6 +338,9 @@ export async function editCelulaAction(data: {
     .from('celulas')
     .update({
       nome: data.nome,
+      // Quem salva o nome pela tela de edição batizou a célula: o rótulo
+      // provisório da multiplicação não sobrevive a isso.
+      nome_provisorio: false,
       descricao: data.descricao ?? null,
       local_padrao: data.local_padrao ?? null,
       cor: data.cor ?? null,

@@ -22,6 +22,8 @@ import {
 import type { Frequencia } from '@/lib/supabase/types'
 import { carregarSaudeRede, carregarSupervisoes, type Granularidade } from '@/lib/saude-rede'
 import { SaudeAlertas } from '@/components/rede/saude-alertas'
+import { ArvoreMultiplicacao } from '@/components/rede/arvore-multiplicacao'
+import { RegistrarMultiplicacao } from '@/components/rede/registrar-multiplicacao'
 import { PresencaHistorico } from '@/components/rede/presenca-historico'
 import { RegistrarSupervisao } from '@/components/rede/registrar-supervisao'
 import { SupervisoesHistorico } from '@/components/rede/supervisoes-historico'
@@ -276,15 +278,32 @@ export default async function SupervisorPage({
       {/* Saúde da rede: onde olhar primeiro */}
       <section>
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
-          Precisam de atenção
+          Onde olhar primeiro
         </p>
         <SaudeAlertas
-          celulas={saude.celulas}
           inatingiveis={saude.inatingiveis}
           semSupervisao={saude.semSupervisao}
           multiplicandoEmBreve={saude.multiplicandoEmBreve}
           totalCelulas={saude.celulas.length}
         />
+      </section>
+
+      {/* A linhagem das células: quem nasceu de quem, rede por rede */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+              Árvore de multiplicação
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">Quem nasceu de quem.</p>
+          </div>
+          <RegistrarMultiplicacao
+            celulas={saude.celulas.map((c) => ({
+              id: c.id, nome: c.nome, redeId: c.redeId, redeNome: c.redeNome,
+            }))}
+          />
+        </div>
+        <ArvoreMultiplicacao celulas={saude.celulas} />
       </section>
 
       {/* Para onde a rede está indo */}

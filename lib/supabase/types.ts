@@ -558,6 +558,8 @@ export type Database = {
           ativa: boolean
           celula_mae_id: string | null
           multiplicacao_prevista: string | null
+          multiplicada_em: string | null
+          nome_provisorio: boolean
           created_at: string
         }
         Insert: {
@@ -585,6 +587,8 @@ export type Database = {
           ativa?: boolean
           celula_mae_id?: string | null
           multiplicacao_prevista?: string | null
+          multiplicada_em?: string | null
+          nome_provisorio?: boolean
           created_at?: string
         }
         Update: {
@@ -612,6 +616,8 @@ export type Database = {
           ativa?: boolean
           celula_mae_id?: string | null
           multiplicacao_prevista?: string | null
+          multiplicada_em?: string | null
+          nome_provisorio?: boolean
           created_at?: string
         }
         Relationships: [

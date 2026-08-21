@@ -7,12 +7,10 @@ import { WhatsAppIcon } from '@/components/ui/whatsapp-icon'
 import {
   AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, GitBranch, UserCheck,
 } from 'lucide-react'
-import { format } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
-import type { CelulaSaude } from '@/lib/saude-rede'
+import { SEMANAS_ALERTA, type CelulaSaude } from '@/lib/saude-rede'
+import { situacaoMultiplicacao } from '@/lib/multiplicacao'
 
 interface Props {
-  celulas: CelulaSaude[]
   inatingiveis: CelulaSaude[]
   semSupervisao: CelulaSaude[]
   multiplicandoEmBreve: CelulaSaude[]
@@ -30,6 +28,20 @@ interface Props {
 const POR_PAGINA = 8
 
 type ChaveAba = 'registro' | 'supervisao' | 'multiplicacao'
+
+interface Aba {
+  chave: ChaveAba
+  rotulo: string
+  icone: React.ReactNode
+  celulas: CelulaSaude[]
+  /** Pinta o contador da aba de vermelho. */
+  urgente: boolean
+  ajuda: string
+  vazio: string
+  detalhe: (c: CelulaSaude) => string
+  /** Quando existe, decide linha a linha se aquela célula é o caso urgente. */
+  urgenteSe?: (c: CelulaSaude) => boolean
+}
 
 function whatsappLink(telefone: string, nome: string | null) {
   const num = telefone.replace(/\D/g, '')
@@ -95,25 +107,30 @@ function LinhaCelula({
  * mais de uma.
  */
 export function SaudeAlertas({
-  celulas,
   inatingiveis,
   semSupervisao,
   multiplicandoEmBreve,
   totalCelulas,
 }: Props) {
-  const hoje = new Date().toISOString().slice(0, 10)
-
-  const abas = useMemo(
+  const abas: Aba[] = useMemo(
     () => [
       {
         chave: 'multiplicacao' as const,
         rotulo: 'Multiplicação',
         icone: <GitBranch className="h-4 w-4 text-red-500" />,
         celulas: multiplicandoEmBreve,
-        urgente: false,
-        ajuda: 'Células com multiplicação prevista nos próximos 90 dias ou já vencida.',
+        // O contador só acende vermelho quando alguma data já venceu.
+        urgente: multiplicandoEmBreve.some(
+          (c) => situacaoMultiplicacao(c.multiplicacaoPrevista).estado === 'vencida',
+        ),
+        ajuda: 'Data-alvo combinada chegando — ou que já passou sem a multiplicação ser registrada.',
         vazio: 'Nenhuma multiplicação prevista para os próximos 90 dias.',
-        detalhe: (c: CelulaSaude) => c.multiplicacaoPrevista ? `prevista para ${format(new Date(`${c.multiplicacaoPrevista}T12:00:00`), "d 'de' MMMM", { locale: ptBR })}` : 'sem data definida',
+        // A data no passado não é previsão: é atraso, e a linha precisa dizer
+        // isso em vez de anunciar como se ainda fosse acontecer.
+        detalhe: (c: CelulaSaude) => situacaoMultiplicacao(c.multiplicacaoPrevista).rotulo,
+        // Vencida acende vermelho; a que ainda vai chegar, não.
+        urgenteSe: (c: CelulaSaude) =>
+          situacaoMultiplicacao(c.multiplicacaoPrevista).estado === 'vencida',
       },
       {
         chave: 'supervisao' as const,
@@ -134,12 +151,12 @@ export function SaudeAlertas({
         icone: <AlertTriangle className="h-4 w-4 text-red-500" />,
         celulas: inatingiveis,
         urgente: true,
-        ajuda: `Sem encontro registrado há ${3} semanas ou mais — ou nunca registraram.`,
+        ajuda: `Sem encontro registrado há ${SEMANAS_ALERTA} semanas ou mais — ou nunca registraram.`,
         vazio: `As ${totalCelulas} células têm registro recente.`,
         detalhe: silencio,
       },
     ],
-    [inatingiveis, semSupervisao, multiplicandoEmBreve, totalCelulas, hoje]
+    [inatingiveis, semSupervisao, multiplicandoEmBreve, totalCelulas]
   )
 
   // Abre na primeira aba que tem o que mostrar: cair numa aba vazia esconderia
@@ -229,24 +246,12 @@ export function SaudeAlertas({
                 </span>
               </p>
 
-              {aba.chave === 'multiplicacao' && (
-                <div className="mb-3 rounded-xl border border-primary/15 bg-primary/5 p-3">
-                  <p className="mb-2 text-xs font-semibold">Árvore de multiplicação</p>
-                  <div className="space-y-1">
-                    {celulas.filter((c) => c.celulaMaeId || c.multiplicacaoPrevista).map((c) => {
-                      const mae = celulas.find((m) => m.id === c.celulaMaeId)
-                      return <div key={`arvore-${c.id}`} className="flex items-center gap-1 text-xs"><span className="text-muted-foreground">{mae ? `${mae.nome} →` : 'Origem →'}</span><Link href={`/celula/${c.id}`} className="font-medium text-primary hover:underline">{c.nome}</Link></div>
-                    })}
-                  </div>
-                </div>
-              )}
-
               {visiveis.map((c) => (
                 <LinhaCelula
                   key={c.id}
                   celula={c}
                   detalhe={aba.detalhe(c)}
-                  urgente={aba.urgente}
+                  urgente={aba.urgenteSe ? aba.urgenteSe(c) : aba.urgente}
                 />
               ))}
 
