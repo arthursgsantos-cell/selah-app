@@ -309,19 +309,6 @@ export default async function PastorPage({
 
                 <section>
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
-                    Precisam de atenção
-                  </p>
-                  <SaudeAlertas
-                    celulas={saude.celulas}
-                    inatingiveis={saude.inatingiveis}
-                    semSupervisao={saude.semSupervisao}
-                    multiplicandoEmBreve={saude.multiplicandoEmBreve}
-                    totalCelulas={saude.celulas.length}
-                  />
-                </section>
-
-                <section>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
                     Histórico de presença
                   </p>
                   <PresencaHistorico serie={saude.serie} granularidade={periodo} basePath="/pastor" />
@@ -495,6 +482,7 @@ export default async function PastorPage({
     </div>
   )
 }
+
 
 
 
