@@ -3,7 +3,7 @@
 import { useState, useTransition, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Menu, UserCircle, LogOut, LogIn, Bell, ClipboardList, CheckCheck, Loader2, Info, UserCheck, ArrowLeft, Ticket, GraduationCap } from 'lucide-react'
+import { Menu, UserCircle, LogOut, LogIn, Bell, ClipboardList, CheckCheck, Loader2, Info, UserCheck, ArrowLeft, Ticket, GraduationCap, Palette } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { signOutAction } from '@/app/actions/meu-perfil'
@@ -187,6 +187,18 @@ export function Header({ userName = 'Usuário', userRole = 'membro', avatarUrl, 
               >
                 <Ticket className="h-4 w-4" />
                 Minhas inscrições
+              </Link>
+
+              {/* Troca entre a Home completa e o Modo Ícones. Fica aqui, junto
+                  do resto do que é "meu", porque o botão flutuante que fazia
+                  isso antes vivia por cima da home o tempo todo. */}
+              <Link
+                href="/perfil#aparencia"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-muted transition-colors"
+              >
+                <Palette className="h-4 w-4" />
+                Aparência da Home
               </Link>
 
               {showNotificacoes && (

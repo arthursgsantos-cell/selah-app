@@ -175,6 +175,16 @@ export type CargoSolicitado =
   | 'ensino_coordenador'
   | 'ensino_professor'
 
+/**
+ * Como a pessoa quer ver a home.
+ *
+ * `landing` é a página completa que a liderança monta em Seções; `icones` é a
+ * grade de atalhos. Guardado em `profiles.home_layout`, e não no navegador:
+ * a escolha acompanha a pessoa entre celular e computador. Ver
+ * `supabase/migrations/profiles_home_layout.sql`.
+ */
+export type HomeLayout = 'landing' | 'icones'
+
 export type Database = {
   public: {
     Tables: {
@@ -338,6 +348,8 @@ export type Database = {
           endereco_latitude: number | null
           endereco_longitude: number | null
           perfil_completado_em: string | null
+          /** Layout da home escolhido pela pessoa. Null = ainda não escolheu. */
+          home_layout: HomeLayout | null
           created_at: string
           updated_at: string
         }
@@ -360,6 +372,7 @@ export type Database = {
           endereco_latitude?: number | null
           endereco_longitude?: number | null
           perfil_completado_em?: string | null
+          home_layout?: HomeLayout | null
           created_at?: string
           updated_at?: string
         }
@@ -382,6 +395,7 @@ export type Database = {
           endereco_latitude?: number | null
           endereco_longitude?: number | null
           perfil_completado_em?: string | null
+          home_layout?: HomeLayout | null
           created_at?: string
           updated_at?: string
         }

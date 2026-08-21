@@ -27,11 +27,14 @@ import { HomeFundo } from '@/components/home/home-fundo'
 import { FundoGaleria } from '@/components/shared/fundo-galeria'
 import { format, formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import type { Role } from '@/lib/supabase/types'
+import type { HomeLayout, Role } from '@/lib/supabase/types'
 import { FUNCOES_ESCALA, funcaoComEmoji } from '@/lib/escala-funcoes'
 import { encontrosTexto } from '@/lib/ensino/turma'
 import { SECAO, SECAO_TITULO } from '@/lib/estilos'
-import { HomeLayoutChooser } from '@/components/home/home-layout-chooser'
+import { HomePalco } from '@/components/home/home-palco'
+import { HomeIcones, type CartaoVida } from '@/components/home/home-icones'
+import { ConviteLayoutHome } from '@/components/home/convite-layout-home'
+import { pendenciasDoPerfil } from '@/lib/perfil-pendencias'
 
 const roleLabels: Record<Role, string> = {
   admin: 'Admin',
@@ -53,7 +56,7 @@ export default async function HomePage() {
   const supabase = await createClient()
 
   const profile = user
-    ? (await supabase.from('profiles').select('id, nome, role, avatar_url, igreja_id, data_nascimento_1, data_casamento, telefone').eq('id', user.id).single()).data
+    ? (await supabase.from('profiles').select('id, nome, role, avatar_url, igreja_id, data_nascimento_1, data_casamento, telefone, endereco, home_layout').eq('id', user.id).single()).data
     : null
 
   if (user && !profile) redirect('/onboarding')
@@ -431,8 +434,6 @@ export default async function HomePage() {
     // ── GUEST / PUBLIC VIEW ──────────────────────────────────────────
     return (
       <div className="space-y-4 max-w-2xl mx-auto pb-8">
-        <HomeLayoutChooser enabled={Boolean(profile)} igrejaNome={church?.nome} logoUrl={church?.logo_url} aoVivo={aoVivo} />
-
         {/* Mesmo fundo personalizado (cor/gradiente/nébula) da home de quem
             está logado. Sem `canEdit`: visitante nunca vê o botão de editar,
             só o resultado. Galeria da comunidade fica de fora — reservada
@@ -702,6 +703,93 @@ export default async function HomePage() {
   // Convidado tem perfil (logou, passou pelo onboarding) mas ainda não é
   // membro de fato — a galeria da comunidade fica reservada para quem é.
   const isMember = profile.role !== 'convidado'
+
+  /**
+   * Qual das duas homes esta pessoa vê.
+   *
+   * A escolha vem de `profiles.home_layout` e é o servidor quem decide o que
+   * renderizar. Antes vinha do `localStorage`, o que obrigava a montar a
+   * landing inteira e cobri-la no navegador — a página piscava a home errada
+   * antes de trocar, e a preferência não atravessava para o celular.
+   *
+   * `null` é quem ainda não escolheu: vê a landing, com o convite por cima.
+   */
+  const layoutHome = (profile as { home_layout?: HomeLayout | null }).home_layout ?? null
+
+  /**
+   * O convite espera a sua vez.
+   *
+   * Quem tem cadastro incompleto já recebe o convite de perfil do layout do
+   * app (`BoasVindasPerfil`). Dois diálogos empilhados na primeira visita são
+   * um só borrão: este aqui aparece na visita seguinte, com o cadastro pronto.
+   */
+  const mostrarConviteLayout =
+    layoutHome === null && pendenciasDoPerfil(profile).length === 0
+
+  if (layoutHome === 'icones') {
+    // O que está por acontecer, na ordem em que importa: o encontro da célula
+    // desta semana vem antes do evento da igreja, que vem antes do bolo.
+    const vida: CartaoVida[] = []
+
+    if (proximoEncontro) {
+      vida.push({
+        id: `encontro-${proximoEncontro.id}`,
+        href: `/encontro/${proximoEncontro.id}`,
+        titulo: 'Próximo encontro da célula',
+        detalhe: [
+          format(new Date(proximoEncontro.data_hora), "EEEE, d 'de' MMMM · HH'h'mm", { locale: ptBR }),
+          proximoEncontro.local,
+        ].filter(Boolean).join(' · '),
+        quando: formatDistanceToNow(new Date(proximoEncontro.data_hora), { locale: ptBR }),
+        icone: 'celula',
+      })
+    }
+
+    const proximoEvento = (eventos ?? [])[0]
+    if (proximoEvento) {
+      vida.push({
+        id: `evento-${proximoEvento.id}`,
+        href: `/evento/${proximoEvento.slug ?? proximoEvento.id}`,
+        titulo: proximoEvento.titulo,
+        detalhe: format(new Date(proximoEvento.data_hora), "EEEE, d 'de' MMMM · HH'h'mm", { locale: ptBR }),
+        quando: formatDistanceToNow(new Date(proximoEvento.data_hora), { locale: ptBR }),
+        icone: 'evento',
+      })
+    }
+
+    if (aniversariantesHoje.length > 0) {
+      vida.push({
+        id: 'aniversariantes',
+        href: '/rede',
+        titulo: aniversariantesHoje.length === 1
+          ? `${aniversariantesHoje[0].nome.split(' ')[0]} faz aniversário hoje`
+          : `${aniversariantesHoje.length} aniversariantes hoje`,
+        detalhe: 'Mande um parabéns',
+        quando: null,
+        icone: 'aniversario',
+      })
+    }
+
+    return (
+      <HomePalco modo="icones">
+        <HomeIcones
+          igrejaNome={church?.nome ?? 'Igreja Batista Zona Sul'}
+          logoUrl={church?.logo_url ?? null}
+          cor={church?.cor ?? null}
+          primeiroNome={primeiroNome}
+          iniciais={iniciais}
+          avatarUrl={profile.avatar_url ?? null}
+          saudacao={saudacao}
+          papel={roleLabels[profile.role as Role] ?? profile.role}
+          role={profile.role as Role}
+          aoVivoUrl={aoVivo}
+          contribuicaoAtiva={contribuicaoNoAr}
+          eventosProximos={(eventos ?? []).length}
+          vida={vida}
+        />
+      </HomePalco>
+    )
+  }
 
   /* Cada bloco da home vira conteúdo de uma seção da grade: é o que
      permite reordenar, redimensionar e pintar qualquer um deles no editor. */
@@ -1094,8 +1182,9 @@ export default async function HomePage() {
   )
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto pb-6">
-      <HomeLayoutChooser enabled={Boolean(profile)} igrejaNome={church?.nome} logoUrl={church?.logo_url} aoVivo={aoVivo} />
+    <HomePalco modo="landing" className="space-y-6 max-w-2xl mx-auto pb-6">
+      {/* Uma vez só, para quem nunca escolheu: as duas homes lado a lado. */}
+      {mostrarConviteLayout && <ConviteLayoutHome primeiroNome={primeiroNome} />}
 
       {/* Fundo da página inicial — configurado pela liderança e guardado em
           `igrejas`. Sem `fundo_tipo` a home mantém o fundo padrão do app.
@@ -1364,7 +1453,7 @@ export default async function HomePage() {
         </p>
       </footer>
 
-    </div>
+    </HomePalco>
   )
 }
 

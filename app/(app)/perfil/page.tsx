@@ -14,6 +14,8 @@ import { buscarDependentesAction, type DependenteItem } from '@/app/actions/depe
 import { buscarDadosConjugeAction } from '@/app/actions/conjuge'
 import { minhasInscricoesAction } from '@/app/actions/inscricoes-membro'
 import { MinhasInscricoes, type InscricaoResumo } from '@/components/perfil/minhas-inscricoes'
+import { AparenciaHome } from '@/components/perfil/aparencia-home'
+import type { HomeLayout } from '@/lib/supabase/types'
 
 type Profile = {
   nome: string
@@ -27,6 +29,7 @@ type Profile = {
   data_casamento: string | null
   endereco: string | null
   endereco_maps: string | null
+  home_layout: HomeLayout | null
 }
 
 export default function PerfilPage() {
@@ -70,7 +73,7 @@ function PerfilConteudo() {
       const [profileResult, deps, conjugeDados] = await Promise.all([
         supabase
           .from('profiles')
-          .select('nome, role, titulo, telefone, email, avatar_url, data_nascimento_1, data_nascimento_2, data_casamento, endereco, endereco_maps')
+          .select('nome, role, titulo, telefone, email, avatar_url, data_nascimento_1, data_nascimento_2, data_casamento, endereco, endereco_maps, home_layout')
           .eq('id', session.user.id)
           .single(),
         buscarDependentesAction().catch(() => [] as DependenteItem[]),
@@ -85,6 +88,7 @@ function PerfilConteudo() {
       setProfile({
         ...p,
         titulo: (p as any).titulo ?? null,
+        home_layout: (p as any).home_layout ?? null,
         telefone: (p as any).telefone ?? null,
         endereco: p.endereco || conjugeDados?.endereco || null,
         endereco_maps: p.endereco_maps || conjugeDados?.endereco_maps || null,
@@ -169,6 +173,10 @@ function PerfilConteudo() {
       <VinculoIgrejaSection role={profile.role} primeiroAcesso={Boolean(retorno)} />
 
       <MinhasInscricoes inscricoes={inscricoes} />
+
+      {/* Onde a troca de layout da home mora de vez. Ver
+          `components/home/trocar-layout-home.tsx`. */}
+      <AparenciaHome atual={profile.home_layout} />
 
       <EditarPerfilForm
         nome={profile.nome}

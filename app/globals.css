@@ -526,3 +526,171 @@
   width: 0;
   height: 0;
 }
+
+/* ============================================================
+   TROCA DE LAYOUT DA HOME — as seções virando ícones, e o contrário
+   ============================================================
+   A home tem duas caras (ver `profiles.home_layout`), e trocar de uma para a
+   outra é uma decisão de tela inteira. Sem animação, a página simplesmente é
+   outra no recarregamento seguinte, e fica parecendo erro.
+
+   A coreografia é a mesma nos dois sentidos, invertida: quem sai converge para
+   o formato de quem entra. Indo para os ícones, cada cartão da landing encolhe
+   até virar um quadradinho e some; voltando, cada quadrado se abre até a
+   largura de um cartão. O atraso em cascata (`--atraso`, e o `nth-child` das
+   seções) é o que faz parecer uma coisa se transformando, e não tudo piscando
+   junto.
+
+   Quem pediu menos movimento no sistema não vê nada disso: a troca acontece
+   direto, no fim do arquivo. */
+
+.home-palco {
+  /* Sem `transform` próprio de propósito — ver a nota da saída, abaixo. */
+  transform-origin: 50% 25%;
+}
+
+/* ── Saída: landing → ícones ────────────────────────────────── */
+@keyframes home-secao-vira-icone {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  55% {
+    transform: scale(0.46) translateY(-4%);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(0.14) translateY(-12%);
+    opacity: 0;
+  }
+}
+
+[data-morph='para-icones'] [data-secao] {
+  animation: home-secao-vira-icone 460ms cubic-bezier(0.6, 0.02, 0.35, 1) forwards;
+  transform-origin: 50% 40%;
+}
+
+[data-morph='para-icones'] [data-secao]:nth-child(1) { animation-delay: 0ms; }
+[data-morph='para-icones'] [data-secao]:nth-child(2) { animation-delay: 30ms; }
+[data-morph='para-icones'] [data-secao]:nth-child(3) { animation-delay: 60ms; }
+[data-morph='para-icones'] [data-secao]:nth-child(4) { animation-delay: 90ms; }
+[data-morph='para-icones'] [data-secao]:nth-child(5) { animation-delay: 120ms; }
+[data-morph='para-icones'] [data-secao]:nth-child(6) { animation-delay: 150ms; }
+[data-morph='para-icones'] [data-secao]:nth-child(7) { animation-delay: 175ms; }
+[data-morph='para-icones'] [data-secao]:nth-child(8) { animation-delay: 200ms; }
+[data-morph='para-icones'] [data-secao]:nth-child(n + 9) { animation-delay: 220ms; }
+
+/* ── Saída: ícones → landing ────────────────────────────────── */
+@keyframes home-icone-vira-secao {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2.3);
+    opacity: 0;
+    filter: blur(4px);
+  }
+}
+
+[data-morph='para-secoes'] .atalho-entra {
+  animation: home-icone-vira-secao 420ms cubic-bezier(0.5, 0, 0.75, 0) forwards;
+  animation-delay: calc(var(--atraso, 0ms) * 0.5);
+}
+
+/* O palco inteiro acompanha o que os filhos estão fazendo — mas só com
+   opacidade, nunca com `transform`.
+   O fundo da home (a cor da liderança e a cascata de fotos) é `position:
+   fixed` e mora dentro do palco; qualquer `transform` aqui faria o palco virar
+   o bloco de referência desses dois, e eles saltariam da tela inteira para o
+   tamanho do palco no primeiro quadro. A escala do gesto fica por conta dos
+   cartões e dos quadrados, que é onde ela é lida. */
+@keyframes home-palco-esvanece {
+  to { opacity: 0; }
+}
+[data-morph='para-icones'] {
+  animation: home-palco-esvanece 460ms cubic-bezier(0.6, 0.02, 0.35, 1) forwards;
+}
+[data-morph='para-secoes'] {
+  animation: home-palco-esvanece 420ms cubic-bezier(0.5, 0, 0.75, 0) forwards;
+}
+
+/* ── Entrada ────────────────────────────────────────────────── */
+/* Os quadrados sempre entram em cascata: é o gesto de abrir o app, e custa
+   400ms numa grade que já está pronta na tela. */
+@keyframes home-atalho-entra {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.86);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.atalho-entra {
+  animation: home-atalho-entra 420ms cubic-bezier(0.2, 0.8, 0.25, 1) both;
+  animation-delay: var(--atraso, 0ms);
+}
+
+/* As seções só entram em cascata quando a pessoa acabou de trocar de layout —
+   `data-entrada` só existe nesse momento. Em visita comum a home aparece de
+   uma vez, que é o certo numa página desse tamanho. */
+@keyframes home-secao-entra {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+[data-entrada='landing'] [data-secao] {
+  animation: home-secao-entra 480ms cubic-bezier(0.2, 0.8, 0.25, 1) both;
+}
+[data-entrada='landing'] [data-secao]:nth-child(1) { animation-delay: 40ms; }
+[data-entrada='landing'] [data-secao]:nth-child(2) { animation-delay: 80ms; }
+[data-entrada='landing'] [data-secao]:nth-child(3) { animation-delay: 120ms; }
+[data-entrada='landing'] [data-secao]:nth-child(4) { animation-delay: 160ms; }
+[data-entrada='landing'] [data-secao]:nth-child(5) { animation-delay: 200ms; }
+[data-entrada='landing'] [data-secao]:nth-child(6) { animation-delay: 240ms; }
+[data-entrada='landing'] [data-secao]:nth-child(n + 7) { animation-delay: 270ms; }
+
+/* Mesma razão da saída: opacidade só, para o fundo fixo não saltar. */
+@keyframes home-palco-entra {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+[data-entrada] {
+  animation: home-palco-entra 360ms cubic-bezier(0.2, 0.8, 0.25, 1) both;
+}
+
+/* O véu que cobre o vão entre a saída e a página nova. */
+@keyframes home-veu-entra {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.home-veu {
+  animation: home-veu-entra 260ms ease-out both;
+}
+@keyframes home-veu-pulso {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.04); opacity: 0.85; }
+}
+.home-veu-miniatura {
+  animation: home-veu-pulso 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .atalho-entra,
+  .home-veu,
+  .home-veu-miniatura,
+  [data-entrada],
+  [data-entrada='landing'] [data-secao],
+  [data-morph],
+  [data-morph='para-icones'] [data-secao],
+  [data-morph='para-secoes'] .atalho-entra {
+    animation: none !important;
+  }
+}
