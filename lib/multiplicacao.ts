@@ -34,6 +34,8 @@ export interface CelulaLinhagem {
   redeNome: string
   redeCor: string
   liderNome: string | null
+  /** Todos os líderes, quando a célula tem mais de um. */
+  lideresNomes?: string[]
   logoUrl: string | null
   cor: string | null
   celulaMaeId: string | null
@@ -160,6 +162,19 @@ export function montarArvores<C extends CelulaLinhagem>(celulas: C[]): ArvoreDaR
 
 function profundidade(no: NoArvore<CelulaLinhagem>): number {
   return no.filhas.length === 0 ? no.geracao : Math.max(...no.filhas.map(profundidade))
+}
+
+/**
+ * Os nomes num texto só: "João e Maria", "Ana, Bia e Cris".
+ *
+ * É como a igreja fala do casal que lidera — e o que as listas mostram quando
+ * a célula tem mais de um líder.
+ */
+export function juntarNomes(nomes: string[]): string | null {
+  const limpos = nomes.map((n) => n.trim()).filter(Boolean)
+  if (limpos.length === 0) return null
+  if (limpos.length === 1) return limpos[0]
+  return `${limpos.slice(0, -1).join(', ')} e ${limpos[limpos.length - 1]}`
 }
 
 export type EstadoMultiplicacao = 'vencida' | 'proxima' | 'planejada' | 'sem-data'

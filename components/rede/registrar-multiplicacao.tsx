@@ -9,7 +9,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog'
 import { registrarMultiplicacaoAction } from '@/app/actions/multiplicacao'
-import { SeletorPessoa } from '@/components/shared/seletor-pessoa'
+import { SeletorPessoas } from '@/components/shared/seletor-pessoa'
 import { SeletorCelulaFilha, type CelulaConhecida } from '@/components/rede/seletor-celula-filha'
 import type { PessoaDaIgreja } from '@/app/actions/pessoas'
 import { MAX_FILHAS } from '@/lib/multiplicacao'
@@ -40,11 +40,12 @@ interface FilhaForm {
   /** Célula que já existe no app, quando a filha não é nova. */
   existente: CelulaConhecida | null
   nome: string
-  lider: PessoaDaIgreja | null
+  /** Célula liderada por casal é a regra, então é lista e não um campo só. */
+  lideres: PessoaDaIgreja[]
 }
 
 function filhaVazia(): FilhaForm {
-  return { chave: Date.now() + Math.random(), existente: null, nome: '', lider: null }
+  return { chave: Date.now() + Math.random(), existente: null, nome: '', lideres: [] }
 }
 
 /**
@@ -116,8 +117,8 @@ export function RegistrarMultiplicacao({
     )
   }
 
-  function definirLider(chave: number, pessoa: PessoaDaIgreja | null) {
-    setFilhas((atual) => atual.map((f) => (f.chave === chave ? { ...f, lider: pessoa } : f)))
+  function definirLideres(chave: number, pessoas: PessoaDaIgreja[]) {
+    setFilhas((atual) => atual.map((f) => (f.chave === chave ? { ...f, lideres: pessoas } : f)))
   }
 
   function salvar() {
@@ -129,7 +130,7 @@ export function RegistrarMultiplicacao({
         filhas: filhas.map((f) => ({
           celulaExistenteId: f.existente?.id ?? null,
           nome: f.existente ? '' : f.nome,
-          lider: f.lider,
+          lideres: f.lideres,
         })),
       })
       if (!r.ok) { setErro(r.erro ?? 'Não deu para registrar.'); return }
@@ -242,10 +243,11 @@ export function RegistrarMultiplicacao({
                       opcoes={celulas}
                       nomePorId={nomePorId}
                     />
-                    <SeletorPessoa
-                      valor={f.lider}
-                      onEscolher={(pessoa) => definirLider(f.chave, pessoa)}
+                    <SeletorPessoas
+                      valores={f.lideres}
+                      onMudar={(pessoas) => definirLideres(f.chave, pessoas)}
                       rotulo="Quem lidera (opcional)"
+                      rotuloMais="Adicionar outro líder"
                       obsCadastro={`Líder da célula que nasceu da ${mae?.nome ?? 'multiplicação'}`}
                     />
                   </div>

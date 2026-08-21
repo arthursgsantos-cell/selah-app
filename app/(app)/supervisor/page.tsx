@@ -20,7 +20,10 @@ import {
   type EscalaRowBanco,
 } from '@/lib/calendario-celula'
 import type { Frequencia } from '@/lib/supabase/types'
-import { carregarSaudeRede, carregarSupervisoes, type Granularidade } from '@/lib/saude-rede'
+import {
+  carregarSaudeRede, carregarSupervisoes, carregarSupervisoresPorRede,
+  type Granularidade,
+} from '@/lib/saude-rede'
 import { SaudeAlertas } from '@/components/rede/saude-alertas'
 import { ArvoreMultiplicacao } from '@/components/rede/arvore-multiplicacao'
 import { RegistrarMultiplicacao } from '@/components/rede/registrar-multiplicacao'
@@ -225,9 +228,10 @@ export default async function SupervisorPage({
     ? (searchParams.periodo as Granularidade)
     : 'semana'
 
-  const [saude, supervisoes] = await Promise.all([
+  const [saude, supervisoes, supervisoresPorRede] = await Promise.all([
     carregarSaudeRede(redeIds, periodo),
     carregarSupervisoes(redeIds),
+    carregarSupervisoresPorRede(redeIds),
   ])
 
   const q = (searchParams.q ?? '').toLowerCase().trim()
@@ -304,7 +308,7 @@ export default async function SupervisorPage({
             }))}
           />
         </div>
-        <ArvoreMultiplicacao celulas={saude.celulas} />
+        <ArvoreMultiplicacao celulas={saude.celulas} supervisoresPorRede={supervisoresPorRede} />
       </section>
 
       {/* Para onde a rede está indo */}

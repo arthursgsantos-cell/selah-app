@@ -3,10 +3,15 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
-import { nomeProvisorioDe, MAX_FILHAS } from '@/lib/multiplicacao'
+import { nomeProvisorioDe, juntarNomes, MAX_FILHAS } from '@/lib/multiplicacao'
 import type { PessoaDaIgreja } from '@/app/actions/pessoas'
 
 const CARGOS_GESTAO = ['admin', 'pastor', 'supervisor', 'supervisor_treinamento']
+
+/** Os líderes num texto só, para a coluna `lider_nome`. */
+function nomesDeLideres(lideres: PessoaDaIgreja[] | undefined): string | null {
+  return juntarNomes((lideres ?? []).map((l) => l.nome))
+}
 
 export interface FilhaNova {
   /**
@@ -21,11 +26,13 @@ export interface FilhaNova {
   /**
    * Quem vai liderar, quando já está definido.
    *
-   * Vem do seletor de pessoas da igreja — perfil de quem já usa o app ou ficha
-   * de quem ainda não entrou —, e não como texto solto: líder digitado à mão
-   * vira um nome que o app não reconhece em lugar nenhum.
+   * Lista, e não um campo só: célula liderada por casal é a regra, e o líder
+   * em treinamento entra junto. Vem do seletor de pessoas da igreja — perfil
+   * de quem já usa o app ou ficha de quem ainda não entrou —, e não como texto
+   * solto: líder digitado à mão vira um nome que o app não reconhece em lugar
+   * nenhum.
    */
-  lider?: PessoaDaIgreja | null
+  lideres?: PessoaDaIgreja[]
 }
 
 export interface ResultadoMultiplicacao {
@@ -124,7 +131,7 @@ export async function registrarMultiplicacaoAction(dados: {
       multiplicada_em: dados.data,
       // O nome também vai para a coluna solta: é o que a árvore e as listas
       // mostram antes de a pessoa criar a conta.
-      lider_nome: f.lider?.nome ?? null,
+      lider_nome: nomesDeLideres(f.lideres),
       // A filha estreia parecida com a mãe: mesma rede, mesmas cores, mesmo
       // ritmo de encontro. É o ponto de partida mais provável, e cada uma
       // muda o que quiser depois na própria página.
@@ -154,7 +161,9 @@ export async function registrarMultiplicacaoAction(dados: {
         multiplicada_em: dados.data,
         // O nome do líder só é escrito quando um foi escolhido agora: apagar o
         // que já estava lá seria perder informação por omissão.
-        ...(f.lider ? { lider_nome: f.lider.nome } : {}),
+        ...(f.lideres && f.lideres.length > 0
+          ? { lider_nome: nomesDeLideres(f.lideres) }
+          : {}),
       } as never)
       .eq('id', f.celulaExistenteId!)
     if (erroAdocao) return { ok: false, erro: erroAdocao.message }
@@ -171,28 +180,29 @@ export async function registrarMultiplicacaoAction(dados: {
   // vínculo se completa sozinho quando ela criar a conta.
   const vinculos: PromiseLike<unknown>[] = []
   filhas.forEach((f, i) => {
-    const lider = f.lider
     const celulaId = ids[i]
-    if (!lider || !celulaId) return
+    if (!celulaId) return
 
-    if (lider.tipo === 'profile') {
+    ;(f.lideres ?? []).forEach((lider) => {
+      if (lider.tipo === 'profile') {
+        vinculos.push(
+          admin
+            .from('celula_membros')
+            .upsert(
+              { celula_id: celulaId, user_id: lider.id, papel: 'lider' } as never,
+              { onConflict: 'celula_id,user_id' },
+            ),
+        )
+        return
+      }
+
       vinculos.push(
         admin
-          .from('celula_membros')
-          .upsert(
-            { celula_id: celulaId, user_id: lider.id, papel: 'lider' } as never,
-            { onConflict: 'celula_id,user_id' },
-          ),
+          .from('membros_pre_cadastro')
+          .update({ celula_id: celulaId, updated_at: new Date().toISOString() } as never)
+          .eq('id', lider.id),
       )
-      return
-    }
-
-    vinculos.push(
-      admin
-        .from('membros_pre_cadastro')
-        .update({ celula_id: celulaId, updated_at: new Date().toISOString() } as never)
-        .eq('id', lider.id),
-    )
+    })
   })
 
   await Promise.all(vinculos)

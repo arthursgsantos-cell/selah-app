@@ -15,6 +15,7 @@
  */
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { juntarNomes } from '@/lib/multiplicacao'
 
 /**
  * Semanas sem encontro registrado a partir das quais a célula acende o alerta.
@@ -36,7 +37,11 @@ export interface CelulaSaude {
   redeId: string
   redeNome: string
   redeCor: string
+  /** Todos os líderes num texto só: "Anna e Tone". */
   liderNome: string | null
+  /** Um por um, para quando a tela precisa listar em vez de juntar. */
+  lideresNomes: string[]
+  /** Telefone do primeiro líder que tem um — é o do botão do WhatsApp. */
   liderTelefone: string | null
   /** Último encontro marcado como realizado. `null` = nunca registrou nenhum. */
   ultimoEncontro: string | null
@@ -178,21 +183,29 @@ export async function carregarSaudeRede(
     ((saudeData ?? []) as SaudeRpcRow[]).map((s) => [s.celula_id, s]),
   )
 
-  const liderPorCelula = new Map(
-    ((lideresData ?? []) as unknown as {
-      celula_id: string
-      profiles: { nome: string; telefone: string | null } | null
-    }[])
-      .filter((l) => l.profiles)
-      .map((l) => [l.celula_id, l.profiles!]),
-  )
+  // Uma célula pode ter mais de um líder — casal, ou líder em treinamento
+  // junto —, então cada uma guarda a lista inteira em vez de só o último que
+  // apareceu na consulta.
+  const lideresPorCelula = new Map<string, { nome: string; telefone: string | null }[]>()
+  ;((lideresData ?? []) as unknown as {
+    celula_id: string
+    profiles: { nome: string; telefone: string | null } | null
+  }[])
+    .filter((l) => l.profiles)
+    .forEach((l) => {
+      const lista = lideresPorCelula.get(l.celula_id) ?? []
+      lista.push(l.profiles!)
+      lideresPorCelula.set(l.celula_id, lista)
+    })
 
   const agora = Date.now()
 
   const lista: CelulaSaude[] = celulas.map((c) => {
     const s = saudePorCelula.get(c.id)
     const rede = redePorId.get(c.rede_id)
-    const lider = liderPorCelula.get(c.id)
+    const lideres = (lideresPorCelula.get(c.id) ?? [])
+      .slice()
+      .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
 
     const ultimoEncontro = s?.ultimo_encontro ?? null
     const semanasSemRegistro = ultimoEncontro
@@ -210,8 +223,13 @@ export async function carregarSaudeRede(
       redeId: c.rede_id,
       redeNome: rede?.nome ?? '',
       redeCor: rede?.cor ?? '#6366f1',
-      liderNome: lider?.nome ?? c.lider_nome,
-      liderTelefone: lider?.telefone ?? null,
+      // O vínculo real ganha do texto solto da planilha; sem vínculo nenhum,
+      // é o texto que aparece.
+      liderNome: juntarNomes(lideres.map((l) => l.nome)) ?? c.lider_nome,
+      lideresNomes: lideres.length > 0
+        ? lideres.map((l) => l.nome)
+        : c.lider_nome ? [c.lider_nome] : [],
+      liderTelefone: lideres.find((l) => l.telefone)?.telefone ?? null,
       ultimoEncontro,
       semanasSemRegistro,
       encontros90d: Number(s?.encontros_90d ?? 0),
@@ -267,6 +285,48 @@ export async function carregarSaudeRede(
     .sort((a, b) => (a.multiplicacaoPrevista ?? '').localeCompare(b.multiplicacaoPrevista ?? ''))
 
   return { celulas: lista, serie, inatingiveis, semSupervisao, multiplicandoEmBreve }
+}
+
+/**
+ * Quem supervisiona cada rede, pelo nome.
+ *
+ * Objeto simples, e não `Map`: atravessa a fronteira do servidor para o
+ * componente, e `Map` não sobrevive à serialização do React.
+ */
+export async function carregarSupervisoresPorRede(
+  redeIds: string[],
+): Promise<Record<string, string[]>> {
+  if (redeIds.length === 0) return {}
+
+  const admin = createAdminClient()
+
+  const { data: vinculos } = await admin
+    .from('rede_supervisores')
+    .select('rede_id, supervisor_id')
+    .in('rede_id', redeIds)
+
+  const linhas = (vinculos ?? []) as { rede_id: string; supervisor_id: string }[]
+  if (linhas.length === 0) return {}
+
+  const { data: perfis } = await admin
+    .from('profiles')
+    .select('id, nome')
+    .in('id', [...new Set(linhas.map((v) => v.supervisor_id))])
+
+  const nomePorId = new Map(((perfis ?? []) as { id: string; nome: string }[]).map((p) => [p.id, p.nome]))
+
+  const porRede: Record<string, string[]> = {}
+  linhas.forEach((v) => {
+    const nome = nomePorId.get(v.supervisor_id)
+    if (!nome) return
+    porRede[v.rede_id] = [...(porRede[v.rede_id] ?? []), nome]
+  })
+
+  Object.keys(porRede).forEach((id) => {
+    porRede[id].sort((a, b) => a.localeCompare(b, 'pt-BR'))
+  })
+
+  return porRede
 }
 
 export interface SupervisaoRegistrada {

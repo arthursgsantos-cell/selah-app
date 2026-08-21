@@ -110,27 +110,7 @@ export function SeletorPessoa({
     })
   }
 
-  if (valor) {
-    return (
-      <div className="flex items-center gap-2 rounded-lg border border-border bg-background px-2 py-1.5">
-        <Retrato pessoa={valor} />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium leading-tight">{valor.nome}</p>
-          <p className="truncate text-[11px] text-muted-foreground">
-            {valor.tipo === 'profile' ? 'usa o app' : 'na lista da igreja'}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => onEscolher(null)}
-          aria-label={`Tirar ${valor.nome}`}
-          className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
-      </div>
-    )
-  }
+  if (valor) return <PessoaEscolhida pessoa={valor} onTirar={() => onEscolher(null)} />
 
   if (!aberto) {
     return (
@@ -237,6 +217,89 @@ export function SeletorPessoa({
             Cadastrar na igreja e escolher
           </Button>
         </div>
+      )}
+    </div>
+  )
+}
+
+/** A pessoa já escolhida, com o botão de tirar. */
+function PessoaEscolhida({
+  pessoa,
+  onTirar,
+}: {
+  pessoa: PessoaDaIgreja
+  onTirar: () => void
+}) {
+  return (
+    <div className="flex items-center gap-2 rounded-lg border border-border bg-background px-2 py-1.5">
+      <Retrato pessoa={pessoa} />
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium leading-tight">{pessoa.nome}</p>
+        <p className="truncate text-[11px] text-muted-foreground">
+          {pessoa.tipo === 'profile' ? 'usa o app' : 'na lista da igreja'}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onTirar}
+        aria-label={`Tirar ${pessoa.nome}`}
+        className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  )
+}
+
+interface PropsPlural {
+  valores: PessoaDaIgreja[]
+  onMudar: (pessoas: PessoaDaIgreja[]) => void
+  rotulo?: string
+  /** Rótulo do botão quando já há alguém escolhido. */
+  rotuloMais?: string
+  obsCadastro?: string
+  max?: number
+}
+
+/**
+ * O mesmo seletor, para quando a função é de mais de um.
+ *
+ * Célula liderada por casal é a regra, não a exceção — e ainda tem o líder em
+ * treinamento junto. Cada escolhido vira uma linha; a busca continua embaixo
+ * até o limite.
+ */
+export function SeletorPessoas({
+  valores,
+  onMudar,
+  rotulo = 'Escolher pessoa',
+  rotuloMais = 'Adicionar mais uma',
+  obsCadastro,
+  max = 4,
+}: PropsPlural) {
+  function adicionar(pessoa: PessoaDaIgreja | null) {
+    if (!pessoa) return
+    // A mesma pessoa duas vezes viraria dois vínculos para um líder só.
+    if (valores.some((v) => v.tipo === pessoa.tipo && v.id === pessoa.id)) return
+    onMudar([...valores, pessoa])
+  }
+
+  return (
+    <div className="space-y-1.5">
+      {valores.map((p) => (
+        <PessoaEscolhida
+          key={`${p.tipo}-${p.id}`}
+          pessoa={p}
+          onTirar={() => onMudar(valores.filter((v) => !(v.tipo === p.tipo && v.id === p.id)))}
+        />
+      ))}
+
+      {valores.length < max && (
+        <SeletorPessoa
+          valor={null}
+          onEscolher={adicionar}
+          rotulo={valores.length === 0 ? rotulo : rotuloMais}
+          obsCadastro={obsCadastro}
+        />
       )}
     </div>
   )

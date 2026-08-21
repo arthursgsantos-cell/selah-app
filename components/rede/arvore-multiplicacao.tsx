@@ -11,10 +11,10 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
 import {
-  ChevronDown, ChevronRight, GitBranch, Loader2, Sparkles,
+  ChevronDown, ChevronRight, GitBranch, Loader2, Sparkles, UserCheck,
 } from 'lucide-react'
 import {
-  montarArvores, situacaoMultiplicacao, formatarData,
+  montarArvores, situacaoMultiplicacao, formatarData, juntarNomes,
   type ArvoreDaRede, type CelulaLinhagem, type NoArvore,
 } from '@/lib/multiplicacao'
 import { batizarCelulaAction } from '@/app/actions/multiplicacao'
@@ -24,6 +24,8 @@ import {
 
 interface Props {
   celulas: CelulaLinhagem[]
+  /** Quem supervisiona cada rede, por id da rede. */
+  supervisoresPorRede?: Record<string, string[]>
 }
 
 /** Primeira letra do nome — o que sobra quando a célula não tem logo. */
@@ -172,7 +174,7 @@ function LinhaNo({
   const raiz = no.geracao === 1
 
   const detalhe = [
-    celula.liderNome,
+    juntarNomes(celula.lideresNomes ?? []) ?? celula.liderNome,
     celula.multiplicadaEm ? `nasceu em ${formatarData(celula.multiplicadaEm)}` : null,
   ]
     .filter(Boolean)
@@ -312,9 +314,11 @@ function Soltas({
 function BlocoRede({
   arvore,
   celulasDaRede,
+  supervisores,
 }: {
   arvore: ArvoreDaRede<CelulaLinhagem>
   celulasDaRede: CelulaParaMultiplicar[]
+  supervisores: string[]
 }) {
   const total = arvore.soltas.length + arvore.raizes.reduce((s, r) => s + 1 + r.descendentes, 0)
 
@@ -336,6 +340,14 @@ function BlocoRede({
             {arvore.raizes.length > 0 &&
               ` · ${arvore.raizes.length} ${arvore.raizes.length === 1 ? 'linhagem' : 'linhagens'}`}
           </p>
+          {supervisores.length > 0 && (
+            <p className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
+              <UserCheck className="h-3 w-3 shrink-0" />
+              <span className="truncate">
+                Supervisão: {juntarNomes(supervisores)}
+              </span>
+            </p>
+          )}
         </div>
       </div>
 
@@ -372,7 +384,7 @@ function BlocoRede({
  * conta essa história. Cada rede tem a própria árvore, porque multiplicação é
  * assunto de rede.
  */
-export function ArvoreMultiplicacao({ celulas }: Props) {
+export function ArvoreMultiplicacao({ celulas, supervisoresPorRede = {} }: Props) {
   const arvores = useMemo(() => montarArvores(celulas), [celulas])
 
   const paraDialogo = useMemo(
@@ -398,7 +410,12 @@ export function ArvoreMultiplicacao({ celulas }: Props) {
   return (
     <div className="space-y-3">
       {arvores.map((a) => (
-        <BlocoRede key={a.redeId} arvore={a} celulasDaRede={paraDialogo} />
+        <BlocoRede
+          key={a.redeId}
+          arvore={a}
+          celulasDaRede={paraDialogo}
+          supervisores={supervisoresPorRede[a.redeId] ?? []}
+        />
       ))}
     </div>
   )
