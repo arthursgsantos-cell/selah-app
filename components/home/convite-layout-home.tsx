@@ -29,7 +29,7 @@ const OPCOES: HomeLayout[] = ['landing', 'icones']
 export function ConviteLayoutHome({ primeiroNome }: { primeiroNome: string }) {
   const [aberto, setAberto] = useState(true)
   const [escolhido, setEscolhido] = useState<HomeLayout>('landing')
-  const { trocar, trocandoPara, erro } = useTrocaLayout()
+  const { trocar, trocandoPara, veuPara, erro } = useTrocaLayout()
 
   const ocupado = trocandoPara !== null
 
@@ -110,7 +110,7 @@ export function ConviteLayoutHome({ primeiroNome }: { primeiroNome: string }) {
 
       {/* Fora do diálogo: quando o convite fecha, é o véu que segura a tela até
           a home escolhida chegar. */}
-      {trocandoPara && <VeuTroca destino={trocandoPara} />}
+      {veuPara && <VeuTroca destino={veuPara} />}
     </>
   )
 }

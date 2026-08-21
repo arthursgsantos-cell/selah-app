@@ -48,6 +48,23 @@ export async function animarSaidaHome(destino: HomeLayout): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, DURACAO_SAIDA[destino]))
 }
 
+/**
+ * Traz a home de volta quando a troca falhou no meio.
+ *
+ * A saída deixa o palco em opacidade zero (`forwards`); sem desfazer isso a
+ * pessoa ficaria olhando uma tela vazia com um erro que não dá para ler.
+ */
+export function desfazerSaidaHome(): void {
+  if (typeof document === 'undefined') return
+  const palco = document.getElementById(ID_PALCO)
+  if (palco) delete palco.dataset.morph
+  try {
+    window.sessionStorage.removeItem(CHAVE_ENTRADA)
+  } catch {
+    // Sem armazenamento não há marca para limpar.
+  }
+}
+
 /** Lê e consome a marca deixada por `animarSaidaHome`. */
 export function consumirEntrada(): HomeLayout | null {
   if (typeof window === 'undefined') return null

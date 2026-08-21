@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { LayoutGrid, LayoutTemplate, Loader2 } from 'lucide-react'
 import { definirHomeLayoutAction } from '@/app/actions/home-layout'
-import { animarSaidaHome } from '@/lib/home-morph'
+import { animarSaidaHome, desfazerSaidaHome } from '@/lib/home-morph'
 import { MiniaturaLayout } from '@/components/home/miniatura-layout'
 import type { HomeLayout } from '@/lib/supabase/types'
 
@@ -36,6 +36,7 @@ export const RESUMO_LAYOUT: Record<HomeLayout, string> = {
 export function useTrocaLayout() {
   const router = useRouter()
   const [trocandoPara, setTrocandoPara] = useState<HomeLayout | null>(null)
+  const [veuPara, setVeuPara] = useState<HomeLayout | null>(null)
   const [erro, setErro] = useState<string | null>(null)
 
   const trocar = useCallback(
@@ -45,22 +46,27 @@ export function useTrocaLayout() {
       setErro(null)
       setTrocandoPara(destino)
       try {
+        // O véu só entra depois que a transformação terminou. Subindo junto
+        // com ela, cobriria exatamente o que ela tem para mostrar.
         if (animar) await animarSaidaHome(destino)
+        if (comVeu) setVeuPara(destino)
         await definirHomeLayoutAction(destino)
         router.refresh()
         if (!comVeu) setTrocandoPara(null)
       } catch {
-        setErro('Não deu para salvar agora. Tente de novo.')
+        // A home já tinha saído de cena e a página nova não vem mais: traz de
+        // volta o que estava na tela, com o aviso do que houve. Recarregar
+        // aqui apagaria justamente esse aviso.
+        desfazerSaidaHome()
+        setVeuPara(null)
         setTrocandoPara(null)
-        // A home já tinha começado a sair de cena; sem a página nova para
-        // ocupar o lugar, o jeito honesto de desfazer é recarregar.
-        router.refresh()
+        setErro('Não deu para salvar agora. Tente de novo.')
       }
     },
     [router]
   )
 
-  return { trocar, trocandoPara, erro }
+  return { trocar, trocandoPara, veuPara, erro }
 }
 
 /**
@@ -72,7 +78,7 @@ export function useTrocaLayout() {
  * permanente da troca é Meu perfil → Aparência.
  */
 export function TrocarLayoutHome({ destino }: { destino: HomeLayout }) {
-  const { trocar, trocandoPara, erro } = useTrocaLayout()
+  const { trocar, trocandoPara, veuPara, erro } = useTrocaLayout()
   const Icone = destino === 'landing' ? LayoutTemplate : LayoutGrid
 
   return (
@@ -90,7 +96,7 @@ export function TrocarLayoutHome({ destino }: { destino: HomeLayout }) {
         Dá para mudar quando quiser em Meu perfil → Aparência.
       </p>
       {erro && <p className="mt-2 text-center text-xs text-destructive">{erro}</p>}
-      {trocandoPara && <VeuTroca destino={trocandoPara} />}
+      {veuPara && <VeuTroca destino={veuPara} />}
     </div>
   )
 }
