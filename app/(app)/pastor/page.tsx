@@ -25,7 +25,6 @@ import { GaleriaComunidadeSection } from '@/components/pastor/galeria-comunidade
 import { carregarSaudeRede, carregarSupervisoes, type Granularidade } from '@/lib/saude-rede'
 import { RegistrarSupervisao } from '@/components/rede/registrar-supervisao'
 import { SupervisoesHistorico } from '@/components/rede/supervisoes-historico'
-import { SaudeAlertas } from '@/components/rede/saude-alertas'
 import { PresencaHistorico } from '@/components/rede/presenca-historico'
 import { CompartilharPedidos } from '@/components/pastor/compartilhar-pedidos'
 
@@ -308,7 +307,6 @@ export default async function PastorPage({
                   <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                 </Link>
 
-                {/* Saúde da rede — a igreja inteira, não uma rede só */}
                 <section>
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
                     Precisam de atenção
@@ -497,6 +495,7 @@ export default async function PastorPage({
     </div>
   )
 }
+
 
 
 
