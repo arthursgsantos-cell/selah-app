@@ -31,6 +31,7 @@ import type { Role } from '@/lib/supabase/types'
 import { FUNCOES_ESCALA, funcaoComEmoji } from '@/lib/escala-funcoes'
 import { encontrosTexto } from '@/lib/ensino/turma'
 import { SECAO, SECAO_TITULO } from '@/lib/estilos'
+import { HomeLayoutChooser } from '@/components/home/home-layout-chooser'
 
 const roleLabels: Record<Role, string> = {
   admin: 'Admin',
@@ -430,6 +431,7 @@ export default async function HomePage() {
     // ── GUEST / PUBLIC VIEW ──────────────────────────────────────────
     return (
       <div className="space-y-4 max-w-2xl mx-auto pb-8">
+        <HomeLayoutChooser enabled={Boolean(profile)} igrejaNome={church?.nome} logoUrl={church?.logo_url} aoVivo={aoVivo} />
 
         {/* Mesmo fundo personalizado (cor/gradiente/nébula) da home de quem
             está logado. Sem `canEdit`: visitante nunca vê o botão de editar,
@@ -1093,6 +1095,7 @@ export default async function HomePage() {
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto pb-6">
+      <HomeLayoutChooser enabled={Boolean(profile)} igrejaNome={church?.nome} logoUrl={church?.logo_url} aoVivo={aoVivo} />
 
       {/* Fundo da página inicial — configurado pela liderança e guardado em
           `igrejas`. Sem `fundo_tipo` a home mantém o fundo padrão do app.
