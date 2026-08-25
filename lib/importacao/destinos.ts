@@ -18,7 +18,10 @@ export type Resolvedor = {
 function criarResolvedor(pares: { chave: string; alvo: Alvo }[]): Resolvedor {
   const mapa = new Map(pares.map((p) => [p.chave, p.alvo]))
   const nomes = [...new Set(pares.map((p) => p.alvo.nome))].sort()
-  const fn = ((nome: string) => mapa.get(normalizarNome(nome)) ?? null) as Resolvedor
+  const fn = ((nome: string) => {
+    const chave = normalizarNome(nome)
+    return mapa.get(chave) ?? mapa.get(chave.replace(/\s+[234]\.0$/, '')) ?? null
+  }) as Resolvedor
   fn.nomes = nomes
   return fn
 }
@@ -58,6 +61,20 @@ export async function resolvedorDeCelulas(ctx: Contexto): Promise<Resolvedor> {
     if (celula) pares.push({ chave: normalizarNome(a.apelido), alvo: celula })
   }
 
+  // Grafias históricas que continuam circulando nas planilhas e no WhatsApp.
+  // São aliases, não novas células.
+  const porNome = new Map(lista.map((c) => [normalizarNome(c.nome), c]))
+  const aliasesCanonicos: Record<string, string[]> = {
+    pertencer: ['PertenSer'],
+    alpha: ['Alfa'],
+    omega: ['Omega'],
+    'omega': ['Ômega'],
+  }
+  for (const [canonico, aliases] of Object.entries(aliasesCanonicos)) {
+    const celula = porNome.get(normalizarNome(canonico))
+    if (celula) for (const alias of aliases) pares.push({ chave: normalizarNome(alias), alvo: celula })
+  }
+
   return criarResolvedor(pares)
 }
 
@@ -82,3 +99,4 @@ export async function resolvedorDeRedes(ctx: Contexto): Promise<Resolvedor> {
 export function semPrefixoRede(destino: string): string {
   return destino.replace(/^\s*rede\s+/i, '').trim()
 }
+
