@@ -44,7 +44,7 @@ const ROTULO_TIPO: Record<string, string> = {
 
 const ESTILO_STATUS: Record<string, { rotulo: string; classe: string }> = {
   importado: { rotulo: 'Importado', classe: 'bg-green-100 text-green-700' },
-  ignorado: { rotulo: 'Ignorado', classe: 'bg-muted text-muted-foreground' },
+  ignorado: { rotulo: 'Sem alteração', classe: 'bg-muted text-muted-foreground' },
   pendente: { rotulo: 'Pendente', classe: 'bg-yellow-100 text-yellow-700' },
   erro: { rotulo: 'Erro', classe: 'bg-red-100 text-red-700' },
 }
@@ -165,7 +165,7 @@ function ResumoBloco({ titulo, bloco }: { titulo: string; bloco?: Bloco }) {
   const linhas = [
     { icone: Check, classe: 'text-green-700', qtd: bloco.importados?.length ?? 0, texto: 'importados' },
     { icone: Pencil, classe: 'text-blue-700', qtd: bloco.atualizados?.length ?? 0, texto: 'atualizados' },
-    { icone: Minus, classe: 'text-muted-foreground', qtd: bloco.ignorados?.length ?? 0, texto: 'ignorados' },
+    { icone: Minus, classe: 'text-muted-foreground', qtd: bloco.ignorados?.length ?? 0, texto: 'já existentes' },
     { icone: CircleAlert, classe: 'text-yellow-600', qtd: bloco.pendentes?.length ?? 0, texto: 'pendentes' },
     { icone: AlertCircle, classe: 'text-destructive', qtd: bloco.erros?.length ?? 0, texto: 'com erro' },
   ].filter((l) => l.qtd > 0)
@@ -193,3 +193,4 @@ function ResumoBloco({ titulo, bloco }: { titulo: string; bloco?: Bloco }) {
     </div>
   )
 }
+
