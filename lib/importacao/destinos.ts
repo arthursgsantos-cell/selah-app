@@ -67,8 +67,7 @@ export async function resolvedorDeCelulas(ctx: Contexto): Promise<Resolvedor> {
   const aliasesCanonicos: Record<string, string[]> = {
     pertencer: ['PertenSer'],
     alpha: ['Alfa'],
-    omega: ['Omega'],
-    'omega': ['Ômega'],
+    omega: ['Omega', 'Ômega'],
   }
   for (const [canonico, aliases] of Object.entries(aliasesCanonicos)) {
     const celula = porNome.get(normalizarNome(canonico))
