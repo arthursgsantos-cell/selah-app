@@ -71,6 +71,12 @@ interface Props {
   preCadastrados?: PreCadastrado[]
   /** Todas as células, para mover um pré-cadastrado entre elas. */
   celulasDisponiveis?: { id: string; nome: string }[]
+  /**
+   * Painel de frequência, já montado no servidor. Vem como nó pronto porque
+   * depende de consulta ao banco — e só chega para quem lidera a célula ou
+   * supervisiona; para os demais é `null` e a aba nem aparece.
+   */
+  frequencia?: React.ReactNode
 }
 
 const papelLabel = { lider: 'Líder', membro: 'Membro' }
@@ -410,7 +416,7 @@ export function CelulaTabs({
   encontros, membros, celulaId, celulaNome, localPadrao, diaSemana, horarioPadrao,
   dependentes = [], celulaColor, fotosInit = [], canUpload = false, redeNome = null,
   datasCalendario = [], escalasCalendario = [], canEditEscala = false,
-  preCadastrados = [], celulasDisponiveis = [],
+  preCadastrados = [], celulasDisponiveis = [], frequencia = null,
 }: Props) {
   const [qMembros, setQMembros] = useState('')
   const [qEncontros, setQEncontros] = useState('')
@@ -448,6 +454,9 @@ export function CelulaTabs({
               {preCadastrados.length > 0 && `+${preCadastrados.length}`})
             </TabsTrigger>
             <TabsTrigger value="aniversarios" className={triggerCls}>Aniversários</TabsTrigger>
+            {frequencia && (
+              <TabsTrigger value="frequencia" className={triggerCls}>Frequência</TabsTrigger>
+            )}
             <TabsTrigger value="galeria" className={triggerCls}>Galeria</TabsTrigger>
           </TabsList>
           {/* Flutuante: sai da linha das abas e passa a acompanhar a rolagem,
@@ -608,6 +617,13 @@ export function CelulaTabs({
           </div>
         )}
       </TabsContent>
+
+      {/* ── Frequência ── */}
+      {frequencia && (
+        <TabsContent value="frequencia" className="mt-4">
+          {frequencia}
+        </TabsContent>
+      )}
 
       {/* ── Galeria ── */}
       <TabsContent value="galeria" className="mt-4">

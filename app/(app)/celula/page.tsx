@@ -18,6 +18,8 @@ import { CelulaLogoUpload } from '@/components/celula/celula-logo-upload'
 import { CelulaCapaUpload } from '@/components/celula/celula-capa-upload'
 import { CelulaFundoPagina } from '@/components/celula/celula-fundo-pagina'
 import { EditarCelulaDialog } from '@/components/supervisor/editar-celula-dialog'
+import { FrequenciaIrmaos } from '@/components/rede/frequencia-irmaos'
+import { carregarFrequenciaIrmaos } from '@/lib/frequencia-irmaos'
 
 type MembroComProfile = {
   user_id: string
@@ -262,6 +264,21 @@ export default async function MinhasCelulaPage() {
     : { data: null }
   const redeNome = (redeDaCelula as { nome: string } | null)?.nome ?? null
 
+  // Frequência da própria célula: quem anda faltando. Só para quem lidera ou
+  // supervisiona — é a mesma lista que a supervisão vê, recortada numa célula.
+  const frequenciaCelula = canEdit
+    ? await carregarFrequenciaIrmaos([
+        {
+          id: celulaId,
+          nome: celula.nome,
+          redeNome: redeNome ?? '',
+          redeCor: celula.cor ?? '#6366f1',
+          liderNome: lideres.map((l) => l.nome).join(' e ') || null,
+          liderTelefone: null,
+        },
+      ])
+    : null
+
   // Lista para transferir a célula de rede. Só a gestão recebe (a lista
   // vazia esconde o campo no diálogo).
   const { data: redesData } = await admin.from('redes').select('id, nome').order('nome')
@@ -476,6 +493,9 @@ export default async function MinhasCelulaPage() {
         canEditEscala={canEdit}
         preCadastrados={preCadastradosData ?? []}
         celulasDisponiveis={(celulasDisponiveisData ?? []) as { id: string; nome: string }[]}
+        frequencia={
+          frequenciaCelula ? <FrequenciaIrmaos {...frequenciaCelula} ocultarCelula /> : null
+        }
       />
     </div>
   )

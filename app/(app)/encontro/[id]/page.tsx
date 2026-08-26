@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, ClipboardList } from 'lucide-react'
 import { InfoSection } from '@/components/encontro/info-section'
 import { EncontroCapaUpload } from '@/components/encontro/encontro-capa-upload'
 import { EscalaSection } from '@/components/encontro/escala-section'
@@ -19,6 +19,7 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import type { FuncaoEscala } from '@/lib/supabase/types'
 import { buscarPresencasEncontroAction, buscarMinhaPresencaAction } from '@/app/actions/presenca'
+import { resumoDaChamada } from '@/app/actions/chamada'
 import { roteiroDoPeriodo } from '@/lib/encontro-roteiro'
 import { FUNCOES_ESCALA as funcoes } from '@/lib/escala-funcoes'
 
@@ -132,9 +133,10 @@ export default async function EncontroPage({ params }: { params: { id: string } 
   const temFilhos = (filhosDep?.length ?? 0) > 0
 
   // Fetch presença
-  const [minhaPresenca, presencas] = await Promise.all([
+  const [minhaPresenca, presencas, chamada] = await Promise.all([
     buscarMinhaPresencaAction(params.id),
     buscarPresencasEncontroAction(params.id),
+    resumoDaChamada(params.id),
   ])
 
   // Fetch available resumos for this church (recent ones)
@@ -277,11 +279,61 @@ export default async function EncontroPage({ params }: { params: { id: string } 
       </Card>
 
 
+      {/* Chamada — só de quem a faz.
+
+          Fica antes da presença de propósito: o RSVP é o que cada um diz de si,
+          a chamada é o registro do encontro. É ela que a supervisão lê, e é ela
+          que dá o encontro como realizado. */}
+      {(isLider || isAdminRole) && (
+        <Card>
+          <CardHeader className="border-b pb-3">
+            <CardTitle>Chamada</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-4">
+            {chamada.feita ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 flex-wrap text-sm">
+                  <span className="text-green-600 font-semibold">{chamada.presentes} presentes</span>
+                  <span className="text-red-600 font-semibold">{chamada.ausentes} faltas</span>
+                  {chamada.semMarcar > 0 && (
+                    <span className="text-muted-foreground">{chamada.semMarcar} sem marcar</span>
+                  )}
+                  <span className="text-muted-foreground">·</span>
+                  <span className="font-semibold">{chamada.totalPessoas} pessoas na casa</span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  render={<Link href={`/encontro/${params.id}/chamada`} />}
+                >
+                  <ClipboardList className="h-4 w-4" />
+                  Revisar chamada
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Marque quem esteve no encontro. É esse registro que a supervisão acompanha —
+                  e é ele que dá o encontro como realizado.
+                </p>
+                <Button size="sm" render={<Link href={`/encontro/${params.id}/chamada`} />}>
+                  <ClipboardList className="h-4 w-4" />
+                  Fazer chamada
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Presença */}
       {isMember && (
         <Card>
           <CardHeader className="border-b pb-3">
-            <CardTitle>Presença</CardTitle>
+            {/* "Confirmação", e não "Presença": desde que existe chamada, as
+                duas palavras significam coisas diferentes — aqui é o que cada
+                um responde antes, lá é o que o líder viu no dia. */}
+            <CardTitle>Confirmação</CardTitle>
           </CardHeader>
           <CardContent className="pt-4">
             <PresencaSection

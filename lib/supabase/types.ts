@@ -784,11 +784,24 @@ export type Database = {
         Relationships: []
       }
       presencas: {
+        // Duas informações sobre a mesma pessoa no mesmo encontro:
+        // `status` é o que ela respondeu antes (RSVP), `presente` é o que o
+        // líder marcou na chamada — `null` enquanto a chamada não passou por
+        // ela. Ver `supabase/migrations/chamada_encontro.sql`.
+        //
+        // Exatamente um entre `user_id`, `pre_cadastro_id` e `visitante_nome`
+        // é preenchido: membro com conta, pessoa da célula que ainda não criou
+        // conta, ou visitante daquele dia.
         Row: {
           id: string
           encontro_id: string
-          user_id: string
+          user_id: string | null
+          pre_cadastro_id: string | null
+          visitante_nome: string | null
           status: StatusPresenca
+          presente: boolean | null
+          marcado_por: string | null
+          marcado_em: string | null
           com_conjuge: boolean
           com_filhos: boolean
           num_visitantes: number
@@ -798,8 +811,13 @@ export type Database = {
         Insert: {
           id?: string
           encontro_id: string
-          user_id: string
+          user_id?: string | null
+          pre_cadastro_id?: string | null
+          visitante_nome?: string | null
           status?: StatusPresenca
+          presente?: boolean | null
+          marcado_por?: string | null
+          marcado_em?: string | null
           com_conjuge?: boolean
           com_filhos?: boolean
           num_visitantes?: number
@@ -809,8 +827,13 @@ export type Database = {
         Update: {
           id?: string
           encontro_id?: string
-          user_id?: string
+          user_id?: string | null
+          pre_cadastro_id?: string | null
+          visitante_nome?: string | null
           status?: StatusPresenca
+          presente?: boolean | null
+          marcado_por?: string | null
+          marcado_em?: string | null
           com_conjuge?: boolean
           com_filhos?: boolean
           num_visitantes?: number
@@ -2865,6 +2888,23 @@ export type Database = {
           membros: number
           conjuges: number
           visitantes: number
+        }[]
+      }
+      frequencia_irmaos: {
+        Args: {
+          p_celula_ids: string[]
+          p_desde?: string | null
+        }
+        Returns: {
+          celula_id: string
+          user_id: string | null
+          pre_cadastro_id: string | null
+          nome: string
+          avatar_url: string | null
+          encontros: number
+          presencas: number
+          ultima_presenca: string | null
+          faltas_seguidas: number
         }[]
       }
     }

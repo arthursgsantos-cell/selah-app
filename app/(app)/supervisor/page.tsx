@@ -28,6 +28,8 @@ import { SaudeAlertas } from '@/components/rede/saude-alertas'
 import { ArvoreMultiplicacao } from '@/components/rede/arvore-multiplicacao'
 import { RegistrarMultiplicacao } from '@/components/rede/registrar-multiplicacao'
 import { PresencaHistorico } from '@/components/rede/presenca-historico'
+import { FrequenciaIrmaos } from '@/components/rede/frequencia-irmaos'
+import { carregarFrequenciaIrmaos } from '@/lib/frequencia-irmaos'
 import { RegistrarSupervisao } from '@/components/rede/registrar-supervisao'
 import { SupervisoesHistorico } from '@/components/rede/supervisoes-historico'
 
@@ -234,6 +236,10 @@ export default async function SupervisorPage({
     carregarSupervisoresPorRede(redeIds),
   ])
 
+  // Depende da saúde já carregada — é dela que vêm nome, cor e líder de cada
+  // célula, e repetir essas consultas aqui seria pagar duas vezes.
+  const frequencia = await carregarFrequenciaIrmaos(saude.celulas)
+
   const q = (searchParams.q ?? '').toLowerCase().trim()
   const redesFiltradas = q ? redes.filter((r) => r.nome.toLowerCase().includes(q)) : redes
 
@@ -290,6 +296,19 @@ export default async function SupervisorPage({
           multiplicandoEmBreve={saude.multiplicandoEmBreve}
           totalCelulas={saude.celulas.length}
         />
+      </section>
+
+      {/* Quem parou de ir. O painel acima fala de células; este fala de gente. */}
+      <section>
+        <div className="mb-3">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+            Presença dos irmãos
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Pela chamada que o líder faz no encontro.
+          </p>
+        </div>
+        <FrequenciaIrmaos {...frequencia} />
       </section>
 
       {/* A linhagem das células: quem nasceu de quem, rede por rede */}

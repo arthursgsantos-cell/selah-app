@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { CelulaTabs } from '@/components/celula/celula-tabs'
+import { FrequenciaIrmaos } from '@/components/rede/frequencia-irmaos'
+import { carregarFrequenciaIrmaos } from '@/lib/frequencia-irmaos'
 import { CelulaLogoUpload } from '@/components/celula/celula-logo-upload'
 import { CelulaCapaUpload } from '@/components/celula/celula-capa-upload'
 import { CelulaFundoPagina } from '@/components/celula/celula-fundo-pagina'
@@ -167,6 +169,19 @@ export default async function CelulaDetalhesPage({ params }: { params: { id: str
     : { data: null }
   const redeNome = (redeDaCelula as { nome: string } | null)?.nome ?? null
 
+  // Frequência desta célula. A página inteira já é só de supervisão para cima
+  // (ver `canView` acima), então não há gate a repetir aqui.
+  const frequenciaCelula = await carregarFrequenciaIrmaos([
+    {
+      id: params.id,
+      nome: celula.nome,
+      redeNome: redeNome ?? '',
+      redeCor: celula.cor ?? '#6366f1',
+      liderNome: lideres.map((l) => l.nome).join(' e ') || null,
+      liderTelefone: null,
+    },
+  ])
+
   // Lista para transferir a célula de rede. Só a gestão recebe (a lista
   // vazia esconde o campo no diálogo).
   const { data: redesData } = await admin.from('redes').select('id, nome').order('nome')
@@ -294,6 +309,7 @@ export default async function CelulaDetalhesPage({ params }: { params: { id: str
         canEditEscala={true}
         preCadastrados={preCadastradosData ?? []}
         celulasDisponiveis={(celulasDisponiveisData ?? []) as { id: string; nome: string }[]}
+        frequencia={<FrequenciaIrmaos {...frequenciaCelula} ocultarCelula />}
       />
     </div>
   )
