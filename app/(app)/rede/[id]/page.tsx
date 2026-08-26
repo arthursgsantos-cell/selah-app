@@ -75,7 +75,7 @@ export default async function RedeDetalhesPage({ params }: { params: { id: strin
       : Promise.resolve({ data: [] }),
     admin.from('rede_supervisores').select('supervisor_id').eq('rede_id', params.id),
     admin.from('eventos')
-      .select('id, slug, titulo, descricao, data_hora, local, tipo, imagem_url, tipo_inscricao, whatsapp_inscricao, pix_chave, pix_tipo, pix_nome, pix_valor, formulario_id, link_inscricao_url, data_hora_fim')
+      .select('id, slug, titulo, descricao, data_hora, local, tipo, tipo_outro, imagem_url, tipo_inscricao, whatsapp_inscricao, pix_chave, pix_tipo, pix_nome, pix_valor, formulario_id, link_inscricao_url, data_hora_fim')
       .eq('rede_id', params.id).gte('data_hora', new Date().toISOString())
       .order('data_hora', { ascending: true }).limit(10),
     celulaIds.length > 0

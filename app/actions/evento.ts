@@ -66,7 +66,11 @@ export async function createEventoAction(data: {
   tipo: TipoEvento
   rede_id?: string | null
   celula_id?: string | null
+  /** Rótulo livre quando `tipo` é "outro". */
+  tipo_outro?: string | null
   imagem_url?: string | null
+  /** Capa horizontal do topo da página. Sem ela, o card faz as vezes. */
+  capa_pagina_url?: string | null
   recorrencia?: RecorrenciaTipo
   tipo_inscricao?: import('@/lib/supabase/types').TipoInscricao
   whatsapp_inscricao?: string | null
@@ -95,11 +99,13 @@ export async function createEventoAction(data: {
     descricao: data.descricao ?? null,
     local: data.local ?? null,
     tipo: data.tipo,
+    tipo_outro: data.tipo === 'outro' ? (data.tipo_outro?.trim() || null) : null,
     rede_id: data.rede_id ?? null,
     celula_id: data.celula_id ?? null,
     igreja_id: profile.igreja_id,
     created_by: user.id,
     imagem_url: data.imagem_url ?? null,
+    capa_pagina_url: data.capa_pagina_url ?? null,
     tipo_inscricao: data.tipo_inscricao ?? 'aberto',
     whatsapp_inscricao: data.whatsapp_inscricao ?? null,
     pix_chave: data.pix_chave ?? null,
@@ -160,7 +166,14 @@ export async function updateEventoAction(
     data_hora_fim?: string | null
     local?: string
     tipo: TipoEvento
+    /** Rótulo livre quando `tipo` é "outro". */
+    tipo_outro?: string | null
+    /** Vínculo do evento. Omitidos, os atuais são mantidos. */
+    rede_id?: string | null
+    celula_id?: string | null
     imagem_url?: string | null
+    /** Omitida, a capa atual é mantida; `null` remove. */
+    capa_pagina_url?: string | null
     /** Configuração de inscrição — se omitida, a atual é mantida. */
     inscricao?: {
       tipo_inscricao: TipoInscricao
@@ -185,7 +198,13 @@ export async function updateEventoAction(
     descricao: data.descricao ?? null,
     local: data.local ?? null,
     tipo: data.tipo,
+    tipo_outro: data.tipo === 'outro' ? (data.tipo_outro?.trim() || null) : null,
     imagem_url: data.imagem_url ?? null,
+    // Chaves ausentes ficam de fora do update: quem não manda o campo mantém o
+    // que está gravado, em vez de apagá-lo sem querer.
+    ...(data.rede_id !== undefined ? { rede_id: data.rede_id } : {}),
+    ...(data.celula_id !== undefined ? { celula_id: data.celula_id } : {}),
+    ...(data.capa_pagina_url !== undefined ? { capa_pagina_url: data.capa_pagina_url } : {}),
     ...(data.inscricao
       ? {
           tipo_inscricao: data.inscricao.tipo_inscricao,
@@ -313,4 +332,51 @@ export async function excluirEventoAction(
 
   revalidarPaths()
   return { ok: true }
+}
+
+export type DestinoEvento = { id: string; nome: string }
+export type CelulaDestino = DestinoEvento & { rede_id: string }
+
+/**
+ * Redes e células da igreja, para o formulário perguntar "de qual rede?" /
+ * "de qual célula?" quando o tipo do evento pede um dono.
+ *
+ * Sem isso um evento de rede nascia solto: aparecia com o selo de rede, mas sem
+ * `rede_id`, então não entrava na página de rede nenhuma.
+ */
+export async function listarDestinosEventoAction(): Promise<{
+  redes: DestinoEvento[]
+  celulas: CelulaDestino[]
+}> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Não autenticado')
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('igreja_id')
+    .eq('id', user.id)
+    .single()
+  if (!profile) throw new Error('Perfil não encontrado')
+
+  const admin = createAdminClient()
+
+  const { data: redes } = await admin
+    .from('redes')
+    .select('id, nome')
+    .eq('igreja_id', profile.igreja_id)
+    .order('nome')
+
+  const lista = (redes ?? []) as DestinoEvento[]
+  if (lista.length === 0) return { redes: [], celulas: [] }
+
+  // Célula não tem `igreja_id`: pendura na rede, então o filtro passa por ela.
+  const { data: celulas } = await admin
+    .from('celulas')
+    .select('id, nome, rede_id')
+    .in('rede_id', lista.map((r) => r.id))
+    .eq('ativa', true)
+    .order('nome')
+
+  return { redes: lista, celulas: (celulas ?? []) as CelulaDestino[] }
 }

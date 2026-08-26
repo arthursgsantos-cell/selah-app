@@ -54,6 +54,14 @@ async function carregarFormularios(igrejaId: string): Promise<FormularioItem[]> 
   }))
 }
 
+/**
+ * Evento "outro" mostra o nome que quem criou deu a ele ("Vigília", "Batismo");
+ * os demais usam o rótulo fixo do tipo.
+ */
+function rotuloTipo(evento: { tipo: string; tipo_outro?: string | null }, padrao: string) {
+  return evento.tipo === 'outro' && evento.tipo_outro ? evento.tipo_outro : padrao
+}
+
 const tipoConfig: Record<string, { label: string; className: string }> = {
   culto: { label: 'Culto', className: 'bg-purple-100 text-purple-700' },
   igreja: { label: 'Igreja', className: 'bg-blue-100 text-blue-700' },
@@ -150,7 +158,7 @@ export default async function EventosPage({
 
   let proximosQuery = supabase
     .from('eventos')
-    .select('id, slug, inscricoes_planilha_url, titulo, descricao, data_hora, local, tipo, rede_id, imagem_url, recorrencia_id, recorrencia_tipo, tipo_inscricao, whatsapp_inscricao, pix_chave, pix_tipo, pix_nome, pix_valor, formulario_id, link_inscricao_url, data_hora_fim')
+    .select('id, slug, inscricoes_planilha_url, titulo, descricao, data_hora, local, tipo, tipo_outro, rede_id, celula_id, imagem_url, capa_pagina_url, recorrencia_id, recorrencia_tipo, tipo_inscricao, whatsapp_inscricao, pix_chave, pix_tipo, pix_nome, pix_valor, formulario_id, link_inscricao_url, data_hora_fim')
     .eq('igreja_id', profile.igreja_id)
     .gte('data_hora', new Date().toISOString())
     .limit(50)
@@ -169,7 +177,7 @@ export default async function EventosPage({
 
   const { data: passados } = await supabase
     .from('eventos')
-    .select('id, slug, inscricoes_planilha_url, titulo, data_hora, local, tipo, imagem_url, recorrencia_id, recorrencia_tipo, tipo_inscricao, whatsapp_inscricao, pix_chave, pix_tipo, pix_nome, pix_valor, formulario_id, link_inscricao_url, data_hora_fim')
+    .select('id, slug, inscricoes_planilha_url, titulo, data_hora, local, tipo, tipo_outro, rede_id, celula_id, imagem_url, capa_pagina_url, recorrencia_id, recorrencia_tipo, tipo_inscricao, whatsapp_inscricao, pix_chave, pix_tipo, pix_nome, pix_valor, formulario_id, link_inscricao_url, data_hora_fim')
     .eq('igreja_id', profile.igreja_id)
     .lt('data_hora', new Date().toISOString())
     .order('data_hora', { ascending: false })
@@ -290,7 +298,7 @@ export default async function EventosPage({
                           <p className="font-semibold text-sm leading-snug">{evento.titulo}</p>
                           <div className="flex items-center gap-1 shrink-0">
                             <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${tipo.className}`}>
-                              {tipo.label}
+                              {rotuloTipo(evento, tipo.label)}
                             </span>
                             {canCreate && (
                               <EditarEventoDialog
@@ -302,7 +310,11 @@ export default async function EventosPage({
                                   data_hora_fim: evento.data_hora_fim ?? null,
                                   local: evento.local ?? null,
                                   tipo: evento.tipo,
+                                  tipo_outro: evento.tipo_outro ?? null,
+                                  rede_id: evento.rede_id ?? null,
+                                  celula_id: evento.celula_id ?? null,
                                   imagem_url: evento.imagem_url ?? null,
+                                  capa_pagina_url: evento.capa_pagina_url ?? null,
                                   recorrencia_id: evento.recorrencia_id ?? null,
                                   recorrencia_tipo: evento.recorrencia_tipo ?? null,
                                   tipo_inscricao: evento.tipo_inscricao ?? null,
@@ -413,7 +425,7 @@ export default async function EventosPage({
                       </Link>
                       <div className="flex items-center gap-1 shrink-0">
                         <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${tipo.className}`}>
-                          {tipo.label}
+                          {rotuloTipo(evento, tipo.label)}
                         </span>
                         {canCreate && (
                           <EditarEventoDialog
@@ -425,7 +437,11 @@ export default async function EventosPage({
                                   data_hora_fim: evento.data_hora_fim ?? null,
                               local: evento.local ?? null,
                               tipo: evento.tipo,
+                              tipo_outro: evento.tipo_outro ?? null,
+                              rede_id: evento.rede_id ?? null,
+                              celula_id: evento.celula_id ?? null,
                               imagem_url: evento.imagem_url ?? null,
+                              capa_pagina_url: evento.capa_pagina_url ?? null,
                               recorrencia_id: evento.recorrencia_id ?? null,
                               recorrencia_tipo: evento.recorrencia_tipo ?? null,
                               tipo_inscricao: evento.tipo_inscricao ?? null,

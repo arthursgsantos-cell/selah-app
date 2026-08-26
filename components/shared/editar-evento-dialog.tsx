@@ -1,7 +1,13 @@
 'use client'
 
-import { useState, useTransition, useRef } from 'react'
-import { updateEventoAction, uploadCapaEventoAction } from '@/app/actions/evento'
+import { useState, useTransition, useEffect } from 'react'
+import {
+  updateEventoAction,
+  uploadCapaEventoAction,
+  listarDestinosEventoAction,
+  type DestinoEvento,
+  type CelulaDestino,
+} from '@/app/actions/evento'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -14,8 +20,15 @@ import {
   DialogTrigger,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { Pencil, ImagePlus, X, CalendarDays, RefreshCw, Ticket } from 'lucide-react'
+import { Pencil, CalendarDays, RefreshCw, Ticket } from 'lucide-react'
 import { InscricaoFields, type InscricaoValue } from '@/components/eventos/inscricao-fields'
+import {
+  ImagensEventoFields,
+  resolverImagem,
+  slotImagem,
+  type SlotImagem,
+} from '@/components/eventos/imagens-evento-fields'
+import { DestinoEventoFields } from '@/components/eventos/destino-evento-fields'
 import { ExcluirEventoPainel } from '@/components/shared/excluir-evento-painel'
 import type { TipoEvento, TipoInscricao, TipoChavePix } from '@/lib/supabase/types'
 
@@ -29,7 +42,11 @@ interface EventoEdicao {
   data_hora_fim?: string | null
   local: string | null
   tipo: TipoEvento
+  tipo_outro?: string | null
+  rede_id?: string | null
+  celula_id?: string | null
   imagem_url: string | null
+  capa_pagina_url?: string | null
   recorrencia_id: string | null
   recorrencia_tipo: string | null
   tipo_inscricao?: TipoInscricao | null
@@ -85,9 +102,15 @@ export function EditarEventoDialog({ evento }: Props) {
   const [local, setLocal] = useState(evento.local ?? '')
   const [descricao, setDescricao] = useState(evento.descricao ?? '')
   const [tipo, setTipo] = useState<TipoEvento>(evento.tipo)
-  const [imagemFile, setImagemFile] = useState<File | null>(null)
-  const [imagemPreview, setImagemPreview] = useState<string | null>(evento.imagem_url)
-  const [imagemRemovida, setImagemRemovida] = useState(false)
+  const [tipoOutro, setTipoOutro] = useState(evento.tipo_outro ?? '')
+  const [redeSelecionada, setRedeSelecionada] = useState(evento.rede_id ?? '')
+  const [celulaSelecionada, setCelulaSelecionada] = useState(evento.celula_id ?? '')
+  const [card, setCard] = useState<SlotImagem>(slotImagem(evento.imagem_url))
+  const [capa, setCapa] = useState<SlotImagem>(slotImagem(evento.capa_pagina_url ?? null))
+  const [destinos, setDestinos] = useState<{
+    redes: DestinoEvento[]
+    celulas: CelulaDestino[]
+  } | null>(null)
   const [inscricao, setInscricao] = useState<InscricaoValue>({
     tipo: (evento.tipo_inscricao ?? 'aberto') as TipoInscricao,
     whatsapp: evento.whatsapp_inscricao ?? undefined,
@@ -102,24 +125,20 @@ export function EditarEventoDialog({ evento }: Props) {
 
   const [isPending, startTransition] = useTransition()
   const [erro, setErro] = useState<string | null>(null)
-  const fileRef = useRef<HTMLInputElement>(null)
 
   const isRecorrente = !!evento.recorrencia_id
+  const precisaRede = tipo === 'rede'
+  const precisaCelula = tipo === 'celula'
 
-  function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setImagemFile(file)
-    setImagemPreview(URL.createObjectURL(file))
-    setImagemRemovida(false)
-  }
-
-  function removerImagem() {
-    setImagemFile(null)
-    setImagemPreview(null)
-    setImagemRemovida(true)
-    if (fileRef.current) fileRef.current.value = ''
-  }
+  // Só busca redes e células quando o tipo escolhido pede um dono.
+  useEffect(() => {
+    if (!open || destinos || (!precisaRede && !precisaCelula)) return
+    let vivo = true
+    listarDestinosEventoAction()
+      .then((d) => { if (vivo) setDestinos(d) })
+      .catch(() => { if (vivo) setErro('Não consegui carregar as redes e células.') })
+    return () => { vivo = false }
+  }, [open, destinos, precisaRede, precisaCelula])
 
   const terminoInvalido = comTermino && dataHoraFim !== '' && dataHora !== '' && new Date(dataHoraFim) <= new Date(dataHora)
 
@@ -127,6 +146,9 @@ export function EditarEventoDialog({ evento }: Props) {
     e.preventDefault()
     if (!titulo.trim() || !dataHora) return
     if (terminoInvalido) { setErro('O término precisa ser depois do início.'); return }
+    if (precisaRede && !redeSelecionada) { setErro('Escolha a rede do evento.'); return }
+    if (precisaCelula && !celulaSelecionada) { setErro('Escolha a célula do evento.'); return }
+    if (tipo === 'outro' && !tipoOutro.trim()) { setErro('Diga que tipo de evento é.'); return }
     setErro(null)
     if (isRecorrente) {
       setStep('scope')
@@ -138,16 +160,21 @@ export function EditarEventoDialog({ evento }: Props) {
   function salvar(escopo: EscopoEdicao) {
     startTransition(async () => {
       try {
-        let imagem_url: string | null | undefined
-        if (imagemFile) {
-          const fd = new FormData()
-          fd.append('file', imagemFile)
-          imagem_url = await uploadCapaEventoAction(fd)
-        } else if (imagemRemovida) {
-          imagem_url = null
-        } else {
-          imagem_url = evento.imagem_url
-        }
+        const [imagem_url, capa_pagina_url] = await Promise.all([
+          resolverImagem(card, evento.imagem_url, uploadCapaEventoAction),
+          resolverImagem(capa, evento.capa_pagina_url ?? null, uploadCapaEventoAction),
+        ])
+
+        // Evento de célula guarda também a rede dela; trocar o tipo para algo
+        // sem dono limpa o vínculo antigo em vez de deixá-lo pendurado.
+        const celula = destinos?.celulas.find((c) => c.id === celulaSelecionada)
+        const rede_id = precisaCelula
+          // Lista ainda carregando: mantém a rede que já estava gravada.
+          ? celula?.rede_id ?? evento.rede_id ?? null
+          : precisaRede
+            ? redeSelecionada || null
+            : null
+        const celula_id = precisaCelula ? celulaSelecionada || null : null
 
         await updateEventoAction(
           evento.id,
@@ -161,7 +188,11 @@ export function EditarEventoDialog({ evento }: Props) {
             local: local.trim() || undefined,
             descricao: descricao.trim() || undefined,
             tipo,
+            tipo_outro: tipo === 'outro' ? tipoOutro.trim() : null,
+            rede_id,
+            celula_id,
             imagem_url,
+            capa_pagina_url,
             inscricao: {
               tipo_inscricao: inscricao.tipo,
               whatsapp_inscricao: inscricao.whatsapp || null,
@@ -195,9 +226,11 @@ export function EditarEventoDialog({ evento }: Props) {
       setLocal(evento.local ?? '')
       setDescricao(evento.descricao ?? '')
       setTipo(evento.tipo)
-      setImagemFile(null)
-      setImagemPreview(evento.imagem_url)
-      setImagemRemovida(false)
+      setTipoOutro(evento.tipo_outro ?? '')
+      setRedeSelecionada(evento.rede_id ?? '')
+      setCelulaSelecionada(evento.celula_id ?? '')
+      setCard(slotImagem(evento.imagem_url))
+      setCapa(slotImagem(evento.capa_pagina_url ?? null))
     }
   }
 
@@ -310,44 +343,25 @@ export function EditarEventoDialog({ evento }: Props) {
                 </select>
               </div>
 
-              <div className="space-y-1.5">
-                <Label>Capa do evento</Label>
-                <label
-                  htmlFor="imagem-editar"
-                  className="relative flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-input rounded-lg cursor-pointer overflow-hidden hover:bg-accent/30 transition-colors"
-                >
-                  {imagemPreview ? (
-                    <>
-                      <img
-                        src={imagemPreview}
-                        alt="Preview"
-                        className="absolute inset-0 w-full h-full object-cover"
-                      />
-                      <button
-                        type="button"
-                        onClick={(e) => { e.preventDefault(); removerImagem() }}
-                        className="absolute top-1.5 right-1.5 bg-black/60 rounded-full p-0.5 text-white hover:bg-black/80"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </>
-                  ) : (
-                    <div className="flex flex-col items-center gap-1 text-muted-foreground pointer-events-none">
-                      <ImagePlus className="h-6 w-6" />
-                      <span className="text-xs">Clique para importar capa</span>
-                      <span className="text-[10px] opacity-60">JPG, PNG, WebP · max 5 MB</span>
-                    </div>
-                  )}
-                  <input
-                    ref={fileRef}
-                    id="imagem-editar"
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,image/gif"
-                    className="hidden"
-                    onChange={handleImageChange}
-                  />
-                </label>
-              </div>
+              <DestinoEventoFields
+                idPrefixo="editar"
+                tipo={tipo}
+                destinos={destinos}
+                redeId={redeSelecionada}
+                celulaId={celulaSelecionada}
+                tipoOutro={tipoOutro}
+                onRede={setRedeSelecionada}
+                onCelula={setCelulaSelecionada}
+                onTipoOutro={setTipoOutro}
+              />
+
+              <ImagensEventoFields
+                idPrefixo="editar"
+                card={card}
+                capa={capa}
+                onCardChange={setCard}
+                onCapaChange={setCapa}
+              />
 
               <div className="space-y-1.5">
                 <Label htmlFor="edit-desc">Descrição (opcional)</Label>

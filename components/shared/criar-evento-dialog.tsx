@@ -1,7 +1,13 @@
 'use client'
 
-import { useState, useTransition, useRef } from 'react'
-import { createEventoAction, uploadCapaEventoAction } from '@/app/actions/evento'
+import { useState, useTransition, useEffect } from 'react'
+import {
+  createEventoAction,
+  uploadCapaEventoAction,
+  listarDestinosEventoAction,
+  type DestinoEvento,
+  type CelulaDestino,
+} from '@/app/actions/evento'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -14,9 +20,16 @@ import {
   DialogTrigger,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { CalendarPlus, ImagePlus, X } from 'lucide-react'
+import { CalendarPlus } from 'lucide-react'
 import type { TipoEvento, RecorrenciaTipo } from '@/lib/supabase/types'
 import { InscricaoFields, type InscricaoValue } from '@/components/eventos/inscricao-fields'
+import {
+  ImagensEventoFields,
+  resolverImagem,
+  slotImagem,
+  type SlotImagem,
+} from '@/components/eventos/imagens-evento-fields'
+import { DestinoEventoFields } from '@/components/eventos/destino-evento-fields'
 
 interface Props {
   tipoFixo?: TipoEvento
@@ -50,25 +63,33 @@ export function CriarEventoDialog({ tipoFixo, redeId, label = 'Criar evento' }: 
   const [descricao, setDescricao] = useState('')
   const [tipo, setTipo] = useState<TipoEvento>(tipoFixo ?? 'culto')
   const [recorrencia, setRecorrencia] = useState<'nao' | RecorrenciaTipo>('nao')
-  const [imagemFile, setImagemFile] = useState<File | null>(null)
-  const [imagemPreview, setImagemPreview] = useState<string | null>(null)
+  const [redeSelecionada, setRedeSelecionada] = useState('')
+  const [celulaSelecionada, setCelulaSelecionada] = useState('')
+  const [tipoOutro, setTipoOutro] = useState('')
+  const [card, setCard] = useState<SlotImagem>(slotImagem())
+  const [capa, setCapa] = useState<SlotImagem>(slotImagem())
   const [inscricao, setInscricao] = useState<InscricaoValue>({ tipo: 'aberto' })
   const [isPending, startTransition] = useTransition()
   const [erro, setErro] = useState<string | null>(null)
-  const fileRef = useRef<HTMLInputElement>(null)
+  const [destinos, setDestinos] = useState<{
+    redes: DestinoEvento[]
+    celulas: CelulaDestino[]
+  } | null>(null)
 
-  function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setImagemFile(file)
-    setImagemPreview(URL.createObjectURL(file))
-  }
+  // Evento de rede criado a partir da página da rede já sabe de quem é.
+  const precisaRede = tipo === 'rede' && !redeId
+  const precisaCelula = tipo === 'celula'
 
-  function removerImagem() {
-    setImagemFile(null)
-    setImagemPreview(null)
-    if (fileRef.current) fileRef.current.value = ''
-  }
+  // Só busca a lista quando o tipo escolhido pede um dono — abrir o formulário
+  // para um culto não deve custar uma consulta.
+  useEffect(() => {
+    if (!open || destinos || (!precisaRede && !precisaCelula)) return
+    let vivo = true
+    listarDestinosEventoAction()
+      .then((d) => { if (vivo) setDestinos(d) })
+      .catch(() => { if (vivo) setErro('Não consegui carregar as redes e células.') })
+    return () => { vivo = false }
+  }, [open, destinos, precisaRede, precisaCelula])
 
   const dataHora = datePart ? `${datePart}T${horaPart}:${minutoPart}` : ''
   const dataHoraFim = comTermino && dateFimPart ? `${dateFimPart}T${horaFimPart}:${minutoFimPart}` : ''
@@ -87,8 +108,12 @@ export function CriarEventoDialog({ tipoFixo, redeId, label = 'Criar evento' }: 
     setDescricao('')
     setTipo(tipoFixo ?? 'culto')
     setRecorrencia('nao')
+    setRedeSelecionada('')
+    setCelulaSelecionada('')
+    setTipoOutro('')
     setInscricao({ tipo: 'aberto' })
-    removerImagem()
+    setCard(slotImagem())
+    setCapa(slotImagem())
     setErro(null)
   }
 
@@ -96,15 +121,25 @@ export function CriarEventoDialog({ tipoFixo, redeId, label = 'Criar evento' }: 
     e.preventDefault()
     if (!titulo.trim() || !dataHora) return
     if (terminoInvalido) { setErro('O término precisa ser depois do início.'); return }
+    if (precisaRede && !redeSelecionada) { setErro('Escolha a rede do evento.'); return }
+    if (precisaCelula && !celulaSelecionada) { setErro('Escolha a célula do evento.'); return }
+    if (tipo === 'outro' && !tipoOutro.trim()) { setErro('Diga que tipo de evento é.'); return }
     setErro(null)
     startTransition(async () => {
       try {
-        let imagem_url: string | null = null
-        if (imagemFile) {
-          const fd = new FormData()
-          fd.append('file', imagemFile)
-          imagem_url = await uploadCapaEventoAction(fd)
-        }
+        const [imagem_url, capa_pagina_url] = await Promise.all([
+          resolverImagem(card, null, uploadCapaEventoAction),
+          resolverImagem(capa, null, uploadCapaEventoAction),
+        ])
+
+        // Evento de célula também guarda a rede dela: é por `rede_id` que as
+        // telas de supervisão e da rede encontram o evento.
+        const celula = destinos?.celulas.find((c) => c.id === celulaSelecionada)
+        const rede_id = precisaCelula
+          ? celula?.rede_id ?? null
+          : tipo === 'rede'
+            ? redeId ?? (redeSelecionada || null)
+            : redeId ?? null
 
         await createEventoAction({
           titulo: titulo.trim(),
@@ -113,8 +148,11 @@ export function CriarEventoDialog({ tipoFixo, redeId, label = 'Criar evento' }: 
           local: local.trim() || undefined,
           descricao: descricao.trim() || undefined,
           tipo,
-          rede_id: redeId ?? null,
+          tipo_outro: tipo === 'outro' ? tipoOutro.trim() : null,
+          rede_id,
+          celula_id: precisaCelula ? celulaSelecionada : null,
           imagem_url,
+          capa_pagina_url,
           recorrencia: recorrencia === 'nao' ? undefined : recorrencia,
           tipo_inscricao: inscricao.tipo,
           whatsapp_inscricao: inscricao.whatsapp ?? null,
@@ -255,6 +293,19 @@ export function CriarEventoDialog({ tipoFixo, redeId, label = 'Criar evento' }: 
             </div>
           )}
 
+          <DestinoEventoFields
+            idPrefixo="criar"
+            tipo={tipo}
+            redeFixa={!!redeId}
+            destinos={destinos}
+            redeId={redeSelecionada}
+            celulaId={celulaSelecionada}
+            tipoOutro={tipoOutro}
+            onRede={setRedeSelecionada}
+            onCelula={setCelulaSelecionada}
+            onTipoOutro={setTipoOutro}
+          />
+
           <div className="space-y-1.5">
             <Label htmlFor="recorrencia">Repetição</Label>
             <select
@@ -270,44 +321,13 @@ export function CriarEventoDialog({ tipoFixo, redeId, label = 'Criar evento' }: 
             </select>
           </div>
 
-          <div className="space-y-1.5">
-            <Label>Capa do evento (opcional)</Label>
-            <label
-              htmlFor="imagem-criar"
-              className="relative flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-input rounded-lg cursor-pointer overflow-hidden hover:bg-accent/30 transition-colors"
-            >
-              {imagemPreview ? (
-                <>
-                  <img
-                    src={imagemPreview}
-                    alt="Preview"
-                    className="absolute inset-0 w-full h-full object-cover"
-                  />
-                  <button
-                    type="button"
-                    onClick={(e) => { e.preventDefault(); removerImagem() }}
-                    className="absolute top-1.5 right-1.5 bg-black/60 rounded-full p-0.5 text-white hover:bg-black/80"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </>
-              ) : (
-                <div className="flex flex-col items-center gap-1 text-muted-foreground pointer-events-none">
-                  <ImagePlus className="h-6 w-6" />
-                  <span className="text-xs">Clique para importar capa</span>
-                  <span className="text-[10px] opacity-60">JPG, PNG, WebP · max 5 MB</span>
-                </div>
-              )}
-              <input
-                ref={fileRef}
-                id="imagem-criar"
-                type="file"
-                accept="image/jpeg,image/png,image/webp,image/gif"
-                className="hidden"
-                onChange={handleImageChange}
-              />
-            </label>
-          </div>
+          <ImagensEventoFields
+            idPrefixo="criar"
+            card={card}
+            capa={capa}
+            onCardChange={setCard}
+            onCapaChange={setCapa}
+          />
 
           <div className="space-y-1.5">
             <Label htmlFor="desc">Descrição (opcional)</Label>

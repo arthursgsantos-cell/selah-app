@@ -28,6 +28,8 @@ interface Evento {
   data_hora: string
   local: string | null
   tipo: string
+  /** Nome livre dos eventos "outro" — vai no selo no lugar de "Outro". */
+  tipo_outro?: string | null
   imagem_url: string | null
   tipo_inscricao?: TipoInscricao | null
   whatsapp_inscricao?: string | null
@@ -62,7 +64,12 @@ export function EventoCard({ evento, minhaResposta: minhaRespostaInit, totalVou:
 
   const tipo = tipoConfig[evento.tipo] ?? tipoConfig.outro
   const data = new Date(evento.data_hora)
-  const badgeLabel = evento.tipo === 'rede' && redeNome ? redeNome : tipo.label
+  const badgeLabel =
+    evento.tipo === 'rede' && redeNome
+      ? redeNome
+      : evento.tipo === 'outro' && evento.tipo_outro
+        ? evento.tipo_outro
+        : tipo.label
 
   async function toggleLike() {
     if (likePending) return

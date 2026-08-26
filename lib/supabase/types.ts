@@ -979,6 +979,8 @@ export type Database = {
           local: string | null
           imagem_url: string | null
           tipo: TipoEvento
+          /** Rótulo livre quando `tipo` é "outro" — substitui "Outro" nas telas. */
+          tipo_outro: string | null
           video_url: string | null
           capa_pagina_url: string | null
           inscricoes_planilha_url: string | null
@@ -1020,6 +1022,7 @@ export type Database = {
           local?: string | null
           imagem_url?: string | null
           tipo?: TipoEvento
+          tipo_outro?: string | null
           video_url?: string | null
           capa_pagina_url?: string | null
           inscricoes_planilha_url?: string | null
@@ -1061,6 +1064,8 @@ export type Database = {
           local?: string | null
           imagem_url?: string | null
           tipo?: TipoEvento
+          /** Rótulo livre quando `tipo` é "outro" (ex.: "Vigília"). */
+          tipo_outro?: string | null
           video_url?: string | null
           capa_pagina_url?: string | null
           inscricoes_planilha_url?: string | null

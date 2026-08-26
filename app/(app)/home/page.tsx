@@ -120,7 +120,7 @@ export default async function HomePage() {
     // que valeria para a igreja inteira, não só para o que esta tela mostra.
     admin
       .from('eventos')
-      .select('id, slug, titulo, descricao, data_hora, local, tipo, imagem_url, rede_id, tipo_inscricao, whatsapp_inscricao, pix_chave, pix_tipo, pix_nome, pix_valor, formulario_id, link_inscricao_url, data_hora_fim')
+      .select('id, slug, titulo, descricao, data_hora, local, tipo, tipo_outro, imagem_url, rede_id, tipo_inscricao, whatsapp_inscricao, pix_chave, pix_tipo, pix_nome, pix_valor, formulario_id, link_inscricao_url, data_hora_fim')
       .eq('igreja_id', igrejaId ?? '')
       .gte('data_hora', new Date().toISOString())
       .order('data_hora', { ascending: true })
@@ -142,7 +142,7 @@ export default async function HomePage() {
       : Promise.resolve({ data: [] }),
     admin
       .from('eventos')
-      .select('id, slug, titulo, data_hora, local, tipo, imagem_url, tipo_inscricao, whatsapp_inscricao, pix_chave, pix_tipo, pix_nome, pix_valor, formulario_id, link_inscricao_url, data_hora_fim')
+      .select('id, slug, titulo, data_hora, local, tipo, tipo_outro, imagem_url, tipo_inscricao, whatsapp_inscricao, pix_chave, pix_tipo, pix_nome, pix_valor, formulario_id, link_inscricao_url, data_hora_fim')
       .eq('igreja_id', igrejaId ?? '')
       .lt('data_hora', new Date().toISOString())
       .order('data_hora', { ascending: false })
