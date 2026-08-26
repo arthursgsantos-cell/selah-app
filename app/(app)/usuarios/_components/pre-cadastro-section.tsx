@@ -31,6 +31,7 @@ import {
   ChevronUp,
   X,
   Check,
+  Search,
 } from 'lucide-react'
 import type { Role } from '@/lib/supabase/types'
 
@@ -61,6 +62,10 @@ const cargoOptions: { value: Role; label: string }[] = [
 
 const cargoLabel = (c: Role | null) =>
   cargoOptions.find((o) => o.value === c)?.label ?? null
+
+/** Busca sem acento: quem digita "vivania" precisa achar "Vivânia". */
+const semAcento = (s: string) =>
+  s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
 type MembroOpt = { id: string; nome: string }
 
@@ -216,10 +221,22 @@ export function PreCadastroSection({ preCadastros, membros, celulas = [] }: Prop
   const [editandoId, setEditandoId] = useState<string | null>(null)
   const [vinculandoId, setVinculandoId] = useState<string | null>(null)
   const [expandido, setExpandido] = useState(true)
+  const [busca, setBusca] = useState('')
   const [, startTransition] = useTransition()
 
-  const pendentes = preCadastros.filter((p) => p.status === 'pendente')
-  const confirmados = preCadastros.filter((p) => p.status === 'confirmado')
+  // Filtro local: a lista inteira já veio do servidor, então buscar aqui evita
+  // recarregar a página a cada tecla — com 80+ nomes, rolar não é opção.
+  const termo = semAcento(busca.trim())
+  const visiveis = termo
+    ? preCadastros.filter((p) =>
+        [p.nome, p.email, p.telefone, p.obs, p.profile_nome]
+          .some((campo) => semAcento(campo ?? '').includes(termo))
+      )
+    : preCadastros
+
+  const pendentes = visiveis.filter((p) => p.status === 'pendente')
+  const confirmados = visiveis.filter((p) => p.status === 'confirmado')
+  const totalPendentes = preCadastros.filter((p) => p.status === 'pendente').length
 
   function handleAdicionar(fd: FormData) {
     startTransition(async () => {
@@ -272,9 +289,9 @@ export function PreCadastroSection({ preCadastros, membros, celulas = [] }: Prop
       >
         <div className="flex items-center gap-2">
           <span className="font-semibold text-sm">Pré-cadastro</span>
-          {pendentes.length > 0 && (
+          {totalPendentes > 0 && (
             <span className="rounded-full bg-amber-100 text-amber-700 text-xs px-2 py-0.5 font-medium">
-              {pendentes.length} aguardando
+              {totalPendentes} aguardando
             </span>
           )}
         </div>
@@ -299,6 +316,36 @@ export function PreCadastroSection({ preCadastros, membros, celulas = [] }: Prop
               onSave={handleAdicionar}
               onCancel={() => setMostrarForm(false)}
             />
+          )}
+
+          {preCadastros.length > 0 && (
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nome, e-mail, telefone ou observação..."
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                className="pl-9 pr-9"
+              />
+              {busca && (
+                <button
+                  type="button"
+                  onClick={() => setBusca('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label="Limpar busca"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          )}
+
+          {termo && (
+            <p className="text-xs text-muted-foreground">
+              {visiveis.length === 0
+                ? 'Ninguém encontrado com esse termo.'
+                : `${visiveis.length} ${visiveis.length === 1 ? 'resultado' : 'resultados'} para "${busca.trim()}"`}
+            </p>
           )}
 
           {pendentes.length > 0 && (
