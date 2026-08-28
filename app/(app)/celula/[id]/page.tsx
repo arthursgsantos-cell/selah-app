@@ -3,6 +3,7 @@ import { loginCom } from '@/lib/destino-login'
 import { PAINEL } from '@/lib/estilos'
 import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { carregarPerfil } from '@/lib/auth/perfil'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { Card, CardContent } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -42,11 +43,9 @@ export default async function CelulaDetalhesPage({ params }: { params: { id: str
   } = await supabase.auth.getUser()
   if (!user) redirect(loginCom(`/celula/${params.id}`))
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
+  const profile = await carregarPerfil(() =>
+    supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+  )
 
   if (!profile) redirect('/onboarding')
 

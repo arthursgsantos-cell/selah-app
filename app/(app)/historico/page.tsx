@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { loginCom } from '@/lib/destino-login'
 import Link from 'next/link'
 import { createClient, getAuthUser } from '@/lib/supabase/server'
+import { carregarPerfil } from '@/lib/auth/perfil'
 import { ArrowLeft, Users, Sparkles, CalendarDays, MapPin } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -23,11 +24,9 @@ export default async function HistoricoPage({
 
   const supabase = await createClient()
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id, igreja_id')
-    .eq('id', user.id)
-    .single()
+  const profile = await carregarPerfil(() =>
+    supabase.from('profiles').select('id, igreja_id').eq('id', user.id).maybeSingle()
+  )
   if (!profile) redirect('/onboarding')
 
   const { data: membroCelula } = await supabase

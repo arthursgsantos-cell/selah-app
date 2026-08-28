@@ -176,11 +176,18 @@ export async function notificarNovoLogin(): Promise<void> {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('nome, igreja_id')
+    .select('nome, igreja_id, created_at')
     .eq('id', user.id)
     .single()
 
   if (!profile) return
+
+  // Trava contra o aviso repetido: o que justifica a notificação é o perfil ter
+  // nascido agora. Quem já era da casa e voltou a passar por esta tela — por um
+  // 401 no meio da renderização, por um endereço antigo no histórico — não é
+  // membro novo, e o pastor não precisa saber de nada.
+  const nascidoHa = Date.now() - new Date(profile.created_at).getTime()
+  if (nascidoHa > 10 * 60 * 1000) return
 
   const admin = createAdminClient()
 

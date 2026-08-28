@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { loginCom } from '@/lib/destino-login'
 import { createClient } from '@/lib/supabase/server'
+import { carregarPerfil } from '@/lib/auth/perfil'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { Bell, CheckCheck, Inbox, ArrowLeft } from 'lucide-react'
 import { SolicitacaoNotificacaoCard } from '@/components/home/solicitacao-notificacao-card'
@@ -14,11 +15,9 @@ export default async function SolicitacoesPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect(loginCom('/solicitacoes'))
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role, nome, igreja_id')
-    .eq('id', user.id)
-    .single()
+  const profile = await carregarPerfil(() =>
+    supabase.from('profiles').select('role, nome, igreja_id').eq('id', user.id).maybeSingle()
+  )
 
   if (!profile) redirect('/onboarding')
 

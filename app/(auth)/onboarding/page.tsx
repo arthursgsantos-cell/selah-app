@@ -28,6 +28,7 @@ export default function OnboardingPage() {
   const [carregando, setCarregando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [verificando, setVerificando] = useState(true)
 
   // Passo 2: correspondência
   const [passo, setPasso] = useState<1 | 2>(1)
@@ -38,9 +39,24 @@ export default function OnboardingPage() {
   const supabase = createClient()
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (user?.user_metadata?.full_name) setNome(user.user_metadata.full_name)
       if (ADMIN_EMAILS.includes(user?.email ?? '')) setIsAdmin(true)
+
+      // Quem já tem perfil não tem o que fazer aqui: nem vê a tela de criar
+      // conta. Só um perfil realmente ausente abre o formulário — se a consulta
+      // falhar, seguimos com ele, que é o caminho de quem chegou de verdade
+      // para se cadastrar.
+      if (user) {
+        const { data: perfil } = await supabase
+          .from('profiles').select('id').eq('id', user.id).maybeSingle()
+        if (perfil) {
+          router.replace(concluirEm())
+          router.refresh()
+          return
+        }
+      }
+      setVerificando(false)
     })
   }, [])
 
@@ -80,6 +96,15 @@ export default function OnboardingPage() {
     if (!resultado.sucesso) {
       setErro(resultado.erro ?? 'Erro ao criar perfil. Tente novamente.')
       setCarregando(false)
+      return
+    }
+
+    // O perfil já existia: não é cadastro nenhum, é alguém que chegou aqui por
+    // engano. Segue direto para o app, sem perguntar de pré-cadastro e sem
+    // avisar os pastores de um "novo membro" que entrou há meses.
+    if (resultado.jaExistia) {
+      router.push(concluirEm())
+      router.refresh()
       return
     }
 
@@ -186,6 +211,19 @@ export default function OnboardingPage() {
               </>
             )}
           </Button>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // Enquanto não se sabe se há perfil, nada de formulário: a tela de criar
+  // conta piscando para quem já é membro é justamente o susto que se quer
+  // evitar.
+  if (verificando) {
+    return (
+      <Card>
+        <CardContent className="py-10 text-center text-sm text-muted-foreground">
+          Carregando...
         </CardContent>
       </Card>
     )

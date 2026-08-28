@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient, getAuthUser } from '@/lib/supabase/server'
+import { carregarPerfil } from '@/lib/auth/perfil'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -64,7 +65,9 @@ export default async function HomePage() {
   const supabase = await createClient()
 
   const profile = user
-    ? (await supabase.from('profiles').select('id, nome, role, avatar_url, igreja_id, data_nascimento_1, data_casamento, telefone, endereco, home_layout').eq('id', user.id).single()).data
+    ? await carregarPerfil(() =>
+        supabase.from('profiles').select('id, nome, role, avatar_url, igreja_id, data_nascimento_1, data_casamento, telefone, endereco, home_layout').eq('id', user.id).maybeSingle()
+      )
     : null
 
   if (user && !profile) redirect('/onboarding')

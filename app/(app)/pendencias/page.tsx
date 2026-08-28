@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { loginCom } from '@/lib/destino-login'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { carregarPerfil } from '@/lib/auth/perfil'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { ClipboardList, Users, UserCheck, ArrowRight, CheckCheck, ChevronLeft } from 'lucide-react'
 import { SolicitacaoCargoCard } from '@/components/pendencias/solicitacao-cargo-card'
@@ -12,11 +13,9 @@ export default async function PendenciasPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect(loginCom('/pendencias'))
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role, igreja_id')
-    .eq('id', user.id)
-    .single()
+  const profile = await carregarPerfil(() =>
+    supabase.from('profiles').select('role, igreja_id').eq('id', user.id).maybeSingle()
+  )
   if (!profile) redirect('/onboarding')
   if (!['pastor', 'admin'].includes(profile.role)) redirect('/home')
 

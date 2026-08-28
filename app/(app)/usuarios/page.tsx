@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { loginCom } from '@/lib/destino-login'
 import { createClient } from '@/lib/supabase/server'
+import { carregarPerfil } from '@/lib/auth/perfil'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
@@ -35,11 +36,9 @@ export default async function UsuariosPage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect(loginCom('/usuarios'))
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role, igreja_id')
-    .eq('id', user.id)
-    .single()
+  const profile = await carregarPerfil(() =>
+    supabase.from('profiles').select('role, igreja_id').eq('id', user.id).maybeSingle()
+  )
 
   if (!profile) redirect('/onboarding')
 

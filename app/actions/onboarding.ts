@@ -5,9 +5,15 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { vincularInscricoesEnsino, vincularProfessoresEnsino } from '@/lib/ensino/vinculo-aluno'
 import type { Role } from '@/lib/supabase/types'
 
+/**
+ * `jaExistia` é o que distingue quem está criando conta agora de quem só caiu
+ * nesta tela por engano — uma consulta ao perfil que falhou, um endereço velho
+ * no histórico. Sem ele, o onboarding tratava os dois igual e avisava os
+ * pastores de que um membro antigo "acabou de criar uma conta".
+ */
 export async function criarPerfilConvidado(
   nome: string
-): Promise<{ sucesso: boolean; erro?: string; cargo?: Role }> {
+): Promise<{ sucesso: boolean; erro?: string; cargo?: Role; jaExistia?: boolean }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { sucesso: false, erro: 'Não autenticado.' }
@@ -20,7 +26,7 @@ export async function criarPerfilConvidado(
     .eq('id', user.id)
     .single()
 
-  if (perfilExistente) return { sucesso: true }
+  if (perfilExistente) return { sucesso: true, jaExistia: true }
 
   // Assume igreja única (single-tenant): usa a primeira existente
   const { data: igreja } = await admin.from('igrejas').select('id').limit(1).single()

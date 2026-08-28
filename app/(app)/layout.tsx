@@ -1,5 +1,6 @@
 import { Suspense } from 'react'
 import { createClient, getAuthUser } from '@/lib/supabase/server'
+import { carregarPerfil } from '@/lib/auth/perfil'
 import { redirect } from 'next/navigation'
 import { Header } from '@/components/shared/header'
 import { RetomarDestino } from '@/components/auth/retomar-destino'
@@ -22,11 +23,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   if (user) {
     const supabase = await createClient()
-    const { data } = await supabase
-      .from('profiles')
-      .select('nome, role, avatar_url, igreja_id, perfil_completado_em, telefone, data_nascimento_1, endereco')
-      .eq('id', user.id)
-      .single()
+    const data = await carregarPerfil(() =>
+      supabase
+        .from('profiles')
+        .select('nome, role, avatar_url, igreja_id, perfil_completado_em, telefone, data_nascimento_1, endereco')
+        .eq('id', user.id)
+        .maybeSingle()
+    )
 
     if (!data) redirect('/onboarding')
     profile = data

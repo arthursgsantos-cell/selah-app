@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { loginCom } from '@/lib/destino-login'
 import { createClient } from '@/lib/supabase/server'
+import { carregarPerfil } from '@/lib/auth/perfil'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -42,11 +43,9 @@ export default async function PastorPage({
   } = await supabase.auth.getUser()
   if (!user) redirect(loginCom('/pastor'))
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role, igreja_id')
-    .eq('id', user.id)
-    .single()
+  const profile = await carregarPerfil(() =>
+    supabase.from('profiles').select('role, igreja_id').eq('id', user.id).maybeSingle()
+  )
 
   if (!profile) redirect('/onboarding')
 
