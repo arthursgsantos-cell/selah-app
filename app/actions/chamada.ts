@@ -19,6 +19,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { exigirPermissaoEncontro } from '@/lib/celula-permissoes'
 import { revalidatePath } from 'next/cache'
 import type { StatusPresenca } from '@/lib/supabase/types'
 
@@ -302,6 +303,8 @@ export interface ResumoChamada {
 }
 
 export async function resumoDaChamada(encontroId: string): Promise<ResumoChamada> {
+  await exigirPermissaoEncontro(encontroId)
+
   const admin = createAdminClient()
 
   const vazio: ResumoChamada = {

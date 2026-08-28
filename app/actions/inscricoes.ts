@@ -71,17 +71,6 @@ export async function cancelarInscricaoAction(inscricaoId: string) {
   revalidatePath('/home')
 }
 
-export async function listarInscritos(eventoId: string) {
-  const admin = createAdminClient()
-  const { data, error } = await admin
-    .from('inscricoes_evento')
-    .select('id, nome, telefone, dados, status, criado_em, user_id')
-    .eq('evento_id', eventoId)
-    .order('criado_em', { ascending: true })
-
-  if (error) throw new Error(error.message)
-  return data ?? []
-}
 
 export async function atualizarStatusInscricaoAction(
   id: string,

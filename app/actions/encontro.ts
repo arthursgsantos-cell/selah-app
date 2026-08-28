@@ -7,6 +7,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import type { FuncaoEscala } from '@/lib/supabase/types'
 import { dataLocalIso } from '@/lib/dia-semana'
+import { exigirPermissaoCelula, exigirPermissaoEncontro } from '@/lib/celula-permissoes'
 
 type RecorrenciaEncontro = 'semanal' | 'quinzenal' | 'mensal'
 
@@ -61,9 +62,7 @@ export async function createEncontroAction(
   recorrencia?: RecorrenciaEncontro,
   localMapsUrl?: string | null,
 ) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Não autenticado')
+  const user = await exigirPermissaoCelula(celulaId)
 
   const admin = createAdminClient()
 
@@ -117,9 +116,7 @@ export async function createEncontroAction(
 }
 
 export async function uploadCapaEncontroAction(encontroId: string, formData: FormData): Promise<string> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Não autenticado')
+  await exigirPermissaoEncontro(encontroId)
 
   const file = formData.get('file') as File
   if (!file) throw new Error('Arquivo não encontrado')
@@ -147,6 +144,8 @@ export async function updateEncontroAction(
   id: string,
   data: { local?: string; local_maps_url?: string | null; avisos?: string; data_hora?: string; edificacao_resumo?: string; resumo_culto_id?: string | null }
 ) {
+  await exigirPermissaoEncontro(id)
+
   const admin = createAdminClient()
   const { error } = await admin.from('encontros').update(data).eq('id', id)
   if (error) throw new Error(error.message)
@@ -159,6 +158,8 @@ export async function upsertEscalaAction(
   responsavelId: string | null,
   comConjuge = false
 ) {
+  await exigirPermissaoEncontro(encontroId)
+
   const admin = createAdminClient()
 
   // celula_id é obrigatório na tabela (serve às escalas pré-agendadas),
@@ -205,6 +206,8 @@ export async function upsertEscalaPrevistaAction(
   responsavelId: string | null,
   comConjuge = false
 ) {
+  await exigirPermissaoCelula(celulaId)
+
   const admin = createAdminClient()
 
   // Encontro já existe nessa data? Então a escala pertence a ele.
@@ -246,6 +249,8 @@ export async function upsertEscalaPrevistaAction(
 }
 
 export async function addLancheAction(encontroId: string, emoji: string, item: string, ordem: number) {
+  await exigirPermissaoEncontro(encontroId)
+
   const admin = createAdminClient()
   const { error } = await admin.from('lanches').insert({ encontro_id: encontroId, emoji: emoji || null, item, ordem })
   if (error) throw new Error(error.message)
@@ -253,6 +258,8 @@ export async function addLancheAction(encontroId: string, emoji: string, item: s
 }
 
 export async function updateLancheAction(id: string, encontroId: string, emoji: string, item: string) {
+  await exigirPermissaoEncontro(encontroId)
+
   const admin = createAdminClient()
   const { error } = await admin.from('lanches').update({ emoji: emoji || null, item }).eq('id', id)
   if (error) throw new Error(error.message)
@@ -265,6 +272,8 @@ export async function addLanchesBulkAction(
   startOrdem: number
 ) {
   if (itens.length === 0) return
+  await exigirPermissaoEncontro(encontroId)
+
   const admin = createAdminClient()
   const rows = itens.map((it, i) => ({
     encontro_id: encontroId,
@@ -278,6 +287,8 @@ export async function addLanchesBulkAction(
 }
 
 export async function deleteLancheAction(id: string, encontroId: string) {
+  await exigirPermissaoEncontro(encontroId)
+
   const admin = createAdminClient()
   const { error } = await admin.from('lanches').delete().eq('id', id)
   if (error) throw new Error(error.message)

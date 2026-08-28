@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import type { ValorEvento, ParcelaEvento } from '@/lib/evento-cobranca'
+import { exigirGestaoDoEvento } from '@/lib/eventos-permissoes'
 
 const CARGOS_GESTAO = ['admin', 'pastor', 'supervisor', 'supervisor_treinamento', 'lider']
 
@@ -132,6 +133,9 @@ export async function buscarCobrancaEventoAction(eventoId: string): Promise<{
   valores: ValorEvento[]
   parcelas: ParcelaEvento[]
 }> {
+  // Só o editor de cobrança usa isto, e ele é tela de gestão.
+  await exigirGestaoDoEvento(eventoId)
+
   const admin = createAdminClient()
   const [{ data: valores }, { data: parcelas }] = await Promise.all([
     admin.from('evento_valores').select('id, nome, valor, campo_id, opcao, ordem').eq('evento_id', eventoId).order('ordem'),

@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
+import { exigirPermissaoEncontro } from '@/lib/celula-permissoes'
 import type { StatusPresenca } from '@/lib/supabase/types'
 
 export type PresencaOptions = {
@@ -48,6 +49,10 @@ export async function confirmarPresencaAction(
 }
 
 export async function buscarPresencasEncontroAction(encontroId: string): Promise<PresencaItem[]> {
+  // Quem esteve no encontro é assunto da célula: sem esta checagem, o id de um
+  // encontro qualquer devolvia a lista de nomes de outra célula.
+  await exigirPermissaoEncontro(encontroId)
+
   try {
     const admin = createAdminClient()
     const { data } = await admin

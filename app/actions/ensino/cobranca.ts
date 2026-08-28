@@ -95,28 +95,6 @@ export async function salvarCobrancaTurmaAction(params: {
   return { ok: true }
 }
 
-export async function buscarCobrancaTurmaAction(turmaId: string): Promise<{
-  valor: number | null
-  instrucoes: string | null
-  parcelas: ParcelaTurma[]
-}> {
-  const admin = createAdminClient()
-  const [{ data: turma }, { data: parcelas }] = await Promise.all([
-    admin.from('ensino_turmas').select('valor, pagamento_instrucoes').eq('id', turmaId).maybeSingle(),
-    admin
-      .from('ensino_turma_parcelas')
-      .select('id, numero, vencimento, percentual')
-      .eq('turma_id', turmaId)
-      .order('numero'),
-  ])
-
-  const t = turma as { valor: number | null; pagamento_instrucoes: string | null } | null
-  return {
-    valor: t?.valor != null ? Number(t.valor) : null,
-    instrucoes: t?.pagamento_instrucoes ?? null,
-    parcelas: (parcelas ?? []) as ParcelaTurma[],
-  }
-}
 
 /** Lançamento de um pagamento recebido — o app é o livro-caixa da secretaria. */
 export async function registrarPagamentoEnsinoAction(params: {

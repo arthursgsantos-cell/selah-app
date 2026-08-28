@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { exigirPermissaoCelula } from '@/lib/celula-permissoes'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import type { Frequencia, PapelCelula } from '@/lib/supabase/types'
@@ -89,22 +90,6 @@ export async function uploadLogoCelulaAction(celulaId: string, formData: FormDat
   return url
 }
 
-async function exigirPermissaoCelula(celulaId: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Não autenticado')
-
-  const { data: membro } = await supabase
-    .from('celula_membros').select('papel').eq('celula_id', celulaId).eq('user_id', user.id).maybeSingle()
-  const { data: profile } = await supabase
-    .from('profiles').select('role').eq('id', user.id).single()
-
-  // Mesma regra já usada no upload do logo: qualquer membro da célula ou
-  // cargo de gestão pode customizar a aparência.
-  const canEdit = !!membro || ['admin', 'pastor', 'supervisor'].includes(profile?.role ?? '')
-  if (!canEdit) throw new Error('Sem permissão')
-  return user
-}
 
 export async function uploadCapaCelulaAction(celulaId: string, formData: FormData): Promise<string> {
   await exigirPermissaoCelula(celulaId)

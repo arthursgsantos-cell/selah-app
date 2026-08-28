@@ -134,13 +134,3 @@ export async function duplicarFormularioAction(id: string, novoNome?: string) {
   })
 }
 
-export async function buscarFormularioAction(id: string) {
-  const admin = createAdminClient()
-  const { data, error } = await admin
-    .from('formularios')
-    .select('id, nome, descricao, campos')
-    .eq('id', id)
-    .single()
-  if (error) throw new Error(error.message)
-  return data
-}

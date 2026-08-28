@@ -633,6 +633,15 @@ export async function garantirCronogramaAction(
   atividadeId: string,
   inscricaoId: string
 ): Promise<ResultadoAcao> {
+  // A inscrição precisa ser a de quem chamou — ou quem chamou leciona a turma.
+  // Sem isto, um `inscricaoId` qualquer criava cronograma de leitura no nome
+  // de outro aluno.
+  const eu = await minhaInscricao(atividadeId)
+  if (eu?.inscricaoId !== inscricaoId) {
+    const ctx = await comAcesso(atividadeId)
+    if (!ctx.ok) return ctx
+  }
+
   const admin = createAdminClient()
 
   const { count } = await admin
