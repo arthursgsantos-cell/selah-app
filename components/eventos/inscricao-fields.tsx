@@ -20,6 +20,7 @@ export interface InscricaoValue {
   pixNome?: string
   pixValor?: string
   linkPagamento?: string
+  pixCopiaCola?: string
   formularioId?: string
 }
 
@@ -153,7 +154,22 @@ export function InscricaoFields({ value, onChange }: Props) {
                 </div>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Chave PIX</Label>
+                <Label className="text-xs">Código PIX copia e cola (recomendado)</Label>
+                <textarea
+                  placeholder="00020101... — cole aqui o código do QR Code da cobrança"
+                  value={value.pixCopiaCola ?? ''}
+                  onChange={(e) => set({ pixCopiaCola: e.target.value })}
+                  rows={3}
+                  className="w-full rounded-lg border border-input bg-background px-2.5 py-1.5 text-xs font-mono outline-none focus-visible:border-ring resize-y"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  No Nubank, abra sua cobrança e toque em &ldquo;Copiar código do QR Code&rdquo;. O QR
+                  Code do app fica igual ao do banco, com o valor já embutido — aí nem precisa
+                  preencher a chave abaixo.
+                </p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Chave PIX (alternativa ao código acima)</Label>
                 <Input
                   placeholder="Sua chave PIX"
                   value={value.pixChave ?? ''}

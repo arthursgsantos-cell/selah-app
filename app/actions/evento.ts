@@ -73,6 +73,7 @@ export async function createEventoAction(data: {
   pix_nome?: string | null
   pix_valor?: number | null
   link_pagamento?: string | null
+  pix_copia_cola?: string | null
   formulario_id?: string | null
 }) {
   const supabase = await createClient()
@@ -105,6 +106,7 @@ export async function createEventoAction(data: {
     pix_nome: data.pix_nome ?? null,
     pix_valor: data.pix_valor ?? null,
     link_pagamento: data.link_pagamento ?? null,
+    pix_copia_cola: data.pix_copia_cola ?? null,
     formulario_id: data.formulario_id ?? null,
   }
 

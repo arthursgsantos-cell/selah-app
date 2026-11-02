@@ -14,22 +14,28 @@ interface Props {
   valor?: number | null
   /** Link de cobrança do banco (ex: Nubank). Opcional. */
   link?: string | null
+  /** BR Code completo da cobrança ("copia e cola"). Tem prioridade sobre a chave. */
+  copiaCola?: string | null
 }
 
-export function PixDisplay({ chave, tipo, nome, valor, link }: Props) {
+export function PixDisplay({ chave, tipo, nome, valor, link, copiaCola }: Props) {
   const [copiado, setCopiado] = useState(false)
   const [copiadoLink, setCopiadoLink] = useState(false)
 
   const temPix = Boolean(chave && tipo && nome)
 
-  const payload = temPix
-    ? gerarPayloadPix({
-        chave: chave!,
-        tipo: tipo!,
-        nome: nome!,
-        valor: valor ?? undefined,
-      })
-    : null
+  // O código colado da cobrança tem prioridade: é o BR Code oficial do banco,
+  // já com o valor embutido. Sem ele, montamos o payload a partir da chave.
+  const payload =
+    copiaCola?.trim() ||
+    (temPix
+      ? gerarPayloadPix({
+          chave: chave!,
+          tipo: tipo!,
+          nome: nome!,
+          valor: valor ?? undefined,
+        })
+      : null)
 
   // QR do PIX quando há chave; senão, QR do próprio link de cobrança
   const qrValue = payload ?? link ?? null

@@ -18,7 +18,7 @@ export default async function InscricaoPage({ params }: { params: { eventoId: st
   const admin = createAdminClient()
   const { data: evento } = await admin
     .from('eventos')
-    .select('id, titulo, data_hora, local, tipo_inscricao, formulario_id, pix_chave, pix_tipo, pix_nome, pix_valor, link_pagamento, whatsapp_inscricao')
+    .select('id, titulo, data_hora, local, tipo_inscricao, formulario_id, pix_chave, pix_tipo, pix_nome, pix_valor, link_pagamento, pix_copia_cola, whatsapp_inscricao')
     .eq('id', params.eventoId)
     .single()
 
@@ -54,7 +54,7 @@ export default async function InscricaoPage({ params }: { params: { eventoId: st
   const data = new Date(evento.data_hora)
 
   const temPix = Boolean(evento.pix_chave && evento.pix_tipo && evento.pix_nome)
-  const temPagamento = temPix || Boolean(evento.link_pagamento)
+  const temPagamento = temPix || Boolean(evento.link_pagamento) || Boolean(evento.pix_copia_cola)
 
   const pagamento = temPagamento ? (
     <PixDisplay
@@ -63,6 +63,7 @@ export default async function InscricaoPage({ params }: { params: { eventoId: st
       nome={evento.pix_nome}
       valor={evento.pix_valor}
       link={evento.link_pagamento}
+      copiaCola={evento.pix_copia_cola}
     />
   ) : null
 

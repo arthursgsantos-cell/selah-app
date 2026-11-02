@@ -601,6 +601,7 @@ export type Database = {
           pix_nome: string | null
           pix_valor: number | null
           link_pagamento: string | null
+          pix_copia_cola: string | null
           formulario_id: string | null
           created_by: string | null
           created_at: string
@@ -625,6 +626,7 @@ export type Database = {
           pix_nome?: string | null
           pix_valor?: number | null
           link_pagamento?: string | null
+          pix_copia_cola?: string | null
           formulario_id?: string | null
           created_by?: string | null
           created_at?: string
@@ -649,6 +651,7 @@ export type Database = {
           pix_nome?: string | null
           pix_valor?: number | null
           link_pagamento?: string | null
+          pix_copia_cola?: string | null
           formulario_id?: string | null
           created_by?: string | null
           created_at?: string
