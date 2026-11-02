@@ -102,7 +102,7 @@ export function InscricaoSection({
   }
 
   // Formulário
-  if (tipoInscricao === 'formulario' && formularioId) {
+  if ((tipoInscricao === 'formulario' || tipoInscricao === 'formulario_pix') && formularioId) {
     return (
       <Link
         href={`/inscricao/${eventoId}`}

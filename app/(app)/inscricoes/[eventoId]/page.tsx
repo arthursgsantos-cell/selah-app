@@ -51,6 +51,22 @@ export default async function InscritosList({ params }: { params: { eventoId: st
   const inscritos = inscritosRaw ?? []
   const ativos = inscritos.filter((i) => i.status !== 'cancelado')
 
+  // Resumo agregado dos campos de escolha (ex: tamanho da camiseta)
+  const resumo = campos
+    .filter((c) => c.tipo === 'opcoes' || c.tipo === 'checkbox')
+    .map((campo) => {
+      const contagem = new Map<string, number>()
+      for (const opcao of campo.opcoes ?? []) contagem.set(opcao, 0)
+      for (const inscrito of ativos) {
+        const bruto = (inscrito.dados as Record<string, string>)[campo.id] ?? ''
+        for (const parte of bruto.split(',').map((v) => v.trim()).filter(Boolean)) {
+          contagem.set(parte, (contagem.get(parte) ?? 0) + 1)
+        }
+      }
+      return { campo, linhas: [...contagem.entries()].filter(([, n]) => n > 0) }
+    })
+    .filter((r) => r.linhas.length > 0)
+
   return (
     <div className="max-w-2xl mx-auto space-y-5">
       <Button variant="ghost" size="sm" render={<Link href="/eventos" />} className="-ml-1">
@@ -70,6 +86,31 @@ export default async function InscritosList({ params }: { params: { eventoId: st
         <Users className="h-4 w-4 text-muted-foreground" />
         <span className="text-sm font-medium">{ativos.length} {ativos.length === 1 ? 'inscrito' : 'inscritos'}</span>
       </div>
+
+      {resumo.length > 0 && (
+        <div className="space-y-3">
+          {resumo.map(({ campo, linhas }) => (
+            <Card key={campo.id}>
+              <CardContent className="py-3 px-4 space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  {campo.label}
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {linhas.map(([opcao, n]) => (
+                    <span
+                      key={opcao}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs"
+                    >
+                      <span className="text-muted-foreground">{opcao}</span>
+                      <span className="font-bold text-primary">{n}</span>
+                    </span>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {inscritos.length === 0 ? (
         <Card>

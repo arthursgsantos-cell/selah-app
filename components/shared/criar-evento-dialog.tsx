@@ -110,6 +110,7 @@ export function CriarEventoDialog({ tipoFixo, redeId, label = 'Criar evento' }: 
           pix_tipo: inscricao.pixTipo ?? null,
           pix_nome: inscricao.pixNome ?? null,
           pix_valor: inscricao.pixValor ? parseFloat(inscricao.pixValor) : null,
+          link_pagamento: inscricao.linkPagamento?.trim() || null,
           formulario_id: inscricao.formularioId ?? null,
         })
         setOpen(false)

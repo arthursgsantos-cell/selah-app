@@ -8,7 +8,7 @@ export type FuncaoEscala = 'louvor' | 'quebra_gelo' | 'edificacao' | 'compartilh
 export type PapelCelula = 'lider' | 'membro'
 export type TipoEvento = 'culto' | 'igreja' | 'rede' | 'celula' | 'outro'
 export type RecorrenciaTipo = 'semanal' | 'quinzenal' | 'mensal'
-export type TipoInscricao = 'aberto' | 'whatsapp' | 'formulario' | 'pix'
+export type TipoInscricao = 'aberto' | 'whatsapp' | 'formulario' | 'pix' | 'formulario_pix'
 export type TipoChavePix = 'cpf' | 'cnpj' | 'email' | 'telefone' | 'aleatoria'
 export type CampoFormulario = {
   id: string
@@ -600,6 +600,7 @@ export type Database = {
           pix_tipo: TipoChavePix | null
           pix_nome: string | null
           pix_valor: number | null
+          link_pagamento: string | null
           formulario_id: string | null
           created_by: string | null
           created_at: string
@@ -623,6 +624,7 @@ export type Database = {
           pix_tipo?: TipoChavePix | null
           pix_nome?: string | null
           pix_valor?: number | null
+          link_pagamento?: string | null
           formulario_id?: string | null
           created_by?: string | null
           created_at?: string
@@ -646,6 +648,7 @@ export type Database = {
           pix_tipo?: TipoChavePix | null
           pix_nome?: string | null
           pix_valor?: number | null
+          link_pagamento?: string | null
           formulario_id?: string | null
           created_by?: string | null
           created_at?: string
