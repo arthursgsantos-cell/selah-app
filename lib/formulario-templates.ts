@@ -32,4 +32,15 @@ export const FORMULARIO_TEMPLATES: { nome: string; descricao: string; campos: Ca
       { id: 'restricoes', tipo: 'textarea', label: 'Restrições alimentares ou necessidades especiais', obrigatorio: false },
     ],
   },
+  {
+    nome: 'Camiseta / Uniforme',
+    descricao: 'Enquete de tamanhos — ideal para camiseta de rede ou célula.',
+    campos: [
+      { id: 'nome', tipo: 'texto', label: 'Nome completo', obrigatorio: true },
+      { id: 'telefone', tipo: 'telefone', label: 'WhatsApp', obrigatorio: true },
+      { id: 'tamanho', tipo: 'opcoes', label: 'Tamanho da camiseta', obrigatorio: true,
+        opcoes: ['PP', 'P', 'M', 'G', 'GG', 'XG'] },
+      { id: 'observacao', tipo: 'textarea', label: 'Observação (opcional)', obrigatorio: false },
+    ],
+  },
 ]

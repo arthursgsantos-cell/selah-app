@@ -333,7 +333,11 @@ export function EventoCard({ evento, minhaResposta: minhaRespostaInit, totalVou:
                   }`}
                 >
                   <ClipboardList className="h-4 w-4" />
-                  {minhaInscricao ? 'Inscrito ✓ — Ver detalhes' : evento.tipo_inscricao === 'pix' ? 'Inscrever e pagar' : 'Fazer inscrição'}
+                  {minhaInscricao
+                    ? 'Inscrito ✓ — Ver detalhes'
+                    : evento.tipo_inscricao === 'pix' || evento.tipo_inscricao === 'formulario_pix'
+                      ? 'Inscrever e pagar'
+                      : 'Fazer inscrição'}
                 </Link>
               )}
             </div>

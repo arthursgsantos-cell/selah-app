@@ -19,6 +19,8 @@ export interface InscricaoValue {
   pixTipo?: TipoChavePix
   pixNome?: string
   pixValor?: string
+  linkPagamento?: string
+  pixCopiaCola?: string
   formularioId?: string
 }
 
@@ -40,8 +42,11 @@ export function InscricaoFields({ value, onChange }: Props) {
 
   const templates = FORMULARIO_TEMPLATES
 
+  const mostraPix = value.tipo === 'pix' || value.tipo === 'formulario_pix'
+  const mostraForm = value.tipo === 'formulario' || value.tipo === 'formulario_pix'
+
   useEffect(() => {
-    if (value.tipo === 'formulario') {
+    if (value.tipo === 'formulario' || value.tipo === 'formulario_pix') {
       listarFormulariosAction().then(setFormularios).catch(() => {})
     }
   }, [value.tipo])
@@ -99,6 +104,7 @@ export function InscricaoFields({ value, onChange }: Props) {
               <option value="whatsapp">Inscrição via WhatsApp</option>
               <option value="formulario">Formulário de inscrição</option>
               <option value="pix">Inscrição com pagamento PIX</option>
+              <option value="formulario_pix">Formulário + pagamento (enquete com cobrança)</option>
             </select>
           </div>
 
@@ -117,7 +123,7 @@ export function InscricaoFields({ value, onChange }: Props) {
           )}
 
           {/* PIX */}
-          {value.tipo === 'pix' && (
+          {mostraPix && (
             <div className="space-y-2">
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
@@ -148,7 +154,22 @@ export function InscricaoFields({ value, onChange }: Props) {
                 </div>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Chave PIX</Label>
+                <Label className="text-xs">Código PIX copia e cola (recomendado)</Label>
+                <textarea
+                  placeholder="00020101... — cole aqui o código do QR Code da cobrança"
+                  value={value.pixCopiaCola ?? ''}
+                  onChange={(e) => set({ pixCopiaCola: e.target.value })}
+                  rows={3}
+                  className="w-full rounded-lg border border-input bg-background px-2.5 py-1.5 text-xs font-mono outline-none focus-visible:border-ring resize-y"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  No Nubank, abra sua cobrança e toque em &ldquo;Copiar código do QR Code&rdquo;. O QR
+                  Code do app fica igual ao do banco, com o valor já embutido — aí nem precisa
+                  preencher a chave abaixo.
+                </p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Chave PIX (alternativa ao código acima)</Label>
                 <Input
                   placeholder="Sua chave PIX"
                   value={value.pixChave ?? ''}
@@ -166,11 +187,26 @@ export function InscricaoFields({ value, onChange }: Props) {
                   maxLength={25}
                 />
               </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Link de pagamento (opcional)</Label>
+                <Input
+                  type="url"
+                  inputMode="url"
+                  placeholder="https://nubank.com.br/cobrar/..."
+                  value={value.linkPagamento ?? ''}
+                  onChange={(e) => set({ linkPagamento: e.target.value })}
+                  className="h-8 text-sm"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Cole o link de cobrança do banco (Nubank, PagBank etc). A chave PIX acima é o que
+                  gera o QR Code que funciona no leitor do app do banco.
+                </p>
+              </div>
             </div>
           )}
 
           {/* Formulário */}
-          {value.tipo === 'formulario' && (
+          {mostraForm && (
             <div className="space-y-3">
               {/* Seletor de modo */}
               <div className="flex gap-1.5">

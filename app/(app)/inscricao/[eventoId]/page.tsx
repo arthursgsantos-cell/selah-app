@@ -18,7 +18,7 @@ export default async function InscricaoPage({ params }: { params: { eventoId: st
   const admin = createAdminClient()
   const { data: evento } = await admin
     .from('eventos')
-    .select('id, titulo, data_hora, local, tipo_inscricao, formulario_id, pix_chave, pix_tipo, pix_nome, pix_valor, whatsapp_inscricao')
+    .select('id, titulo, data_hora, local, imagem_url, tipo_inscricao, formulario_id, pix_chave, pix_tipo, pix_nome, pix_valor, link_pagamento, pix_copia_cola, whatsapp_inscricao')
     .eq('id', params.eventoId)
     .single()
 
@@ -53,12 +53,37 @@ export default async function InscricaoPage({ params }: { params: { eventoId: st
 
   const data = new Date(evento.data_hora)
 
+  const temPix = Boolean(evento.pix_chave && evento.pix_tipo && evento.pix_nome)
+  const temPagamento = temPix || Boolean(evento.link_pagamento) || Boolean(evento.pix_copia_cola)
+
+  const pagamento = temPagamento ? (
+    <PixDisplay
+      chave={evento.pix_chave}
+      tipo={evento.pix_tipo as TipoChavePix | null}
+      nome={evento.pix_nome}
+      valor={evento.pix_valor}
+      link={evento.link_pagamento}
+      copiaCola={evento.pix_copia_cola}
+    />
+  ) : null
+
   return (
     <div className="max-w-lg mx-auto space-y-5">
       <Button variant="ghost" size="sm" render={<Link href="/home" />} className="-ml-1">
         <ArrowLeft className="h-4 w-4" />
         Voltar
       </Button>
+
+      {evento.imagem_url && (
+        <div className="rounded-2xl overflow-hidden border border-border">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={evento.imagem_url}
+            alt={evento.titulo}
+            className="w-full object-cover"
+          />
+        </div>
+      )}
 
       <div>
         <h1 className="text-xl font-bold">{evento.titulo}</h1>
@@ -71,15 +96,17 @@ export default async function InscricaoPage({ params }: { params: { eventoId: st
       </div>
 
       {jaInscrito ? (
-        <div className="rounded-2xl bg-green-50 border border-green-200 p-5 text-center space-y-3">
-          <p className="text-green-700 font-semibold">Você já está inscrito!</p>
-          {evento.tipo_inscricao === 'pix' && evento.pix_chave && evento.pix_tipo && evento.pix_nome && (
-            <PixDisplay
-              chave={evento.pix_chave}
-              tipo={evento.pix_tipo as TipoChavePix}
-              nome={evento.pix_nome}
-              valor={evento.pix_valor}
-            />
+        <div className="space-y-5">
+          <div className="rounded-2xl bg-green-50 border border-green-200 p-5 text-center">
+            <p className="text-green-700 font-semibold">Você já está inscrito!</p>
+          </div>
+          {pagamento && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Falta só o pagamento para confirmar sua inscrição:
+              </p>
+              {pagamento}
+            </div>
           )}
         </div>
       ) : (
@@ -94,15 +121,14 @@ export default async function InscricaoPage({ params }: { params: { eventoId: st
             />
           )}
 
-          {!formulario && evento.tipo_inscricao === 'pix' && evento.pix_chave && evento.pix_tipo && evento.pix_nome && (
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">Realize o pagamento via PIX para confirmar sua inscrição:</p>
-              <PixDisplay
-                chave={evento.pix_chave}
-                tipo={evento.pix_tipo as TipoChavePix}
-                nome={evento.pix_nome}
-                valor={evento.pix_valor}
-              />
+          {pagamento && (
+            <div className="space-y-4 border-t border-border pt-5">
+              <p className="text-sm text-muted-foreground">
+                {formulario
+                  ? 'Depois de enviar o formulário, realize o pagamento para confirmar sua inscrição:'
+                  : 'Realize o pagamento para confirmar sua inscrição:'}
+              </p>
+              {pagamento}
             </div>
           )}
         </div>
