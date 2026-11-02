@@ -18,7 +18,7 @@ export default async function InscricaoPage({ params }: { params: { eventoId: st
   const admin = createAdminClient()
   const { data: evento } = await admin
     .from('eventos')
-    .select('id, titulo, data_hora, local, tipo_inscricao, formulario_id, pix_chave, pix_tipo, pix_nome, pix_valor, link_pagamento, pix_copia_cola, whatsapp_inscricao')
+    .select('id, titulo, data_hora, local, imagem_url, tipo_inscricao, formulario_id, pix_chave, pix_tipo, pix_nome, pix_valor, link_pagamento, pix_copia_cola, whatsapp_inscricao')
     .eq('id', params.eventoId)
     .single()
 
@@ -73,6 +73,17 @@ export default async function InscricaoPage({ params }: { params: { eventoId: st
         <ArrowLeft className="h-4 w-4" />
         Voltar
       </Button>
+
+      {evento.imagem_url && (
+        <div className="rounded-2xl overflow-hidden border border-border">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={evento.imagem_url}
+            alt={evento.titulo}
+            className="w-full object-cover"
+          />
+        </div>
+      )}
 
       <div>
         <h1 className="text-xl font-bold">{evento.titulo}</h1>
